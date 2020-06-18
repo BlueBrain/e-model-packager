@@ -1,0 +1,6 @@
+- project:
+    name: 'e-model-packages'
+    git_project: 'cells/e-model-packages'
+    jobs:
+      - 'nse.python.{name}.gerrit'
+      - 'nse.python.{name}'
