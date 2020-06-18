@@ -41,6 +41,9 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
-    use_scm_version=True,
+    use_scm_version={
+        "write_to": "e_model_packages/version.py",
+        "write_to_template": '__version__ = "{version}"\n',
+    },
     setup_requires=["setuptools_scm"],
 )
