@@ -12,13 +12,10 @@ if sys.version_info < (3, 6):
 with open("README.rst", encoding="utf-8") as f:
     README = f.read()
 
-VERSION = imp.load_source("", "e_model_packages/version.py").__version__
-
 setup(
     name="e-model-packages",
     author="Anil Tuncel",
     author_email="anil.tuncel@epfl.ch",
-    version=VERSION,
     description="Creates e-model packages from circuits",
     long_description=README,
     long_description_content_type="text/x-rst",
@@ -41,9 +38,6 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
-    use_scm_version={
-        "write_to": "e_model_packages/version.py",
-        "write_to_template": '__version__ = "{version}"\n',
-    },
+    use_scm_version=True,
     setup_requires=["setuptools_scm"],
 )
