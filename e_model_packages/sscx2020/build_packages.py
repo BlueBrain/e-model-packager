@@ -9,40 +9,36 @@ from bluepy.v2 import Cell as bpcell
 
 
 class BuildCircuit(luigi.ExternalTask):
-    """
-    The external task to makes sure the circuit config is present.
-    """
+    """The external task to makes sure the circuit config is present."""
 
     def output(self):
-        """
-        :return: Path to the circuit config file.
-        """
+        """:return: Path to the circuit config file."""
         config = luigi.configuration.get_config()
         circuit_config_path = config.get("paths", "circuit")
         return luigi.LocalTarget(path=circuit_config_path)
 
 
 class SelectGids(luigi.Task):
-    """
-    Selects the gids from the circutes and saves their me types to a json file.
-    """
+    """Selects gids from circuits and saves their ME types to a json file."""
 
     gids_per_metype = luigi.IntParameter(default=5)
 
     @property
     def config(self):
-        """Returns the Luigi config"""
+        """Returns the Luigi config."""
         return luigi.configuration.get_config()
 
     def requires(self):
+        """The BuildCircuit task is a dependency of this task."""
         return BuildCircuit()
 
     def output(self):
+        """The JSON output."""
         output_dir = self.config.get("paths", "output")
         return luigi.LocalTarget(os.path.join(output_dir, "metype_gids.json"))
 
     def run(self):
-
+        """Creates me combos and dumps to json."""
         circuit_config_path = self.config.get("paths", "circuit")
 
         circuit, _ = read_circuit(circuit_config_path)
@@ -84,10 +80,9 @@ class SSCX2020(luigi.Task):
     """The skeleton task to perform the workflow."""
 
     def requires(self):
+        """The SelectGids method is required."""
         return SelectGids()
 
     def run(self):
-        config = luigi.configuration.get_config()
-        print(config)
-        print(config.get("SSCX2020", "param"))
+        """The starting point."""
         print("SSCX2020 analysis is complete!")
