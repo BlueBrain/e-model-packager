@@ -100,6 +100,7 @@ class CreateMEmodelDirs(luigi.Task):
                     gids = metype_gids[mtype][etype]
                     for gid in gids:
                         combo_tasks.append(CopyMechanisms(mtype, etype, gid))
+
         self.output().done()
         yield combo_tasks
 
@@ -120,28 +121,23 @@ class CopyMechanisms(luigi.Task):
         return luigi.configuration.get_config()
 
     def requires(self):
-        """The folder structure must be created in advance."""
+        """The path needs to be created."""
         return CreateDir(self.mtype, self.etype, self.gid)
 
     def output(self):
-        output_path = os.path.join(self.input().path, "mechanisms")
-        mecha_path = self.config.get("paths", "mechanisms")
-        mecha_files = self.config.get("mechanisms", "required_files")
-
-        output_files = []
-        for mecha_file in mecha_files:
-            output_files.append(os.path.join(mecha_path, mecha_file))
-
-        return output_files
+        return RunAnywayTarget(self)
 
     def run(self):
-        output_path = os.path.join(self.input().path, "mechanisms")
-        mecha_path = self.config.get("paths", "mechanisms")
-        mecha_files = self.config.get("mechanisms", "required_files")
+        output_dir = os.path.join(self.input().path, "mechanisms")
+        mecha_dir = self.config.get("paths", "mechanisms")
+        mecha_files = self.config.get("mechanisms", "required_files").split(",")
 
         for mecha_file in mecha_files:
-            mecha_file_path = os.path.join(mecha_path, mecha_file)
+            mecha_file_path = os.path.join(mecha_dir, mecha_file)
+            output_path = os.path.join(output_dir, mecha_file)
             shutil.copy(mecha_file_path, output_path)
+
+        self.output().done()
 
 
 class CreateDir(luigi.Task):
@@ -168,6 +164,7 @@ class CreateDir(luigi.Task):
         )
         try:
             os.makedirs(output_path)
+            os.makedirs(os.path.join(output_path, "mechanisms"))
         # handled this way to have py2.7 support
         except OSError:
             pass
@@ -187,6 +184,7 @@ class CreateDir(luigi.Task):
 
 class CopyMorphology(luigi.Task):
     """Task to copy the morphology to each memodel directory."""
+
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
@@ -197,6 +195,7 @@ class CopyMorphology(luigi.Task):
 
 class CopyScripts(luigi.Task):
     """Task to copy scripts to each memodel directory."""
+
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
