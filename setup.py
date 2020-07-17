@@ -43,6 +43,6 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
-    use_scm_version={"local_scheme": "no-local-version",},
-    setup_requires=["setuptools_scm"],
+    # use_scm_version=True,
+    # setup_requires=["setuptools_scm"],
 )
