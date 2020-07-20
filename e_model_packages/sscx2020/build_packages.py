@@ -154,14 +154,7 @@ class CreateDir(luigi.Task):
 
     def run(self):
         """Creates the nested directory."""
-        output_dir = self.config.get("paths", "output")
-        output_path = os.path.join(
-            output_dir,
-            "memodel_dirs",
-            self.mtype,
-            self.etype,
-            combine_names(self.mtype, self.etype, self.gid),
-        )
+        output_path = self.output().path
         try:
             os.makedirs(output_path)
             os.makedirs(os.path.join(output_path, "mechanisms"))
