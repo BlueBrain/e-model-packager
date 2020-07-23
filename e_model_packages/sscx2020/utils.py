@@ -7,8 +7,7 @@ from bluepy_configfile.configfile import BlueConfig
 
 
 def read_circuit(config_path):
-    """Read circuit info"""
-
+    """Read circuit info."""
     circuit_config = bluepy.Circuit(config_path).v2
     blue_config = BlueConfig(open(config_path))
 
@@ -21,9 +20,10 @@ def combine_names(mtype, etype, gid):
 
 
 class NpEncoder(json.JSONEncoder):
-    """Class to encode np.integer as python int"""
+    """Class to encode np.integer as python int."""
 
     def default(self, obj):
+        """Convert numpy integer to int."""
         if isinstance(obj, np.integer):
             return int(obj)
         else:
