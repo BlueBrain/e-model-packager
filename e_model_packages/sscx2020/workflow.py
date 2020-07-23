@@ -10,20 +10,17 @@ from utils import read_circuit, NpEncoder, combine_names
 from bluepy.v2 import Cell as bpcell
 
 
+workflow_config = luigi.configuration.get_config()
+
 class ParseCircuit(luigi.Task):
     """Parse the circuit to get the number of mtypes etypes and cells."""
 
     gids_per_metype = luigi.IntParameter(default=5)
     mtype_etype_gids = collections.defaultdict(dict)
 
-    @property
-    def config(self):
-        """Returns the Luigi config."""
-        return luigi.configuration.get_config()
-
     def requires(self):
         """The BuildCircuit task is a dependency of this task."""
-        circuit_config_path = self.config.get("paths", "circuit")
+        circuit_config_path = workflow_config.get("paths", "circuit")
         circuit, _ = read_circuit(circuit_config_path)
         metype_gids = {}
 
@@ -50,7 +47,7 @@ class ParseCircuit(luigi.Task):
 
     def output(self):
         """The JSON output."""
-        output_dir = self.config.get("paths", "output")
+        output_dir = workflow_config.get("paths", "output")
         return luigi.LocalTarget(os.path.join(output_dir, "metype_gids.json"))
 
     def run(self):
@@ -66,11 +63,6 @@ class CopyMechanisms(luigi.Task):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
 
-    @property
-    def config(self):
-        """Returns the Luigi config."""
-        return luigi.configuration.get_config()
-
     def requires(self):
         """The path needs to be created."""
         return CreateDir(self.mtype, self.etype, self.gid)
@@ -82,8 +74,8 @@ class CopyMechanisms(luigi.Task):
     def run(self):
         """Copies the mechanisms to corresponding directories."""
         output_dir = os.path.join(self.input().path, "mechanisms")
-        mecha_dir = self.config.get("paths", "mechanisms")
-        mecha_files = self.config.get("mechanisms", "required_files").split(",")
+        mecha_dir = workflow_config.get("paths", "mechanisms")
+        mecha_files = workflow_config.get("mechanisms", "required_files").split(",")
 
         for mecha_file in mecha_files:
             mecha_file_path = os.path.join(mecha_dir, mecha_file)
@@ -100,11 +92,6 @@ class CreateDir(luigi.Task):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
 
-    @property
-    def config(self):
-        """Returns the Luigi config."""
-        return luigi.configuration.get_config()
-
     def run(self):
         """Creates the nested directory."""
         output_path = self.output().path
@@ -117,7 +104,7 @@ class CreateDir(luigi.Task):
 
     def output(self):
         """The nested directory."""
-        output_dir = self.config.get("paths", "output")
+        output_dir = workflow_config.get("paths", "output")
         output_path = os.path.join(
             output_dir,
             "memodel_dirs",
