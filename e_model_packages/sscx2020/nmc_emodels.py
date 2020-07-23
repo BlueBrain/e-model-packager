@@ -103,7 +103,6 @@ def create_memodel_dirs(config, circuit, blueconfig, metype_gids):
     for ((mtype, etype), gids) in metype_gids.items():
         mtype_dir = os.path.join(memodels_dir, mtype)
         metype_dir = os.path.join(mtype_dir, etype)
-        metype_dir = os.path.join(mtype_dir, etype)
 
         metype = "%s_%s" % (mtype, etype)
         for index, gid in enumerate(gids):
