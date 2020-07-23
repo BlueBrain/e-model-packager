@@ -105,6 +105,7 @@ class CreateMEmodelDirs(luigi.Task):
         yield combo_tasks
 
     def output(self):
+        """Does not produce output."""
         return RunAnywayTarget(self)
 
 
@@ -125,9 +126,11 @@ class CopyMechanisms(luigi.Task):
         return CreateDir(self.mtype, self.etype, self.gid)
 
     def output(self):
+        """Does not produce output."""
         return RunAnywayTarget(self)
 
     def run(self):
+        """Copies the mechanisms to corresponding directories."""
         output_dir = os.path.join(self.input().path, "mechanisms")
         mecha_dir = self.config.get("paths", "mechanisms")
         mecha_files = self.config.get("mechanisms", "required_files").split(",")
@@ -182,9 +185,6 @@ class CopyMorphology(luigi.Task):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
 
-    def run(self):
-        raise NotImplementedError()
-
 
 class CopyScripts(luigi.Task):
     """Task to copy scripts to each memodel directory."""
@@ -192,9 +192,6 @@ class CopyScripts(luigi.Task):
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
-
-    def run(self):
-        raise NotImplementedError()
 
 
 class SSCX2020(luigi.WrapperTask):
