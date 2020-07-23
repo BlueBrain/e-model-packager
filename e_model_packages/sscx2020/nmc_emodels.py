@@ -1,4 +1,4 @@
-"""Create me-model packages for nmc portal"""
+"""Create me-model packages for nmc portal."""
 
 from __future__ import print_function
 
@@ -16,14 +16,18 @@ from bluepy_configfile.configfile import BlueConfig
 
 
 class Settings(object):
+    """Sets the circuit config."""
+
     def __init__(self, circuit_config):
+        """Constructor."""
         self.circuit_config = circuit_config
 
 
 class NpEncoder(json.JSONEncoder):
-    """Class to encode np.integer as python int"""
+    """Class to encode np.integer as python int."""
 
     def default(self, obj):
+        """Convert numpy integer to int."""
         if isinstance(obj, np.integer):
             return int(obj)
         else:
@@ -31,8 +35,7 @@ class NpEncoder(json.JSONEncoder):
 
 
 def read_circuit(settings):
-    """Read circuit info"""
-
+    """Read circuit info."""
     circuit = bluepy.Circuit(settings.circuit_config).v2
     blueconfig = BlueConfig(open(settings.circuit_config))
 
@@ -40,8 +43,7 @@ def read_circuit(settings):
 
 
 def select_gids(circuit, settings, gids_per_metype=5):
-    """Select gids for each me-type"""
-
+    """Select gids for each me-type."""
     metype_gids = {}
 
     metypes_df = circuit.cells.get(
@@ -78,8 +80,7 @@ def select_gids(circuit, settings, gids_per_metype=5):
 
 
 def create_memodel_dirs(config, circuit, blueconfig, metype_gids):
-    """Create me-model directories"""
-
+    """Create me-model directories."""
     output_dir = config["output_dir"]
     memodels_dir = os.path.join(output_dir, "memodel_dirs")
     circ_morph_dir = os.path.join(blueconfig.Run["MorphologyPath"], "ascii")
@@ -167,8 +168,7 @@ def create_memodel_dirs(config, circuit, blueconfig, metype_gids):
 
 
 def get_mecombo_emodels(blueconfig):
-    """Create a dict matching me_combo names to template_names"""
-
+    """Create a dict matching me_combo names to template_names."""
     mecombo_filename = blueconfig.Run["MEComboInfoFile"]
 
     with open(mecombo_filename) as mecombo_file:
@@ -192,8 +192,7 @@ def get_mecombo_emodels(blueconfig):
 
 
 def run(config):
-    """Run with config"""
-
+    """Run with config."""
     output_dir = config["output_dir"]
     os.makedirs(output_dir)
 
@@ -207,8 +206,7 @@ def run(config):
 
 
 def main():
-    """Main"""
-
+    """Main."""
     with open("nmc_emodels_cfg.json") as json_file:
         config = json.load(json_file)
 
