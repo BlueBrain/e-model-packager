@@ -12,6 +12,7 @@ from bluepy.v2 import Cell as bpcell
 
 workflow_config = luigi.configuration.get_config()
 
+
 class ParseCircuit(luigi.Task):
     """Parse the circuit to get the number of mtypes etypes and cells."""
 
