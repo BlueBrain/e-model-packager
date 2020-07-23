@@ -14,9 +14,11 @@ def read_circuit(config_path):
 
     return circuit_config, blue_config
 
+
 def combine_names(mtype, etype, gid):
     """Returns the combined metype and gid name."""
     return "_".join([mtype, etype, str(gid)])
+
 
 class NpEncoder(json.JSONEncoder):
     """Class to encode np.integer as python int"""
