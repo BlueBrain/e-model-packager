@@ -14,11 +14,6 @@ def read_circuit(config_path):
     return circuit_config, blue_config
 
 
-def combine_names(mtype, etype, gid):
-    """Returns the combined metype and gid name."""
-    return "_".join([mtype, etype, str(gid)])
-
-
 class NpEncoder(json.JSONEncoder):
     """Class to encode np.integer as python int."""
 
@@ -28,3 +23,27 @@ class NpEncoder(json.JSONEncoder):
             return int(obj)
         else:
             return super(NpEncoder, self).default(obj)
+
+
+def get_mecombo_emodels(blueconfig):
+    """Create a dict matching me_combo names to template_names."""
+    mecombo_filename = blueconfig.Run["MEComboInfoFile"]
+
+    with open(mecombo_filename) as mecombo_file:
+        mecombo_content = mecombo_file.read()
+
+    mecombo_emodels = {}
+    mecombo_thresholds = {}
+    mecombo_hypamps = {}
+
+    for line in mecombo_content.split("\n")[1:-1]:
+        mecombo_info = line.split("\t")
+        emodel = mecombo_info[4]
+        me_combo = mecombo_info[5]
+        threshold = float(mecombo_info[6])
+        hypamp = float(mecombo_info[7])
+        mecombo_emodels[me_combo] = emodel
+        mecombo_thresholds[me_combo] = threshold
+        mecombo_hypamps[me_combo] = hypamp
+
+    return mecombo_emodels, mecombo_thresholds, mecombo_hypamps
