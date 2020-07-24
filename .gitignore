@@ -9,3 +9,4 @@ doc/build
 /dist
 /e_model_packages/sscx2020/output
 .eggs
+.vscode
