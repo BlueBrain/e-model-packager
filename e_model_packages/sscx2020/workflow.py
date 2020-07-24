@@ -6,11 +6,12 @@ import collections
 import shutil
 import luigi
 from luigi.contrib.simulate import RunAnywayTarget
-from utils import read_circuit, NpEncoder, get_mecombo_emodels
 from bluepy.v2 import Cell as bpcell
+from utils import read_circuit, NpEncoder, get_mecombo_emodels
+from config_parser import ConfigDecorator
 
 
-workflow_config = luigi.configuration.get_config()
+workflow_config = ConfigDecorator(luigi.configuration.get_config())
 
 
 class ParseCircuit(luigi.Task):
@@ -90,7 +91,6 @@ class PrepareMEModelDirectory(luigi.Task):
 
         scripts_dir = workflow_config.get("paths", "scripts_dir")
         script_files = workflow_config.get("files", "scripts")
-        script_files = script_files.split(",")
         script_paths = []
 
         templates_dir = workflow_config.get("paths", "templates_dir")
