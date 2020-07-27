@@ -1,0 +1,17 @@
+/*
+Copyright (c) BBP/EPFL 2018; All rights reserved.                         
+Do not distribute without further notice.
+*/
+
+celsius=34
+v_init=-80
+tstop=3000
+dt=0.025
+
+gid={gid}
+
+strdef template_name, template_fname, morph_dir, morph_fname
+template_name="{template_name}"
+template_fname="{template_name}.hoc"
+morph_dir="{morph_dir}"
+morph_fname="{morph_fname}"

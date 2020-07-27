@@ -1,0 +1,110 @@
+/*                                                                               
+Copyright (c) BBP/EPFL 2018; All rights reserved.
+Do not distribute without further notice.
+*/        
+
+load_file("nrngui.hoc")
+load_file("import3d.hoc")
+
+load_file("constants.hoc")
+
+load_file(template_fname)
+
+//=================== creating cell object ===========================
+objref cell
+
+proc create_cell() { local synapses_enabled localobj cellstring
+    cellstring = new String()
+    sprint(cellstring.s, "cell = new %s(%d, \"%s\", \"%s\")", template_name, gid, morph_dir, morph_fname)
+    execute(cellstring.s)
+}
+//==================== recording settings ==========================
+
+objref time, voltage
+proc create_recording() {
+    voltage = new Vector()
+    time = new Vector()
+
+    access cell.soma
+    time.record(&t, 0.1)
+    voltage.record(&v(0.5), 0.1)
+
+}
+
+proc read_currents() { localobj currents_file
+   strdef line
+
+   holding = 0.0
+   amp1 = 0.0
+   amp2 = 0.0
+   amp3 = 0.0
+   currents_file = new File("current_amps.dat")
+   currents_file.ropen()
+   currents_file.gets(line)
+   sscanf(line, "%f %f %f %f", &holding, &amp1, &amp2, &amp3)
+   currents_file.close()  
+}
+
+//==================== stimulus settings ===========================
+
+objref holding_stimulus
+objref step_stimulus
+
+proc create_stimulus() {
+    strdef stepcurrent 
+    step_index = $1
+    holding_stimulus = new IClamp(0.5)
+    holding_stimulus.dur = tstop
+    holding_stimulus.del = 0
+
+    cell.soma holding_stimulus
+
+    step_stimulus = new IClamp(0.5)
+    step_stimulus.dur = 2000
+    step_stimulus.del = 700
+    if (step_index == 1) { 
+        step_stimulus.amp = amp1
+        holding_stimulus.amp = holding
+    } else if (step_index == 2) {
+        step_stimulus.amp = amp2
+        holding_stimulus.amp = holding
+    } else if (step_index == 3) {
+        step_stimulus.amp = amp3
+        holding_stimulus.amp = holding
+    } else {
+        step_stimulus.amp = 0.0
+        holding_stimulus.amp = 0.0
+    }
+
+    cell.soma step_stimulus
+}
+
+//============================= simulation ================================
+
+proc simulate() {
+    cvode.active(0)
+
+    print "Running simulation for ", tstop, " ms"
+
+    run()
+}
+
+//============================= saving results ============================
+
+proc save_recording() { localobj timevoltage, fh, fpath
+    fpath = new String()
+    step_index = $1
+
+    sprint(fpath.s, "hoc_recordings/soma_voltage_step%d.dat", step_index)
+
+    timevoltage = new Matrix(time.size(), 2)
+    timevoltage.setcol(0, time)
+    timevoltage.setcol(1, voltage)
+
+    fh = new File()
+    fh.wopen(fpath.s)
+    timevoltage.fprint(0, fh, "%e ")
+    fh.close()
+
+    print "Saved voltage trace of step ", step_index, " to: ", fpath.s 
+}
