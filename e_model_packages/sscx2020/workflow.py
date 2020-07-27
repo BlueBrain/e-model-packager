@@ -8,7 +8,7 @@ import luigi
 from luigi.contrib.simulate import RunAnywayTarget
 from bluepy.v2 import Cell as bpcell
 from utils import read_circuit, NpEncoder, get_mecombo_emodels
-from config_parser import ConfigDecorator
+from config_decorator import ConfigDecorator
 
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
