@@ -9,8 +9,13 @@ import luigi
 import numpy as np
 from luigi.contrib.simulate import RunAnywayTarget
 from bluepy.v2 import Cell as bpcell
-from utils import read_circuit, NpEncoder, get_mecombo_emodels, combine_names
-from config_decorator import ConfigDecorator
+from e_model_packages.sscx2020.utils import (
+    read_circuit,
+    NpEncoder,
+    get_mecombo_emodels,
+    combine_names,
+)
+from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
