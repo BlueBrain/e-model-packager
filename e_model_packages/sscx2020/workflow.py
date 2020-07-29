@@ -6,6 +6,7 @@ import collections
 import shutil
 import subprocess
 import luigi
+import numpy as np
 from luigi.contrib.simulate import RunAnywayTarget
 from bluepy.v2 import Cell as bpcell
 from utils import read_circuit, NpEncoder, get_mecombo_emodels, combine_names
@@ -192,7 +193,10 @@ class RunHoc(luigi.Task):
 
         inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
         recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
-        output_path = os.path.join(recording_path, "hoc_recordings")
+
+        cwd = os.getcwd()
+        script_path = os.path.join(cwd, "output", "memodel_dirs", recording_path)
+        output_path = os.path.join(script_path, "hoc_recordings")
 
         for idx in range(3):
             output_list.append(
@@ -213,6 +217,97 @@ class RunHoc(luigi.Task):
         os.chdir(hoc_path)
         subprocess.call(["sh", "./run_hoc.sh"])
         os.chdir(cwd)
+
+
+class RunPyScript(luigi.Task):
+    """Task to run the python script for an emodel.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gidx = luigi.IntParameter()
+
+    def output(self):
+        """Produces the python recordings."""
+        output_list = []
+
+        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
+        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
+
+        cwd = os.getcwd()
+        script_path = os.path.join(cwd, "output", "memodel_dirs", recording_path)
+        output_path = os.path.join(script_path, "python_recordings")
+
+        for idx in range(3):
+            output_list.append(
+                luigi.LocalTarget(
+                    os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+                )
+            )
+
+        return output_list
+
+    def run(self):
+        """Executes the python script."""
+        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
+        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
+
+        cwd = os.getcwd()
+        script_path = os.path.join(cwd, "output", "memodel_dirs", recording_path)
+        os.chdir(script_path)
+        subprocess.call(["sh", "./run_py.sh"])
+        os.chdir(cwd)
+
+
+class CompareVoltages(luigi.Task):
+    """Task to compare the voltages produced via python and hoc.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gidx = luigi.IntParameter()
+
+    def requires(self):
+        """The RunHoc and RunPyScript methods are required."""
+        required_tasks = []
+        required_tasks.append(RunHoc(self.mtype, self.etype, self.gidx))
+        required_tasks.append(RunPyScript(self.mtype, self.etype, self.gidx))
+
+        return required_tasks
+
+    def output(self):
+        """Does not produce output."""
+        return RunAnywayTarget(self)
+
+    def run(self):
+        """Reads both dat files produced and checks if they are close.
+        Raises a ValueError otherwise.
+        """
+        threshold = 1e-3
+        recording_files = self.input()
+        hoc_recs = recording_files[0]
+        py_recs = recording_files[1]
+        for hoc_rec, py_rec in zip(hoc_recs, py_recs):
+            hoc_voltage = np.loadtxt(hoc_rec.path)
+            py_voltage = np.loadtxt(py_rec.path)
+
+            rms = np.sqrt(np.mean((hoc_voltage - py_voltage) ** 2))
+            if rms > threshold:
+                raise ValueError(
+                    "the difference between hoc recordings and python is %f" % rms
+                )
+        print("the rms values are bounded within the %f threshold" % threshold)
+        self.output().done()
 
 
 class SSCX2020(luigi.WrapperTask):

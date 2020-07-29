@@ -48,6 +48,7 @@ def get_mecombo_emodels(blueconfig):
 
     return mecombo_emodels, mecombo_thresholds, mecombo_hypamps
 
+
 def combine_names(mtype, etype, gidx):
     """Returns the combined metype and cell index."""
     return "_".join([mtype, etype, str(gidx)])
