@@ -4,10 +4,11 @@ import os
 import json
 import collections
 import shutil
+import subprocess
 import luigi
 from luigi.contrib.simulate import RunAnywayTarget
 from bluepy.v2 import Cell as bpcell
-from utils import read_circuit, NpEncoder, get_mecombo_emodels
+from utils import read_circuit, NpEncoder, get_mecombo_emodels, combine_names
 from config_decorator import ConfigDecorator
 
 
@@ -170,6 +171,48 @@ class PrepareMEModelDirectory(luigi.Task):
         print("Created dir for %s" % memodel_name)
 
         self.output().done()
+
+
+class RunHoc(luigi.Task):
+    """Task to run the hoc files for an emodel.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gidx = luigi.IntParameter()
+
+    def output(self):
+        """Produces the hoc recordings."""
+        output_list = []
+
+        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
+        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
+        output_path = os.path.join(recording_path, "hoc_recordings")
+
+        for idx in range(3):
+            output_list.append(
+                luigi.LocalTarget(
+                    os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+                )
+            )
+
+        return output_list
+
+    def run(self):
+        """Executes the hoc script."""
+        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
+        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
+
+        cwd = os.getcwd()
+        hoc_path = os.path.join(cwd, "output", "memodel_dirs", recording_path)
+        os.chdir(hoc_path)
+        subprocess.call(["sh", "./run_hoc.sh"])
+        os.chdir(cwd)
 
 
 class SSCX2020(luigi.WrapperTask):
