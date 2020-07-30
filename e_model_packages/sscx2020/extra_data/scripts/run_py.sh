@@ -2,4 +2,4 @@
 # Do not distribute without further notice.   
 
 nrnivmodl mechanisms
-./run.py "$@"
+python ./run.py
