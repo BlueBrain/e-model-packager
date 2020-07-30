@@ -103,8 +103,7 @@ class PrepareMEModelDirectory(luigi.Task):
 
     def copy_morph_emodel(
             self, circuit, blueconfig,
-            mecombo_emodels, memodel_dir, memodel_morph_dir
-            ):
+            mecombo_emodels, memodel_dir, memodel_morph_dir):
         """Copy morphology and emodel"""
         circ_morph_dir = os.path.join(blueconfig.Run["MorphologyPath"], "ascii")
         circ_emodel_dir = blueconfig.Run["METypePath"]
@@ -154,8 +153,7 @@ class PrepareMEModelDirectory(luigi.Task):
 
     def fill_in_templates(
             self, mecombo_thresholds, mecombo_hypamps, mecombo,
-            emodel, morph_fname, memodel_dir
-            ):
+            emodel, morph_fname, memodel_dir):
         """Fill in and write constants.hoc & current_amp.dat templates"""
         templates_dir = workflow_config.get("paths", "templates_dir")
 
