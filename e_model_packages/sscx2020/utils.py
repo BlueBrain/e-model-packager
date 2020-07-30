@@ -1,9 +1,9 @@
 """Contains the utility functions for needed the workflow."""
 
 import json
-import numpy as np
 import os
 from contextlib import contextmanager
+import numpy as np
 import bluepy
 from bluepy_configfile.configfile import BlueConfig
 
@@ -19,12 +19,12 @@ def read_circuit(config_path):
 class NpEncoder(json.JSONEncoder):
     """Class to encode np.integer as python int."""
 
-    def default(self, obj):
+    def default(self, o):
         """Convert numpy integer to int."""
-        if isinstance(obj, np.integer):
-            return int(obj)
+        if isinstance(o, np.integer):
+            return int(o)
         else:
-            return super(NpEncoder, self).default(obj)
+            return super(NpEncoder, self).default(o)
 
 
 def get_mecombo_emodels(blueconfig):
@@ -55,8 +55,10 @@ def combine_names(mtype, etype, gidx):
     """Returns the combined metype and cell index."""
     return "_".join([mtype, etype, str(gidx)])
 
+
 @contextmanager
 def cwd(path):
+    """Cwd function that can be used in a context manager."""
     old_dir = os.getcwd()
     os.chdir(path)
     yield

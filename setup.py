@@ -30,8 +30,9 @@ setup(
         "Source": "ssh://bbpcode.epfl.ch/cells/e-model-packages",
     },
     license="BBP-internal-confidential",
-    dependency_links=["https://bbpteam.epfl.ch/repository/devpi/bbprelman/"
-                      "dev/+simple/bluepy/"],
+    dependency_links=[
+        "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/"
+    ],
     install_requires=["luigi", "numpy", "bluepy"],
     packages=find_packages(),
     python_requires=">=2.7",

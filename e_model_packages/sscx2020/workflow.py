@@ -14,7 +14,7 @@ from e_model_packages.sscx2020.utils import (
     NpEncoder,
     get_mecombo_emodels,
     combine_names,
-    cwd
+    cwd,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
@@ -165,10 +165,10 @@ class PrepareMEModelDirectory(luigi.Task):
             "amp3": 2.50 * threshold,
         }
 
-        for template_fn, vars in template_vars.items():
+        for template_fn, variables in template_vars.items():
             template_path = os.path.join(templates_dir, template_fn)
             template = open(template_path).read()
-            content = template.format(**vars)
+            content = template.format(**variables)
 
             output_path = os.path.join(memodel_dir, template_fn)
             open(output_path, "w").write(content)
@@ -290,6 +290,7 @@ class CompareVoltages(luigi.Task):
 
     def run(self):
         """Reads both dat files produced and checks if they are close.
+
         Raises a ValueError otherwise.
         """
         threshold = 1e-3
