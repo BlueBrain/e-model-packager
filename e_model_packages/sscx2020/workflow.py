@@ -14,6 +14,7 @@ from e_model_packages.sscx2020.utils import (
     NpEncoder,
     get_mecombo_emodels,
     combine_names,
+    cwd
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
@@ -199,8 +200,8 @@ class RunHoc(luigi.Task):
         inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
         recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
 
-        cwd = os.getcwd()
-        script_path = os.path.join(cwd, "output", "memodel_dirs", recording_path)
+        workflow_output_dir = workflow_config.get("paths", "output")
+        script_path = os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
         output_path = os.path.join(script_path, "hoc_recordings")
 
         for idx in range(3):
@@ -217,11 +218,10 @@ class RunHoc(luigi.Task):
         inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
         recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
 
-        cwd = os.getcwd()
-        hoc_path = os.path.join(cwd, "output", "memodel_dirs", recording_path)
-        os.chdir(hoc_path)
-        subprocess.call(["sh", "./run_hoc.sh"])
-        os.chdir(cwd)
+        workflow_output_dir = workflow_config.get("paths", "output")
+        hoc_path = os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
+        with cwd(hoc_path):
+            subprocess.call(["sh", "./run_hoc.sh"])
 
 
 class RunPyScript(luigi.Task):
@@ -244,8 +244,8 @@ class RunPyScript(luigi.Task):
         inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
         recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
 
-        cwd = os.getcwd()
-        script_path = os.path.join(cwd, "output", "memodel_dirs", recording_path)
+        workflow_output_dir = workflow_config.get("paths", "output")
+        script_path = os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
         output_path = os.path.join(script_path, "python_recordings")
 
         for idx in range(3):
@@ -262,11 +262,10 @@ class RunPyScript(luigi.Task):
         inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
         recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
 
-        cwd = os.getcwd()
-        script_path = os.path.join(cwd, "output", "memodel_dirs", recording_path)
-        os.chdir(script_path)
-        subprocess.call(["sh", "./run_py.sh"])
-        os.chdir(cwd)
+        workflow_output_dir = workflow_config.get("paths", "output")
+        script_path = os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
+        with cwd(script_path):
+            subprocess.call(["sh", "./run_py.sh"])
 
 
 class CompareVoltages(luigi.Task):

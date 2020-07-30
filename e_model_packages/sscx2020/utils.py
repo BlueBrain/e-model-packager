@@ -2,6 +2,8 @@
 
 import json
 import numpy as np
+import os
+from contextlib import contextmanager
 import bluepy
 from bluepy_configfile.configfile import BlueConfig
 
@@ -52,3 +54,10 @@ def get_mecombo_emodels(blueconfig):
 def combine_names(mtype, etype, gidx):
     """Returns the combined metype and cell index."""
     return "_".join([mtype, etype, str(gidx)])
+
+@contextmanager
+def cwd(path):
+    old_dir = os.getcwd()
+    os.chdir(path)
+    yield
+    os.chdir(old_dir)
