@@ -84,13 +84,17 @@ class PrepareMEModelDirectory(luigi.Task):
 
     def output(self):
         """Does not produce output."""
-        return RunAnywayTarget(self)
+        output_dir = workflow_config.get("paths", "output")
+        memodels_dir = os.path.join(output_dir, "memodel_dirs")
+        mtype_dir = os.path.join(memodels_dir, self.mtype)
+        metype_dir = os.path.join(mtype_dir, self.etype)
+        memodel_name = combine_names(self.mtype, self.etype, self.gidx)
+        memodel_dir = os.path.join(metype_dir, memodel_name)
+
+        return luigi.LocalTarget(memodel_dir)
 
     def run(self):
         """Create me-model directories."""
-        output_dir = workflow_config.get("paths", "output")
-        memodels_dir = os.path.join(output_dir, "memodel_dirs")
-
         circuit_config_path = workflow_config.get("paths", "circuit")
         circuit, blueconfig = read_circuit(circuit_config_path)
 
@@ -111,13 +115,7 @@ class PrepareMEModelDirectory(luigi.Task):
             blueconfig
         )
 
-        mtype_dir = os.path.join(memodels_dir, self.mtype)
-        metype_dir = os.path.join(mtype_dir, self.etype)
-
-        metype = "%s_%s" % (self.mtype, self.etype)
-
-        memodel_name = "%s_%d" % (metype, int(self.gidx))
-        memodel_dir = os.path.join(metype_dir, memodel_name)
+        memodel_dir = self.output().path
         os.makedirs(memodel_dir)
         memodel_morph_dir = os.path.join(memodel_dir, "morphology")
         os.makedirs(memodel_morph_dir)
@@ -174,10 +172,6 @@ class PrepareMEModelDirectory(luigi.Task):
 
             output_path = os.path.join(memodel_dir, template_fn)
             open(output_path, "w").write(content)
-
-        print("Created dir for %s" % memodel_name)
-
-        self.output().done()
 
 
 class RunHoc(luigi.Task):
@@ -286,6 +280,7 @@ class CompareVoltages(luigi.Task):
         required_tasks = []
         required_tasks.append(RunHoc(self.mtype, self.etype, self.gidx))
         required_tasks.append(RunPyScript(self.mtype, self.etype, self.gidx))
+        required_tasks.append(ParseCircuit())
 
         return required_tasks
 
