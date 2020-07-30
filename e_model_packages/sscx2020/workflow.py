@@ -93,62 +93,74 @@ class PrepareMEModelDirectory(luigi.Task):
 
         return luigi.LocalTarget(memodel_dir)
 
-    def run(self):
-        """Create me-model directories."""
-        circuit_config_path = workflow_config.get("paths", "circuit")
-        circuit, blueconfig = read_circuit(circuit_config_path)
+    @staticmethod
+    def makedirs(memodel_dir, memodel_morph_dir):
+        """Make directories"""
+        os.makedirs(memodel_dir)
+        os.makedirs(memodel_morph_dir)
+        os.makedirs(os.path.join(memodel_dir, "hoc_recordings"))
+        os.makedirs(os.path.join(memodel_dir, "python_recordings"))
 
+    def copy_morph_emodel(
+            self, circuit, blueconfig,
+            mecombo_emodels, memodel_dir, memodel_morph_dir
+        ):
+        """Copy morphology and emodel"""
         circ_morph_dir = os.path.join(blueconfig.Run["MorphologyPath"], "ascii")
         circ_emodel_dir = blueconfig.Run["METypePath"]
 
-        scripts_dir = workflow_config.get("paths", "scripts_dir")
-        script_files = workflow_config.get("files", "scripts")
-        script_paths = []
-
-        templates_dir = workflow_config.get("paths", "templates_dir")
-
-        for script_file in script_files:
-            script_path = os.path.join(scripts_dir, script_file)
-            script_paths.append(script_path)
-
-        mecombo_emodels, mecombo_thresholds, mecombo_hypamps = get_mecombo_emodels(
-            blueconfig
-        )
-
-        memodel_dir = self.output().path
-        os.makedirs(memodel_dir)
-        memodel_morph_dir = os.path.join(memodel_dir, "morphology")
-        os.makedirs(memodel_morph_dir)
-
-        hocrec_dir = os.path.join(memodel_dir, "hoc_recordings")
-        pyrec_dir = os.path.join(memodel_dir, "python_recordings")
-
-        os.makedirs(hocrec_dir)
-        os.makedirs(pyrec_dir)
-
         cell = circuit.cells.get(self.gid)
-        morph = cell.morphology
         mecombo = cell.me_combo
 
-        threshold = mecombo_thresholds[mecombo]
-        holding = mecombo_hypamps[mecombo]
-
-        morph_fname = "%s.asc" % morph
+        morph_fname = "%s.asc" % cell.morphology
         morph_path = os.path.join(circ_morph_dir, morph_fname)
 
         emodel = mecombo_emodels[mecombo]
-        emodel_fname = "%s.hoc" % emodel
-        emodel_path = os.path.join(circ_emodel_dir, emodel_fname)
+        emodel_path = os.path.join(circ_emodel_dir, "%s.hoc" % emodel)
 
-        memodel_mechanisms_dir = os.path.join(memodel_dir, "mechanisms")
         shutil.copy(morph_path, memodel_morph_dir)
         shutil.copy(emodel_path, memodel_dir)
+
+        return mecombo, morph_fname, emodel
+
+    @staticmethod
+    def copy_mechanisms(memodel_dir):
+        """Copy mechanisms into output directory"""
+        memodel_mechanisms_dir = os.path.join(memodel_dir, "mechanisms")
         shutil.copytree(
             workflow_config.get("paths", "mechanisms_dir"), memodel_mechanisms_dir
         )
 
-        for script_path in script_paths:
+    @staticmethod
+    def copy_scripts(memodel_dir):
+        """Copy scripts"""
+        scripts_dir = workflow_config.get("paths", "scripts_dir")
+        script_files = workflow_config.get("files", "scripts")
+
+        for script_file in script_files:
+            script_path = os.path.join(scripts_dir, script_file)
             shutil.copy(script_path, memodel_dir)
+
+    @staticmethod
+    def write_down_using_templates(memodel_dir, templates_dir, template_vars):
+        """Fill in and write constants.hoc & current_amp.dat templates given templates & vars"""
+        for template_fn, variables in template_vars.items():
+            template_path = os.path.join(templates_dir, template_fn)
+            template = open(template_path).read()
+            content = template.format(**variables)
+
+            output_path = os.path.join(memodel_dir, template_fn)
+            open(output_path, "w").write(content)
+
+    def fill_in_templates(
+            self, mecombo_thresholds, mecombo_hypamps, mecombo,
+            emodel, morph_fname, memodel_dir
+        ):
+        """Fill in and write constants.hoc & current_amp.dat templates"""
+        templates_dir = workflow_config.get("paths", "templates_dir")
+
+        threshold = mecombo_thresholds[mecombo]
+        holding = mecombo_hypamps[mecombo]
 
         template_vars = {}
 
@@ -165,13 +177,39 @@ class PrepareMEModelDirectory(luigi.Task):
             "amp3": 2.50 * threshold,
         }
 
-        for template_fn, variables in template_vars.items():
-            template_path = os.path.join(templates_dir, template_fn)
-            template = open(template_path).read()
-            content = template.format(**variables)
+        self.write_down_using_templates(memodel_dir, templates_dir, template_vars)
 
-            output_path = os.path.join(memodel_dir, template_fn)
-            open(output_path, "w").write(content)
+    def run(self):
+        """Create me-model directories."""
+        circuit_config_path = workflow_config.get("paths", "circuit")
+        circuit, blueconfig = read_circuit(circuit_config_path)
+
+        mecombo_emodels, mecombo_thresholds, mecombo_hypamps = get_mecombo_emodels(
+            blueconfig
+        )
+
+        memodel_dir = self.output().path
+        memodel_morph_dir = os.path.join(memodel_dir, "morphology")
+
+        # make dirs
+        self.makedirs(memodel_dir, memodel_morph_dir)
+
+        # morph & emodel
+        mecombo, morph_fname, emodel = self.copy_morph_emodel(
+            circuit, blueconfig, mecombo_emodels,
+            memodel_dir, memodel_morph_dir
+        )
+
+        #mechanisms
+        self.copy_mechanisms(memodel_dir)
+
+        self.copy_scripts(memodel_dir)
+
+        # template
+        self.fill_in_templates(
+            mecombo_thresholds, mecombo_hypamps, mecombo,
+            emodel, morph_fname, memodel_dir
+        )
 
 
 class RunHoc(luigi.Task):
