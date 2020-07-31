@@ -365,8 +365,7 @@ class SSCX2020(luigi.WrapperTask):
 
 
 class CheckMEModelDirectory(luigi.Task):
-    """Task checking that all directories and files from the PrepareMEModelDirectory task
-        have been produced, given a test cell.
+    """Checks that all dirs & files from PrepareMEModelDirectory are produced, given a test cell.
 
     Attributes:
         mtype: morphological type
@@ -389,6 +388,7 @@ class CheckMEModelDirectory(luigi.Task):
         return RunAnywayTarget(self)
 
     def get_morph_emodel_names(self):
+        """Get morphology and emodel filenames."""
         circuit, blueconfig = read_circuit(workflow_config.get("paths", "circuit"))
 
         mecombo_emodels, _, _ = get_mecombo_emodels(blueconfig)
