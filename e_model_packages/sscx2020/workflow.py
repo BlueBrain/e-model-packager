@@ -365,8 +365,9 @@ class SSCX2020(luigi.WrapperTask):
 
 
 class CheckMEModelDirectory(luigi.Task):
-    """Task checking that all directories and files from the PrepareMEModelDirectory task have been produced, given test cell.
-    
+    """Task checking that all directories and files from the PrepareMEModelDirectory task
+        have been produced, given a test cell.
+
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
