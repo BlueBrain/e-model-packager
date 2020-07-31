@@ -362,3 +362,108 @@ class SSCX2020(luigi.WrapperTask):
     def requires(self):
         """The ParseCircuit method is required."""
         return ParseCircuit()
+
+
+class CheckMEModelDirectory(luigi.Task):
+    """Task checking that all directories and files from the PrepareMEModelDirectory task have been produced, given test cell.
+    
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gid: id of cell in the circuit
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gid = luigi.IntParameter()
+    gidx = luigi.IntParameter()
+
+    def requires(self):
+        """Running PrepareMEModelDirectory is required."""
+        return PrepareMEModelDirectory(self.mtype, self.etype, self.gid, self.gidx)
+
+    def output(self):
+        """Does not produce output."""
+        return RunAnywayTarget(self)
+
+    def get_morph_emodel_names(self):
+        circuit, blueconfig = read_circuit(workflow_config.get("paths", "circuit"))
+
+        mecombo_emodels, _, _ = get_mecombo_emodels(blueconfig)
+        cell = circuit.cells.get(self.gid)
+
+        morph_fname = "%s.asc" % cell.morphology
+        emodel = mecombo_emodels[cell.me_combo]
+        emodel_fname = "%s.hoc" % emodel
+
+        return morph_fname, emodel_fname
+
+    def run(self):
+        """Checks the existence of all directories and files of the given cell.
+
+        Raises an OSError otherwise.
+        """
+        directories_to_be_checked = ["hoc_recordings", "python_recordings"]
+
+        files_to_be_checked = [
+            "constants.hoc",
+            "createsimulation.hoc",
+            "current_amps.dat",
+            "LICENSE.txt",
+            "run_hoc.sh",
+            "run_py.sh",
+            "run.hoc",
+            "run.py",
+        ]
+
+        mechanisms = [
+            "Ca_HVA.mod",
+            "Ca_HVA2.mod",
+            "Ca_LVAst.mod",
+            "CaDynamics_DC0.mod",
+            "Ih.mod",
+            "K_Pst.mod",
+            "K_Tst.mod",
+            "KdShu2007.mod",
+            "Nap_Et2.mod",
+            "NaTg.mod",
+            "NaTg2.mod",
+            "notes.txt",
+            "SK_E2.mod",
+            "SKv3_1.mod",
+            "StochKv2.mod",
+            "StochKv3.mod",
+        ]
+
+        for item in mechanisms:
+            files_to_be_checked.append(os.path.join("mechanisms", item))
+
+        morph_fname, emodel_fname = self.get_morph_emodel_names()
+
+        files_to_be_checked.append(os.path.join("morphology", morph_fname))
+        files_to_be_checked.append(emodel_fname)
+
+        # create output path
+        path_ = os.path.join("output", "memodel_dirs")
+        path = os.path.join(
+            path_,
+            self.mtype,
+            self.etype,
+            "_".join([self.mtype, self.etype, str(self.gidx)]),
+        )
+
+        # check files
+        for item in files_to_be_checked:
+            filepath = os.path.join(path, item)
+            if os.path.isfile(filepath) is False:
+                raise OSError("FileNotFound : %s" % filepath)
+
+        # check directories
+        for item in directories_to_be_checked:
+            dirpath = os.path.join(path, item)
+            if os.path.isdir(dirpath) is False:
+                raise OSError("DirectoryNotFound : %s" % dirpath)
+
+        print("All the files and directories have been successfully created.")
+        self.output().done()
