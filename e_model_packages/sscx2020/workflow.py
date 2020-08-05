@@ -1,13 +1,11 @@
 """Workflow to build e-model packages."""
 
-import os
-import json
 import collections
+import json
+import os
 import shutil
 import subprocess
 import luigi
-import numpy as np
-from luigi.contrib.simulate import RunAnywayTarget
 from bluepy.v2 import Cell as bpcell
 from e_model_packages.sscx2020.utils import (
     read_circuit,
@@ -29,31 +27,51 @@ class ParseCircuit(luigi.Task):
     gids_per_metype = luigi.IntParameter(default=5)
     mtype_etype_gids = collections.defaultdict(dict)
 
+    mtype = luigi.Parameter(default=None)
+    etype = luigi.Parameter(default=None)
+    gidx = luigi.IntParameter(default=None)
+
     def requires(self):
         """The BuildCircuit task is a dependency of this task."""
         circuit_config_path = workflow_config.get("paths", "circuit")
         circuit, _ = read_circuit(circuit_config_path)
-        metype_gids = {}
 
-        metypes_df = circuit.cells.get(
-            properties=[bpcell.MTYPE, bpcell.ETYPE, bpcell.LAYER]
-        ).drop_duplicates()
-        metypes = [(row["mtype"], row["etype"]) for _, row in metypes_df.iterrows()]
+        # if mtype, etype, gidx not set, run required task for all metypes
+        if None in [self.mtype, self.etype, self.gidx]:
+            metype_gids = {}
+            metypes_df = circuit.cells.get(
+                properties=[bpcell.MTYPE, bpcell.ETYPE, bpcell.LAYER]
+            ).drop_duplicates()
+            metypes = [(row["mtype"], row["etype"]) for _, row in metypes_df.iterrows()]
 
-        for mtype, etype in metypes:
-            metype_gids[(mtype, etype)] = list(
+            for mtype, etype in metypes:
+                metype_gids[(mtype, etype)] = list(
+                    circuit.cells.ids(
+                        {bpcell.MTYPE: mtype, bpcell.ETYPE: etype},
+                        limit=self.gids_per_metype,
+                    )
+                )
+
+            tasks = []
+            for (mtype, etype), gids in metype_gids.items():
+                self.mtype_etype_gids[mtype][etype] = gids
+                for gidx, gid in enumerate(gids):
+                    gidx = gidx + 1  # 1 indexed for users
+                    tasks.append(PrepareMEModelDirectory(mtype, etype, gid, gidx))
+        else:
+            gids = list(
                 circuit.cells.ids(
-                    {bpcell.MTYPE: mtype, bpcell.ETYPE: etype},
+                    {bpcell.MTYPE: self.mtype, bpcell.ETYPE: self.etype},
                     limit=self.gids_per_metype,
                 )
             )
+            gid = gids[self.gidx - 1]
+            self.mtype_etype_gids[self.mtype][self.etype] = [
+                self.gidx - 1,
+                gids[self.gidx - 1],
+            ]
 
-        tasks = []
-        for (mtype, etype), gids in metype_gids.items():
-            self.mtype_etype_gids[mtype][etype] = gids
-            for gidx, gid in enumerate(gids):
-                gidx = gidx + 1  # 1 indexed for users
-                tasks.append(PrepareMEModelDirectory(mtype, etype, gid, gidx))
+            tasks = [PrepareMEModelDirectory(self.mtype, self.etype, gid, self.gidx)]
 
         return tasks
 
@@ -234,6 +252,10 @@ class RunHoc(luigi.Task):
     etype = luigi.Parameter()
     gidx = luigi.IntParameter()
 
+    def requires(self):
+        """Requires the output paths to be made."""
+        return ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
+
     def output(self):
         """Produces the hoc recordings."""
         output_list = []
@@ -278,6 +300,10 @@ class RunPyScript(luigi.Task):
     etype = luigi.Parameter()
     gidx = luigi.IntParameter()
 
+    def requires(self):
+        """Requires the output paths to be made."""
+        return ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
+
     def output(self):
         """Produces the python recordings."""
         output_list = []
@@ -309,163 +335,9 @@ class RunPyScript(luigi.Task):
             subprocess.call(["sh", "./run_py.sh"])
 
 
-class CompareVoltages(luigi.Task):
-    """Task to compare the voltages produced via python and hoc.
-
-    Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gidx: index of cell
-    """
-
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gidx = luigi.IntParameter()
-
-    def requires(self):
-        """The RunHoc and RunPyScript methods are required."""
-        required_tasks = []
-        required_tasks.append(RunHoc(self.mtype, self.etype, self.gidx))
-        required_tasks.append(RunPyScript(self.mtype, self.etype, self.gidx))
-        required_tasks.append(ParseCircuit())
-
-        return required_tasks
-
-    def output(self):
-        """Does not produce output."""
-        return RunAnywayTarget(self)
-
-    def run(self):
-        """Reads both dat files produced and checks if they are close.
-
-        Raises a ValueError otherwise.
-        """
-        threshold = 1e-3
-        recording_files = self.input()
-        hoc_recs = recording_files[0]
-        py_recs = recording_files[1]
-        for hoc_rec, py_rec in zip(hoc_recs, py_recs):
-            hoc_voltage = np.loadtxt(hoc_rec.path)
-            py_voltage = np.loadtxt(py_rec.path)
-
-            rms = np.sqrt(np.mean((hoc_voltage - py_voltage) ** 2))
-            if rms > threshold:
-                raise ValueError(
-                    "the difference between hoc recordings and python is %f" % rms
-                )
-        print("the rms values are bounded within the %f threshold" % threshold)
-        self.output().done()
-
-
 class SSCX2020(luigi.WrapperTask):
     """The skeleton task to perform the workflow."""
 
     def requires(self):
         """The ParseCircuit method is required."""
         return ParseCircuit()
-
-
-class CheckMEModelDirectory(luigi.Task):
-    """Checks that all dirs & files from PrepareMEModelDirectory are produced, given a test cell.
-
-    Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gid: id of cell in the circuit
-        gidx: index of cell
-    """
-
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gid = luigi.IntParameter()
-    gidx = luigi.IntParameter()
-
-    def requires(self):
-        """Running PrepareMEModelDirectory is required."""
-        return PrepareMEModelDirectory(self.mtype, self.etype, self.gid, self.gidx)
-
-    def output(self):
-        """Does not produce output."""
-        return RunAnywayTarget(self)
-
-    def get_morph_emodel_names(self):
-        """Get morphology and emodel filenames."""
-        circuit, blueconfig = read_circuit(workflow_config.get("paths", "circuit"))
-
-        mecombo_emodels, _, _ = get_mecombo_emodels(blueconfig)
-        cell = circuit.cells.get(self.gid)
-
-        morph_fname = "%s.asc" % cell.morphology
-        emodel = mecombo_emodels[cell.me_combo]
-        emodel_fname = "%s.hoc" % emodel
-
-        return morph_fname, emodel_fname
-
-    def run(self):
-        """Checks the existence of all directories and files of the given cell.
-
-        Raises an OSError otherwise.
-        """
-        directories_to_be_checked = ["hoc_recordings", "python_recordings"]
-
-        files_to_be_checked = [
-            "constants.hoc",
-            "createsimulation.hoc",
-            "current_amps.dat",
-            "LICENSE.txt",
-            "run_hoc.sh",
-            "run_py.sh",
-            "run.hoc",
-            "run.py",
-        ]
-
-        mechanisms = [
-            "Ca_HVA.mod",
-            "Ca_HVA2.mod",
-            "Ca_LVAst.mod",
-            "CaDynamics_DC0.mod",
-            "Ih.mod",
-            "K_Pst.mod",
-            "K_Tst.mod",
-            "KdShu2007.mod",
-            "Nap_Et2.mod",
-            "NaTg.mod",
-            "NaTg2.mod",
-            "notes.txt",
-            "SK_E2.mod",
-            "SKv3_1.mod",
-            "StochKv2.mod",
-            "StochKv3.mod",
-        ]
-
-        for item in mechanisms:
-            files_to_be_checked.append(os.path.join("mechanisms", item))
-
-        morph_fname, emodel_fname = self.get_morph_emodel_names()
-
-        files_to_be_checked.append(os.path.join("morphology", morph_fname))
-        files_to_be_checked.append(emodel_fname)
-
-        # create output path
-        path_ = os.path.join("output", "memodel_dirs")
-        path = os.path.join(
-            path_,
-            self.mtype,
-            self.etype,
-            "_".join([self.mtype, self.etype, str(self.gidx)]),
-        )
-
-        # check files
-        for item in files_to_be_checked:
-            filepath = os.path.join(path, item)
-            if os.path.isfile(filepath) is False:
-                raise OSError("FileNotFound : %s" % filepath)
-
-        # check directories
-        for item in directories_to_be_checked:
-            dirpath = os.path.join(path, item)
-            if os.path.isdir(dirpath) is False:
-                raise OSError("DirectoryNotFound : %s" % dirpath)
-
-        print("All the files and directories have been successfully created.")
-        self.output().done()

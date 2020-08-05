@@ -49,20 +49,3 @@ def launch_luigi(module, task):
         return wrapped_function
 
     return launching
-
-
-def erase_output(func):
-    """Decorator to delete luigi output."""
-
-    def wrapped_function(*args, **kwargs):
-        """Inner function."""
-        path_to_output = os.path.join(
-            "e_model_packages", "sscx2020", "output", "memodel_dirs"
-        )
-
-        if os.path.isdir(path_to_output):
-            shutil.rmtree(path_to_output)
-
-        func(*args, **kwargs)
-
-    return wrapped_function

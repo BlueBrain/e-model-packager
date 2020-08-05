@@ -1,17 +1,18 @@
 import configparser
+import numpy as np
 import os
 import sys
-from tests.decorators import launch_luigi, erase_output
+from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
     read_circuit,
     get_mecombo_emodels,
     get_morph_emodel_names,
+    combine_names,
 )
 
 
-@erase_output
 @launch_luigi(module="workflow", task="PrepareMEModelDirectory")
-def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=1, gidx=1):
+def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
     """Check that e-model directories have been created, given the attributes of a given test cell
 
     Attributes:
@@ -75,3 +76,36 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=1, gidx=1):
         if os.path.isdir(os.path.join(path, item)) is False:
             print("Test failed: " + os.path.join(path, item) + " not found.")
             assert False
+
+
+@launch_luigi(module="workflow", task="RunPyScript")
+@launch_luigi(module="workflow", task="RunHoc")
+def test_voltages(mtype="L1_DAC", etype="bNAC", gidx=1):
+    """Test to compare the voltages produced via python and hoc.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gidx: index of cell
+    """
+    threshold = 1e-3
+
+    inner_folder_name = combine_names(mtype, etype, gidx)
+    recording_path = os.path.join(mtype, etype, inner_folder_name)
+    script_path = os.path.join(
+        "e_model_packages", "sscx2020", "output", "memodel_dirs", recording_path
+    )
+
+    for idx in range(3):
+        hoc_path = os.path.join(
+            script_path, "hoc_recordings", "soma_voltage_step%d.dat" % (idx + 1)
+        )
+        py_path = os.path.join(
+            script_path, "python_recordings", "soma_voltage_step%d.dat" % (idx + 1)
+        )
+
+        hoc_voltage = np.loadtxt(hoc_path)
+        py_voltage = np.loadtxt(py_path)
+
+        rms = np.sqrt(np.mean((hoc_voltage - py_voltage) ** 2))
+        assert rms < threshold

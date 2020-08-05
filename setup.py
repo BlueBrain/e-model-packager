@@ -33,7 +33,7 @@ setup(
     dependency_links=[
         "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/"
     ],
-    install_requires=["luigi", "numpy", "bluepy"],
+    install_requires=["luigi", "numpy", "bluepy", "neuron"],
     packages=find_packages(),
     python_requires=">=2.7",
     classifiers=[
