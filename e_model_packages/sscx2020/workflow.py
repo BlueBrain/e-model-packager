@@ -335,6 +335,28 @@ class RunPyScript(luigi.Task):
             subprocess.call(["sh", "./run_py.sh"])
 
 
+class DoRecordings(luigi.WrapperTask):
+    """Launch both RunHoc and RunPyScript.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gidx = luigi.IntParameter()
+
+    def requires(self):
+        """Launch both RunHoc and RunPyScript."""
+        tasks = [
+            RunHoc(self.mtype, self.etype, self.gidx),
+            RunPyScript(self.mtype, self.etype, self.gidx),
+        ]
+        return tasks
+
+
 class SSCX2020(luigi.WrapperTask):
     """The skeleton task to perform the workflow."""
 

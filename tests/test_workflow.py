@@ -78,8 +78,7 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
             assert False
 
 
-@launch_luigi(module="workflow", task="RunPyScript")
-@launch_luigi(module="workflow", task="RunHoc")
+@launch_luigi(module="workflow", task="DoRecordings")
 def test_voltages(mtype="L1_DAC", etype="bNAC", gidx=1):
     """Test to compare the voltages produced via python and hoc.
 
