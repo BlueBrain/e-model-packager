@@ -1,5 +1,4 @@
 import os
-import shutil
 from functools import wraps
 from inspect import signature
 
@@ -10,10 +9,9 @@ def launch_luigi(module, task):
     def launching(func):
         """Decorator."""
         dirs = ["e_model_packages", "sscx2020"]
+        test_config = os.path.join("tests", "luigi_test.cfg")
         path_to_luigi = os.path.join(*dirs)
-        path_back = os.path.join("..", "..")
         path_to_module = ".".join(dirs)
-
         sig = signature(func)
 
         @wraps(func)
@@ -28,21 +26,15 @@ def launch_luigi(module, task):
             for key, value in bound_args.arguments.items():
                 arguments += "--{}={} ".format(key, value)
 
-            # change directory
-            os.chdir(path_to_luigi)
-
             # change PYTHONPATH
-            os.system("export PYTHONPATH=${{PYTHONPATH}}:{}".format(os.getcwd()))
+            os.system("export PYTHONPATH=${{PYTHONPATH}}:{}".format(path_to_luigi))
 
             # launch luigi
             os.system(
-                "luigi --module {} {} --local-scheduler {}".format(
-                    ".".join((path_to_module, module)), task, arguments
+                "LUIGI_CONFIG_PATH='{}' luigi --module {} {} --local-scheduler {}".format(
+                    test_config, ".".join((path_to_module, module)), task, arguments
                 )
             )
-
-            # return to original directory
-            os.chdir(path_back)
 
             func(*args, **kwargs)
 

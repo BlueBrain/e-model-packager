@@ -64,7 +64,7 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
     files_to_be_checked.append(os.path.join("morphology", morph_fname))
     files_to_be_checked.append(emodel_fname)
 
-    path_ = os.path.join("e_model_packages", "sscx2020", "output", "memodel_dirs")
+    path_ = os.path.join("tests", "output", "memodel_dirs")
     path = os.path.join(path_, mtype, etype, "_".join([mtype, etype, str(gidx)]))
 
     for item in files_to_be_checked:
@@ -91,9 +91,7 @@ def test_voltages(mtype="L1_DAC", etype="bNAC", gidx=1):
 
     inner_folder_name = combine_names(mtype, etype, gidx)
     recording_path = os.path.join(mtype, etype, inner_folder_name)
-    script_path = os.path.join(
-        "e_model_packages", "sscx2020", "output", "memodel_dirs", recording_path
-    )
+    script_path = os.path.join("tests", "output", "memodel_dirs", recording_path)
 
     for idx in range(3):
         hoc_path = os.path.join(
