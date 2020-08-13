@@ -33,6 +33,19 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
         "run_py.sh",
         "run.hoc",
         "run.py",
+        "old_run.py",
+        "load.py",
+        "myrecordings.py",
+        "mymorphology.py",
+    ]
+
+    py_rec_config = [
+        "final.json",
+        "int_delayed.json",
+        "int_delayed_noise.json",
+        "int.json",
+        "int_noise.json",
+        "pyr.json",
     ]
 
     mechanisms = [
@@ -53,6 +66,11 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
         "StochKv2.mod",
         "StochKv3.mod",
     ]
+
+    files_to_be_checked.append(os.path.join("config", "recipes", "recipes.json"))
+
+    for item in py_rec_config:
+        files_to_be_checked.append(os.path.join("config", "params", item))
 
     for item in mechanisms:
         files_to_be_checked.append(os.path.join("mechanisms", item))
