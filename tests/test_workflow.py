@@ -104,5 +104,5 @@ def test_voltages(mtype="L1_DAC", etype="bNAC", gidx=1):
         hoc_voltage = np.loadtxt(hoc_path)
         py_voltage = np.loadtxt(py_path)
 
-        rms = np.sqrt(np.mean((hoc_voltage - py_voltage) ** 2))
+        rms = np.sqrt(np.mean((hoc_voltage[:, 1] - py_voltage[:, 1]) ** 2))
         assert rms < threshold

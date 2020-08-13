@@ -150,6 +150,15 @@ class PrepareMEModelDirectory(luigi.Task):
         )
 
     @staticmethod
+    def copy_python_recordings_config(memodel_dir):
+        """Copy python recordings config into output directory."""
+        memodel_py_rec_config_dir = os.path.join(memodel_dir, "config")
+        shutil.copytree(
+            workflow_config.get("paths", "python_recordings_config_dir"),
+            memodel_py_rec_config_dir,
+        )
+
+    @staticmethod
     def copy_scripts(memodel_dir):
         """Copy scripts."""
         scripts_dir = workflow_config.get("paths", "scripts_dir")
@@ -224,6 +233,9 @@ class PrepareMEModelDirectory(luigi.Task):
 
         # mechanisms
         self.copy_mechanisms(memodel_dir)
+
+        # python recordings config
+        self.copy_python_recordings_config(memodel_dir)
 
         # scripts
         self.copy_scripts(memodel_dir)
