@@ -277,3 +277,9 @@ def define_parameters(params_filename):
                     )
 
     return parameters
+
+
+def get_axon_hoc(replace_axon_hoc):
+    """Returns string containing replace axon hoc."""
+    with open(replace_axon_hoc, "r") as f:
+        return f.read()

@@ -37,6 +37,12 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
         "load.py",
         "myrecordings.py",
         "mymorphology.py",
+        "create_hoc.py",
+    ]
+
+    templates = [
+        "cell_template_neurodamus.jinja2",
+        "replace_axon_hoc.hoc",
     ]
 
     py_rec_config = [
@@ -69,18 +75,19 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
 
     files_to_be_checked.append(os.path.join("config", "recipes", "recipes.json"))
 
+    for item in templates:
+        files_to_be_checked.append(os.path.join("templates", item))
+
     for item in py_rec_config:
         files_to_be_checked.append(os.path.join("config", "params", item))
 
     for item in mechanisms:
         files_to_be_checked.append(os.path.join("mechanisms", item))
 
-    morph_fname, emodel_fname = get_morph_emodel_names(
+    morph_fname, _ = get_morph_emodel_names(
         os.path.join("e_model_packages", "sscx2020"), gid
     )
-
     files_to_be_checked.append(os.path.join("morphology", morph_fname))
-    files_to_be_checked.append(emodel_fname)
 
     path_ = os.path.join("tests", "output", "memodel_dirs")
     path = os.path.join(path_, mtype, etype, "_".join([mtype, etype, str(gidx)]))

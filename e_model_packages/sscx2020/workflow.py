@@ -1,12 +1,13 @@
 """Workflow to build e-model packages."""
-
 import collections
 import json
 import os
 import shutil
 import subprocess
+
 import luigi
 from bluepy.v2 import Cell as bpcell
+
 from e_model_packages.sscx2020.utils import (
     read_circuit,
     NpEncoder,
@@ -14,7 +15,6 @@ from e_model_packages.sscx2020.utils import (
     combine_names,
     cwd,
 )
-
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
 
@@ -120,12 +120,9 @@ class PrepareMEModelDirectory(luigi.Task):
         os.makedirs(os.path.join(memodel_dir, "hoc_recordings"))
         os.makedirs(os.path.join(memodel_dir, "python_recordings"))
 
-    def copy_morph_emodel(
-        self, circuit, blueconfig, mecombo_emodels, memodel_dir, memodel_morph_dir
-    ):
+    def copy_morph_emodel(self, circuit, blueconfig, memodel_morph_dir):
         """Copy morphology and emodel."""
         circ_morph_dir = os.path.join(blueconfig.Run["MorphologyPath"], "ascii")
-        circ_emodel_dir = blueconfig.Run["METypePath"]
 
         cell = circuit.cells.get(self.gid)
         mecombo = cell.me_combo
@@ -133,13 +130,17 @@ class PrepareMEModelDirectory(luigi.Task):
         morph_fname = "%s.asc" % cell.morphology
         morph_path = os.path.join(circ_morph_dir, morph_fname)
 
-        emodel = mecombo_emodels[mecombo]
-        emodel_path = os.path.join(circ_emodel_dir, "%s.hoc" % emodel)
-
         shutil.copy(morph_path, memodel_morph_dir)
-        shutil.copy(emodel_path, memodel_dir)
 
-        return mecombo, morph_fname, emodel
+        return mecombo, morph_fname
+
+    @staticmethod
+    def copy_templates(memodel_dir):
+        """Copy mechanisms into output directory."""
+        memodel_templates_dir = os.path.join(memodel_dir, "templates")
+        shutil.copytree(
+            workflow_config.get("paths", "templates_to_copy_dir"), memodel_templates_dir
+        )
 
     @staticmethod
     def copy_mechanisms(memodel_dir):
@@ -226,10 +227,13 @@ class PrepareMEModelDirectory(luigi.Task):
         # make dirs
         self.makedirs(memodel_dir, memodel_morph_dir)
 
-        # morph & emodel
-        mecombo, morph_fname, emodel = self.copy_morph_emodel(
-            circuit, blueconfig, mecombo_emodels, memodel_dir, memodel_morph_dir
+        # morph & mecombo
+        mecombo, morph_fname = self.copy_morph_emodel(
+            circuit, blueconfig, memodel_morph_dir
         )
+
+        # teamplates to be copied
+        self.copy_templates(memodel_dir)
 
         # mechanisms
         self.copy_mechanisms(memodel_dir)
@@ -240,7 +244,8 @@ class PrepareMEModelDirectory(luigi.Task):
         # scripts
         self.copy_scripts(memodel_dir)
 
-        # template
+        # templates to be filled
+        emodel = mecombo_emodels[mecombo]
         self.fill_in_templates(
             mecombo_thresholds,
             mecombo_hypamps,
@@ -249,6 +254,53 @@ class PrepareMEModelDirectory(luigi.Task):
             morph_fname,
             memodel_dir,
         )
+
+
+class CreateHoc(luigi.Task):
+    """Task to create the hoc file of an emodel.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gidx = luigi.IntParameter()
+
+    def requires(self):
+        """Requires the output paths to be made."""
+        return ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
+
+    def get_output_path(self):
+        """Returns the path to the outputs directory."""
+        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
+        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
+
+        workflow_output_dir = workflow_config.get("paths", "output")
+
+        return os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
+
+    def output(self):
+        """Produces the hoc file."""
+        output_path = self.get_output_path()
+        with open(os.path.join(output_path, "constants.hoc"), "r") as f:
+            lines = f.readlines()
+
+        for line in lines:
+            line = line.split("=")
+            if line[0] == "template_fname":
+                tmp = line[1].rstrip()
+                filename = tmp.strip('"')
+
+        return luigi.LocalTarget(os.path.join(output_path, filename))
+
+    def run(self):
+        """Createss the hoc script."""
+        output_path = self.get_output_path()
+        with cwd(output_path):
+            subprocess.call(["python", "create_hoc.py"])
 
 
 class RunHoc(luigi.Task):
@@ -265,8 +317,8 @@ class RunHoc(luigi.Task):
     gidx = luigi.IntParameter()
 
     def requires(self):
-        """Requires the output paths to be made."""
-        return ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
+        """Requires the hoc file to have been created."""
+        return CreateHoc(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
 
     def output(self):
         """Produces the hoc recordings."""

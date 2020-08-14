@@ -12,6 +12,7 @@ from load import (
     find_param_file,
     define_protocols,
     define_parameters,
+    get_axon_hoc,
 )
 from mymorphology import NrnFileMorphologyCustom
 
@@ -34,8 +35,10 @@ params = define_parameters(params_filename)
 
 
 # create morphology
+axon_hoc_path = os.path.join("templates", "replace_axon_hoc.hoc")
+replace_axon_hoc = get_axon_hoc(axon_hoc_path)
 morph = NrnFileMorphologyCustom(
-    morph_path, do_replace_axon=True, replace_axon_hoc=None, do_set_nseg=40,
+    morph_path, do_replace_axon=True, replace_axon_hoc=replace_axon_hoc, do_set_nseg=40,
 )
 
 # create cell
