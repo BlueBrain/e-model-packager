@@ -1,11 +1,8 @@
-import configparser
+"""Test file."""
 import numpy as np
 import os
-import sys
 from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
-    read_circuit,
-    get_mecombo_emodels,
     get_morph_emodel_names,
     combine_names,
 )
@@ -22,7 +19,11 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
         gidx: index of cell
     """
 
-    directories_to_be_checked = ["hoc_recordings", "python_recordings"]
+    directories_to_be_checked = [
+        "hoc_recordings",
+        "python_recordings",
+        "old_python_recordings",
+    ]
 
     files_to_be_checked = [
         "constants.hoc",
@@ -125,9 +126,17 @@ def test_voltages(mtype="L1_DAC", etype="bNAC", gidx=1):
         py_path = os.path.join(
             script_path, "python_recordings", "soma_voltage_step%d.dat" % (idx + 1)
         )
+        old_py_path = os.path.join(
+            script_path, "old_python_recordings", "soma_voltage_step%d.dat" % (idx + 1)
+        )
 
         hoc_voltage = np.loadtxt(hoc_path)
         py_voltage = np.loadtxt(py_path)
+        old_py_voltage = np.loadtxt(old_py_path)
 
         rms = np.sqrt(np.mean((hoc_voltage[:, 1] - py_voltage[:, 1]) ** 2))
+        rms_old_vs_new = np.sqrt(
+            np.mean((old_py_voltage[:, 1] - py_voltage[:, 1]) ** 2)
+        )
         assert rms < threshold
+        assert rms_old_vs_new < threshold

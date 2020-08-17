@@ -15,10 +15,10 @@ import os
 import neuron
 import numpy
 
-recordings_dir = "python_recordings"
+recordings_dir = "old_python_recordings"
 
 
-def create_cell(add_synapses=True):
+def create_cell():
     """Create the cell model."""
     # Load main cell template
     neuron.h.load_file("%s.hoc" % neuron.h.template_name)
@@ -86,7 +86,7 @@ def create_recordings(cell):
 
 def run_step(step_number, plot_traces=None):
     """Run step current simulation with index step_number."""
-    cell = create_cell(add_synapses=False)
+    cell = create_cell()
 
     stimuli = create_stimuli(cell, step_number)  # NOQA
     recordings = create_recordings(cell)

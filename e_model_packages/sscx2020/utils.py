@@ -73,6 +73,14 @@ def get_morph_emodel_names(path, gid):
     return morph_fname, emodel_fname
 
 
+def get_output_path(mtype, etype, gidx, workflow_output_dir):
+    """Returns the path to the outputs directory of one cell model."""
+    inner_folder_name = combine_names(mtype, etype, gidx)
+    recording_path = os.path.join(mtype, etype, inner_folder_name)
+
+    return os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
+
+
 @contextmanager
 def cwd(path):
     """Cwd function that can be used in a context manager."""

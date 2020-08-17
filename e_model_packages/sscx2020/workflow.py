@@ -12,8 +12,8 @@ from e_model_packages.sscx2020.utils import (
     read_circuit,
     NpEncoder,
     get_mecombo_emodels,
-    combine_names,
     cwd,
+    get_output_path,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
@@ -104,11 +104,7 @@ class PrepareMEModelDirectory(luigi.Task):
     def output(self):
         """Does not produce output."""
         output_dir = workflow_config.get("paths", "output")
-        memodels_dir = os.path.join(output_dir, "memodel_dirs")
-        mtype_dir = os.path.join(memodels_dir, self.mtype)
-        metype_dir = os.path.join(mtype_dir, self.etype)
-        memodel_name = combine_names(self.mtype, self.etype, self.gidx)
-        memodel_dir = os.path.join(metype_dir, memodel_name)
+        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
 
         return luigi.LocalTarget(memodel_dir)
 
@@ -119,6 +115,7 @@ class PrepareMEModelDirectory(luigi.Task):
         os.makedirs(memodel_morph_dir)
         os.makedirs(os.path.join(memodel_dir, "hoc_recordings"))
         os.makedirs(os.path.join(memodel_dir, "python_recordings"))
+        os.makedirs(os.path.join(memodel_dir, "old_python_recordings"))
 
     def copy_morph_emodel(self, circuit, blueconfig, memodel_morph_dir):
         """Copy morphology and emodel."""
@@ -275,12 +272,8 @@ class CreateHoc(luigi.Task):
 
     def get_output_path(self):
         """Returns the path to the outputs directory."""
-        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
-        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
-
         workflow_output_dir = workflow_config.get("paths", "output")
-
-        return os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
+        return get_output_path(self.mtype, self.etype, self.gidx, workflow_output_dir)
 
     def output(self):
         """Produces the hoc file."""
@@ -324,11 +317,10 @@ class RunHoc(luigi.Task):
         """Produces the hoc recordings."""
         output_list = []
 
-        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
-        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
-
         workflow_output_dir = workflow_config.get("paths", "output")
-        script_path = os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
+        script_path = get_output_path(
+            self.mtype, self.etype, self.gidx, workflow_output_dir
+        )
         output_path = os.path.join(script_path, "hoc_recordings")
 
         for idx in range(3):
@@ -342,11 +334,10 @@ class RunHoc(luigi.Task):
 
     def run(self):
         """Executes the hoc script."""
-        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
-        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
-
         workflow_output_dir = workflow_config.get("paths", "output")
-        hoc_path = os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
+        hoc_path = get_output_path(
+            self.mtype, self.etype, self.gidx, workflow_output_dir
+        )
         with cwd(hoc_path):
             subprocess.call(["sh", "./run_hoc.sh"])
 
@@ -372,11 +363,10 @@ class RunPyScript(luigi.Task):
         """Produces the python recordings."""
         output_list = []
 
-        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
-        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
-
         workflow_output_dir = workflow_config.get("paths", "output")
-        script_path = os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
+        script_path = get_output_path(
+            self.mtype, self.etype, self.gidx, workflow_output_dir
+        )
         output_path = os.path.join(script_path, "python_recordings")
 
         for idx in range(3):
@@ -390,13 +380,59 @@ class RunPyScript(luigi.Task):
 
     def run(self):
         """Executes the python script."""
-        inner_folder_name = combine_names(self.mtype, self.etype, self.gidx)
-        recording_path = os.path.join(self.mtype, self.etype, inner_folder_name)
-
         workflow_output_dir = workflow_config.get("paths", "output")
-        script_path = os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
+        script_path = get_output_path(
+            self.mtype, self.etype, self.gidx, workflow_output_dir
+        )
         with cwd(script_path):
             subprocess.call(["sh", "./run_py.sh"])
+
+
+class RunOldPyScript(luigi.Task):
+    """Task to run the python script for an emodel.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gidx = luigi.IntParameter()
+
+    def requires(self):
+        """Requires the hoc file to have been created."""
+        return CreateHoc(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
+
+    def output(self):
+        """Produces the python recordings."""
+        output_list = []
+
+        workflow_output_dir = workflow_config.get("paths", "output")
+        script_path = get_output_path(
+            self.mtype, self.etype, self.gidx, workflow_output_dir
+        )
+        output_path = os.path.join(script_path, "old_python_recordings")
+
+        for idx in range(3):
+            output_list.append(
+                luigi.LocalTarget(
+                    os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+                )
+            )
+
+        return output_list
+
+    def run(self):
+        """Executes the python script."""
+        workflow_output_dir = workflow_config.get("paths", "output")
+        script_path = get_output_path(
+            self.mtype, self.etype, self.gidx, workflow_output_dir
+        )
+        with cwd(script_path):
+            subprocess.call(["nrnivmodl", "mechanisms"])
+            subprocess.call(["python", "./old_run.py"])
 
 
 class DoRecordings(luigi.WrapperTask):
@@ -417,6 +453,7 @@ class DoRecordings(luigi.WrapperTask):
         tasks = [
             RunHoc(self.mtype, self.etype, self.gidx),
             RunPyScript(self.mtype, self.etype, self.gidx),
+            RunOldPyScript(self.mtype, self.etype, self.gidx),
         ]
         return tasks
 
