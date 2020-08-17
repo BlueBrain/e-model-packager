@@ -1,6 +1,6 @@
 """Test file."""
-import numpy as np
 import os
+import numpy as np
 from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
     get_morph_emodel_names,
@@ -114,6 +114,7 @@ def test_voltages(mtype="L1_DAC", etype="bNAC", gidx=1):
         gidx: index of cell
     """
     threshold = 1e-3
+    threshold_py_recs = 1e-8
 
     inner_folder_name = combine_names(mtype, etype, gidx)
     recording_path = os.path.join(mtype, etype, inner_folder_name)
@@ -135,8 +136,6 @@ def test_voltages(mtype="L1_DAC", etype="bNAC", gidx=1):
         old_py_voltage = np.loadtxt(old_py_path)
 
         rms = np.sqrt(np.mean((hoc_voltage[:, 1] - py_voltage[:, 1]) ** 2))
-        rms_old_vs_new = np.sqrt(
-            np.mean((old_py_voltage[:, 1] - py_voltage[:, 1]) ** 2)
-        )
+        rms_py_recs = np.sqrt(np.mean((old_py_voltage[:, 1] - py_voltage[:, 1]) ** 2))
         assert rms < threshold
-        assert rms_old_vs_new < threshold
+        assert rms_py_recs < threshold_py_recs
