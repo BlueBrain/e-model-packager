@@ -5,23 +5,31 @@
 
 """
 
-
 from __future__ import print_function
 
 
 # pylint: disable=C0325, W0212, F0401, W0612, F0401
 
+import configparser
 import os
 import neuron
 import numpy
 
-recordings_dir = "old_python_recordings"
+config = configparser.ConfigParser()
+config.read(os.path.join("config", "config.ini"))
+etype = config.get("Cell", "etype")
+mtype = config.get("Cell", "mtype")
+gidx = config.get("Cell", "gidx")
+inner = "_".join([mtype, etype, str(gidx)])
+
+path = os.path.join("memodel_dirs", mtype, etype, inner)
+recordings_dir = os.path.join(path, "old_python_recordings")
 
 
 def create_cell():
     """Create the cell model."""
     # Load main cell template
-    neuron.h.load_file("%s.hoc" % neuron.h.template_name)
+    neuron.h.load_file(os.path.join(path, "%s.hoc" % neuron.h.template_name))
 
     # Instantiate the cell from the template
 
@@ -38,7 +46,7 @@ def create_stimuli(cell, step_number):
     stimuli = []
     step_amp = [0] * 3
 
-    with open("current_amps.dat", "r") as current_amps_file:
+    with open(os.path.join(path, "current_amps.dat"), "r") as current_amps_file:
         first_line = current_amps_file.read().split("\n")[0].strip()
         hyp_amp, step_amp[0], step_amp[1], step_amp[2] = first_line.split(" ")
 
@@ -131,7 +139,9 @@ def init_simulation():
     neuron.h.load_file("import3d.hoc")
 
     print("Loading constants")
-    neuron.h.load_file("constants.hoc")
+    neuron.h.load_file(os.path.join(path, "constants.hoc"))
+
+    neuron.h.morph_dir = os.path.join(path, neuron.h.morph_dir)
 
     if not os.path.exists(recordings_dir):
         os.mkdir(recordings_dir)

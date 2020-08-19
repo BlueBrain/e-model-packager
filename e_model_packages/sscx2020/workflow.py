@@ -86,6 +86,112 @@ class ParseCircuit(luigi.Task):
             json.dump(self.mtype_etype_gids, out_file, indent=4, cls=NpEncoder)
 
 
+class PrepareOutputDirectory(luigi.Task):
+    """Task to prepare the output directory.
+
+    Copy scripts, config, templates and params files in the main output directory.
+    """
+
+    def output(self):
+        """Copy files."""
+        targets = []
+        output_dir = workflow_config.get("paths", "output")
+        files = workflow_config.get("files", "general_scripts")
+
+        for f in files:
+            targets.append(luigi.LocalTarget(os.path.join(output_dir, f)))
+        targets.append(luigi.LocalTarget(os.path.join(output_dir, "config")))
+        targets.append(luigi.LocalTarget(os.path.join(output_dir, "templates")))
+
+        return targets
+
+    @staticmethod
+    def copy_templates(output_dir):
+        """Copy mechanisms into output directory."""
+        output_templates_dir = os.path.join(output_dir, "templates")
+        shutil.copytree(
+            workflow_config.get("paths", "templates_to_copy_dir"), output_templates_dir
+        )
+
+    @staticmethod
+    def copy_config(output_dir):
+        """Copy python recordings config into output directory."""
+        output_config_dir = os.path.join(output_dir, "config")
+        shutil.copytree(
+            workflow_config.get("paths", "emodel_config_dir"), output_config_dir,
+        )
+
+    @staticmethod
+    def copy_scripts(output_dir):
+        """Copy scripts."""
+        scripts_dir = workflow_config.get("paths", "scripts_dir")
+        script_files = workflow_config.get("files", "general_scripts")
+
+        for script_file in script_files:
+            script_path = os.path.join(scripts_dir, script_file)
+            shutil.copy(script_path, output_dir)
+
+    def run(self):
+        """Copy scripts, config and templates."""
+        output_dir = workflow_config.get("paths", "output")
+
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir)
+
+        # teamplates to be copied
+        self.copy_templates(output_dir)
+
+        # python recordings config
+        self.copy_config(output_dir)
+
+        # scripts
+        self.copy_scripts(output_dir)
+
+
+class PrepareConfig(luigi.Task):
+    """Task to prepare the e-model directory.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gid: id of cell in the circuit
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gidx = luigi.IntParameter()
+
+    def requires(self):
+        """Requires the output directory to have been created."""
+        return PrepareOutputDirectory()
+
+    def output(self):
+        """Write config file."""
+        output_dir = workflow_config.get("paths", "output")
+        config_file = os.path.join(output_dir, "config", "config.ini")
+
+        return luigi.LocalTarget(config_file)
+
+    def run(self):
+        """Write mtype, etype, gidx in config file."""
+        config_dir = workflow_config.get("paths", "emodel_config_dir")
+        config_path = os.path.join(config_dir, "config_example.ini")
+
+        with open(self.output().path, "w") as out_file:
+            with open(config_path, "r") as in_file:
+                for line in in_file:
+                    if "mtype" in line.split("="):
+                        line = "mtype={}\n".format(self.mtype)
+                    elif "etype" in line.split("="):
+                        line = "etype={}\n".format(self.etype)
+                    elif "gidx" in line.split("="):
+                        line = "gidx={}\n".format(self.gidx)
+
+                    if line[0] != "#":
+                        out_file.write(line)
+
+
 class PrepareMEModelDirectory(luigi.Task):
     """Task to prepare the e-model directory.
 
@@ -101,6 +207,14 @@ class PrepareMEModelDirectory(luigi.Task):
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
 
+    def requires(self):
+        """Requires the script to have been copied in the main output directory."""
+        tasks = [
+            PrepareOutputDirectory(),
+            PrepareConfig(self.mtype, self.etype, self.gidx),
+        ]
+        return tasks
+
     def output(self):
         """Does not produce output."""
         output_dir = workflow_config.get("paths", "output")
@@ -108,9 +222,9 @@ class PrepareMEModelDirectory(luigi.Task):
 
         return luigi.LocalTarget(memodel_dir)
 
-    @staticmethod
-    def makedirs(memodel_dir, memodel_morph_dir):
+    def makedirs(self, memodel_morph_dir):
         """Make directories."""
+        memodel_dir = self.output().path
         os.makedirs(memodel_dir)
         os.makedirs(memodel_morph_dir)
         os.makedirs(os.path.join(memodel_dir, "hoc_recordings"))
@@ -131,60 +245,34 @@ class PrepareMEModelDirectory(luigi.Task):
 
         return mecombo, morph_fname
 
-    @staticmethod
-    def copy_templates(memodel_dir):
+    def copy_mechanisms(self):
         """Copy mechanisms into output directory."""
-        memodel_templates_dir = os.path.join(memodel_dir, "templates")
-        shutil.copytree(
-            workflow_config.get("paths", "templates_to_copy_dir"), memodel_templates_dir
-        )
-
-    @staticmethod
-    def copy_mechanisms(memodel_dir):
-        """Copy mechanisms into output directory."""
-        memodel_mechanisms_dir = os.path.join(memodel_dir, "mechanisms")
+        memodel_mechanisms_dir = os.path.join(self.output().path, "mechanisms")
         shutil.copytree(
             workflow_config.get("paths", "mechanisms_dir"), memodel_mechanisms_dir
         )
 
-    @staticmethod
-    def copy_python_recordings_config(memodel_dir):
-        """Copy python recordings config into output directory."""
-        memodel_py_rec_config_dir = os.path.join(memodel_dir, "config")
-        shutil.copytree(
-            workflow_config.get("paths", "python_recordings_config_dir"),
-            memodel_py_rec_config_dir,
-        )
-
-    @staticmethod
-    def copy_scripts(memodel_dir):
+    def copy_scripts(self):
         """Copy scripts."""
         scripts_dir = workflow_config.get("paths", "scripts_dir")
-        script_files = workflow_config.get("files", "scripts")
+        script_files = workflow_config.get("files", "memodel_scripts")
 
         for script_file in script_files:
             script_path = os.path.join(scripts_dir, script_file)
-            shutil.copy(script_path, memodel_dir)
+            shutil.copy(script_path, self.output().path)
 
-    @staticmethod
-    def write_down_using_templates(memodel_dir, templates_dir, template_vars):
+    def write_down_using_templates(self, templates_dir, template_vars):
         """Fill in and write constants.hoc & current_amp.dat templates given templates & vars."""
         for template_fn, variables in template_vars.items():
             template_path = os.path.join(templates_dir, template_fn)
             template = open(template_path).read()
             content = template.format(**variables)
 
-            output_path = os.path.join(memodel_dir, template_fn)
+            output_path = os.path.join(self.output().path, template_fn)
             open(output_path, "w").write(content)
 
     def fill_in_templates(
-        self,
-        mecombo_thresholds,
-        mecombo_hypamps,
-        mecombo,
-        emodel,
-        morph_fname,
-        memodel_dir,
+        self, mecombo_thresholds, mecombo_hypamps, mecombo, emodel, morph_fname,
     ):
         """Fill in and write constants.hoc & current_amp.dat templates."""
         templates_dir = workflow_config.get("paths", "templates_dir")
@@ -207,7 +295,7 @@ class PrepareMEModelDirectory(luigi.Task):
             "amp3": 2.50 * threshold,
         }
 
-        self.write_down_using_templates(memodel_dir, templates_dir, template_vars)
+        self.write_down_using_templates(templates_dir, template_vars)
 
     def run(self):
         """Create me-model directories."""
@@ -222,34 +310,23 @@ class PrepareMEModelDirectory(luigi.Task):
         memodel_morph_dir = os.path.join(memodel_dir, "morphology")
 
         # make dirs
-        self.makedirs(memodel_dir, memodel_morph_dir)
+        self.makedirs(memodel_morph_dir)
 
         # morph & mecombo
         mecombo, morph_fname = self.copy_morph_emodel(
             circuit, blueconfig, memodel_morph_dir
         )
 
-        # teamplates to be copied
-        self.copy_templates(memodel_dir)
-
-        # mechanisms
-        self.copy_mechanisms(memodel_dir)
-
-        # python recordings config
-        self.copy_python_recordings_config(memodel_dir)
+        # copy mechanisms
+        self.copy_mechanisms()
 
         # scripts
-        self.copy_scripts(memodel_dir)
+        self.copy_scripts()
 
         # templates to be filled
         emodel = mecombo_emodels[mecombo]
         self.fill_in_templates(
-            mecombo_thresholds,
-            mecombo_hypamps,
-            mecombo,
-            emodel,
-            morph_fname,
-            memodel_dir,
+            mecombo_thresholds, mecombo_hypamps, mecombo, emodel, morph_fname,
         )
 
 
@@ -291,8 +368,8 @@ class CreateHoc(luigi.Task):
 
     def run(self):
         """Createss the hoc script."""
-        output_path = self.get_output_path()
-        with cwd(output_path):
+        workflow_output_dir = workflow_config.get("paths", "output")
+        with cwd(workflow_output_dir):
             subprocess.call(["python", "create_hoc.py"])
 
 
@@ -381,10 +458,7 @@ class RunPyScript(luigi.Task):
     def run(self):
         """Executes the python script."""
         workflow_output_dir = workflow_config.get("paths", "output")
-        script_path = get_output_path(
-            self.mtype, self.etype, self.gidx, workflow_output_dir
-        )
-        with cwd(script_path):
+        with cwd(workflow_output_dir):
             subprocess.call(["sh", "./run_py.sh"])
 
 
@@ -427,12 +501,8 @@ class RunOldPyScript(luigi.Task):
     def run(self):
         """Executes the python script."""
         workflow_output_dir = workflow_config.get("paths", "output")
-        script_path = get_output_path(
-            self.mtype, self.etype, self.gidx, workflow_output_dir
-        )
-        with cwd(script_path):
-            subprocess.call(["nrnivmodl", "mechanisms"])
-            subprocess.call(["python", "./old_run.py"])
+        with cwd(workflow_output_dir):
+            subprocess.call(["sh", "./run_old_py.sh"])
 
 
 class DoRecordings(luigi.WrapperTask):
