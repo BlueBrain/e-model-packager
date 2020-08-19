@@ -5,4 +5,4 @@ source config/config.ini
 MY_PATH=memodel_dirs/$mtype/$etype/${mtype}_${etype}_${gidx}
 # preloaded=False not implemented yet in BluePyOpt mechanisms
 nrnivmodl $MY_PATH/mechanisms
-python run.py
+python old_run.py
