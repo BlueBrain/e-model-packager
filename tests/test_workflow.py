@@ -1,4 +1,5 @@
 """Test file."""
+import configparser
 import os
 import numpy as np
 from tests.decorators import launch_luigi
@@ -91,9 +92,9 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
     for item in mechanisms:
         memodel_files_to_be_checked.append(os.path.join("mechanisms", item))
 
-    morph_fname, _ = get_morph_emodel_names(
-        os.path.join("e_model_packages", "sscx2020"), gid
-    )
+    config = configparser.ConfigParser()
+    config.read(os.path.join("tests", "luigi_test.cfg"))
+    morph_fname, _ = get_morph_emodel_names(gid, config)
     memodel_files_to_be_checked.append(os.path.join("morphology", morph_fname))
 
     path_ = os.path.join("tests", "output", "memodel_dirs")

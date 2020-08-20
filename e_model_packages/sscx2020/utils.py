@@ -2,7 +2,6 @@
 
 import json
 import os
-import configparser
 from contextlib import contextmanager
 import numpy as np
 import bluepy
@@ -57,10 +56,8 @@ def combine_names(mtype, etype, gidx):
     return "_".join([mtype, etype, str(gidx)])
 
 
-def get_morph_emodel_names(path, gid):
+def get_morph_emodel_names(gid, config):
     """Get morphology and emodel filenames."""
-    config = configparser.ConfigParser()
-    config.read(os.path.join(path, "luigi.cfg"))
     circuit, blueconfig = read_circuit(config["paths"]["circuit"])
 
     mecombo_emodels, _, _ = get_mecombo_emodels(blueconfig)
