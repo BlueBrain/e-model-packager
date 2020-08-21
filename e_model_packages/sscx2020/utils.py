@@ -7,6 +7,8 @@ import numpy as np
 import bluepy
 from bluepy_configfile.configfile import BlueConfig
 
+# pylint: disable=super-with-arguments
+
 
 def read_circuit(config_path):
     """Read circuit info."""

@@ -79,6 +79,8 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
         "StochKv3.mod",
     ]
 
+    synapses = ["synapses.tsv", "synconf.txt"]
+
     output_files_to_be_checked.append(os.path.join("config", "recipes", "recipes.json"))
     output_files_to_be_checked.append(os.path.join("config", "config_example.ini"))
     output_files_to_be_checked.append(os.path.join("config", "config.ini"))
@@ -91,6 +93,9 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
 
     for item in mechanisms:
         memodel_files_to_be_checked.append(os.path.join("mechanisms", item))
+
+    for item in synapses:
+        memodel_files_to_be_checked.append(os.path.join("synapses", item))
 
     config = configparser.ConfigParser()
     config.read(os.path.join("tests", "luigi_test.cfg"))
