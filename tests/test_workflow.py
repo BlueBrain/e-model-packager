@@ -10,7 +10,7 @@ from e_model_packages.sscx2020.utils import (
 
 
 @launch_luigi(module="workflow", task="PrepareMEModelDirectory")
-def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
+def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     """Check that e-model directories have been created, given the attributes of a given test cell
 
     Attributes:
@@ -126,7 +126,7 @@ def test_directory_exists(mtype="L1_DAC", etype="bNAC", gid=4, gidx=1):
 
 
 @launch_luigi(module="workflow", task="DoRecordings")
-def test_voltages(mtype="L1_DAC", etype="bNAC", gidx=1):
+def test_voltages(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     """Test to compare the voltages produced via python and hoc.
 
     Attributes:

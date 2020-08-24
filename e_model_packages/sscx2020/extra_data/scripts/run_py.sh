@@ -4,5 +4,7 @@
 source config/config.ini
 MY_PATH=memodel_dirs/$mtype/$etype/${mtype}_${etype}_${gidx}
 # preloaded=False not implemented yet in BluePyOpt mechanisms
-nrnivmodl $MY_PATH/mechanisms
+if [ ! -f "x86_64/special" ]; then
+    nrnivmodl $MY_PATH/mechanisms
+fi
 python run.py

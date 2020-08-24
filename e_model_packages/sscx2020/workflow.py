@@ -63,10 +63,7 @@ class ParseCircuit(luigi.Task):
                     tasks.append(PrepareMEModelDirectory(mtype, etype, gid, gidx))
         else:
             gids = list(
-                circuit.cells.ids(
-                    {bpcell.MTYPE: self.mtype, bpcell.ETYPE: self.etype},
-                    limit=self.gids_per_metype,
-                )
+                circuit.cells.ids({bpcell.MTYPE: self.mtype, bpcell.ETYPE: self.etype})
             )
             gid = gids[self.gidx - 1]
             self.mtype_etype_gids[self.mtype][self.etype] = [
@@ -444,11 +441,13 @@ class CreateHoc(luigi.Task):
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        gid : cell id
         gidx: index of cell
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
+    gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
 
     def requires(self):
@@ -463,14 +462,15 @@ class CreateHoc(luigi.Task):
     def output(self):
         """Produces the hoc file."""
         output_path = self.get_output_path()
-        with open(os.path.join(output_path, "constants.hoc"), "r") as f:
-            lines = f.readlines()
 
-        for line in lines:
-            line = line.split("=")
-            if line[0] == "template_fname":
-                tmp = line[1].rstrip()
-                filename = tmp.strip('"')
+        circuit_config_path = workflow_config.get("paths", "circuit")
+        circuit_, blueconfig_ = read_circuit(circuit_config_path)
+        mecombo_emodels_, _, _ = get_mecombo_emodels(blueconfig_)
+        cell_ = circuit_.cells.get(self.gid)
+        mecombo_ = cell_.me_combo
+        emodel = mecombo_emodels_[mecombo_]
+
+        filename = emodel + ".hoc"
 
         return luigi.LocalTarget(os.path.join(output_path, filename))
 
@@ -487,16 +487,20 @@ class RunHoc(luigi.Task):
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        gid : cell id
         gidx: index of cell
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
+    gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
 
     def requires(self):
         """Requires the hoc file to have been created."""
-        return CreateHoc(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
+        return CreateHoc(
+            mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+        )
 
     def output(self):
         """Produces the hoc recordings."""
@@ -576,16 +580,20 @@ class RunOldPyScript(luigi.Task):
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        gid: cell id
         gidx: index of cell
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
+    gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
 
     def requires(self):
         """Requires the hoc file to have been created."""
-        return CreateHoc(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
+        return CreateHoc(
+            mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+        )
 
     def output(self):
         """Produces the python recordings."""
@@ -619,19 +627,21 @@ class DoRecordings(luigi.WrapperTask):
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        gid: cell id
         gidx: index of cell
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
+    gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
 
     def requires(self):
         """Launch both RunHoc and RunPyScript."""
         tasks = [
-            RunHoc(self.mtype, self.etype, self.gidx),
+            RunHoc(self.mtype, self.etype, self.gid, self.gidx),
             RunPyScript(self.mtype, self.etype, self.gidx),
-            RunOldPyScript(self.mtype, self.etype, self.gidx),
+            RunOldPyScript(self.mtype, self.etype, self.gid, self.gidx),
         ]
         return tasks
 
