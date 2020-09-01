@@ -118,7 +118,8 @@ class PrepareOutputDirectory(luigi.Task):
         """Copy python recordings config into output directory."""
         output_config_dir = os.path.join(output_dir, "config")
         shutil.copytree(
-            workflow_config.get("paths", "emodel_config_dir"), output_config_dir,
+            workflow_config.get("paths", "emodel_config_dir"),
+            output_config_dir,
         )
 
     @staticmethod
@@ -307,18 +308,21 @@ class PrepareMEModelDirectory(luigi.Task):
         ssim.instantiate_gids([self.gid], synapse_detail=2, add_replay=True)
 
         cell_info_dict = ssim.cells[self.gid].info_dict
+        cell = ssim.cells[self.gid]
 
         n_of_synapses = len(cell_info_dict["synapses"].items())
 
-        a_key = list(cell_info_dict["synapses"].keys())[0]
-        n_of_cols = len(cell_info_dict["synapses"][a_key])
+        # n_of_cols is actually not related to nmb of keys
+        n_of_cols = 14
 
         synapse_tsv_content = "%d %d\n" % (n_of_synapses, n_of_cols)
 
         synconf_dict = collections.defaultdict(list)
         synconf_ordering = []
 
-        for synapse_id, synapse_dict in cell_info_dict["synapses"].items():
+        for (synapse_id, synapse_dict), (_, synapse) in zip(
+            cell_info_dict["synapses"].items(), cell.synapses.items()
+        ):
             if synapse_dict["syn_type"] > 100:
                 # 119 or synapse_dict['syn_type'] == 113:
                 tau_d = synapse_dict["synapse_parameters"]["tau_d_AMPA"]
@@ -354,6 +358,7 @@ class PrepareMEModelDirectory(luigi.Task):
                         "%.20e" % tau_d,
                         delay,
                         weight,
+                        synapse.hsynapse.Nrrp,
                     ]
                 ]
             )
@@ -373,7 +378,12 @@ class PrepareMEModelDirectory(luigi.Task):
             )
 
     def fill_in_templates(
-        self, mecombo_thresholds, mecombo_hypamps, mecombo, emodel, morph_fname,
+        self,
+        mecombo_thresholds,
+        mecombo_hypamps,
+        mecombo,
+        emodel,
+        morph_fname,
     ):
         """Fill in and write constants.hoc & current_amp.dat templates."""
         templates_dir = workflow_config.get("paths", "templates_dir")
@@ -431,7 +441,11 @@ class PrepareMEModelDirectory(luigi.Task):
         # templates to be filled
         emodel = mecombo_emodels[mecombo]
         self.fill_in_templates(
-            mecombo_thresholds, mecombo_hypamps, mecombo, emodel, morph_fname,
+            mecombo_thresholds,
+            mecombo_hypamps,
+            mecombo,
+            emodel,
+            morph_fname,
         )
 
 

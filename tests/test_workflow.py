@@ -1,7 +1,11 @@
 """Test file."""
 import configparser
 import os
+import random
+import subprocess
 import numpy as np
+
+import bglibpy
 from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
     get_morph_emodel_names,
@@ -43,6 +47,7 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "load.py",
         "myrecordings.py",
         "mymorphology.py",
+        "mysynapse.py",
         "create_hoc.py",
     ]
 
@@ -79,11 +84,13 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "StochKv3.mod",
     ]
 
+    config_files = ["config_example.ini", "config.ini", "config_synapses.ini"]
+
     synapses = ["synapses.tsv", "synconf.txt"]
 
     output_files_to_be_checked.append(os.path.join("config", "recipes", "recipes.json"))
-    output_files_to_be_checked.append(os.path.join("config", "config_example.ini"))
-    output_files_to_be_checked.append(os.path.join("config", "config.ini"))
+    for item in config_files:
+        output_files_to_be_checked.append(os.path.join("config", item))
 
     for item in templates:
         output_files_to_be_checked.append(os.path.join("templates", item))
@@ -132,6 +139,7 @@ def test_voltages(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        gid: cell id
         gidx: index of cell
     """
     threshold = 1e-3
@@ -160,3 +168,63 @@ def test_voltages(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         rms_py_recs = np.sqrt(np.mean((old_py_voltage[:, 1] - py_voltage[:, 1]) ** 2))
         assert rms < threshold
         assert rms_py_recs < threshold_py_recs
+
+
+def run_bglibpy_cell(blueconfig_path, gid, sim_time, dt=0.025):
+    """Run the cell in bglibpy with synapses"""
+    bglibpy.set_verbose(0)
+    ssim = bglibpy.SSim(blueconfig_path, record_dt=0.1)
+    ssim.instantiate_gids([gid], add_synapses=True)
+    cell = ssim.cells[gid]
+
+    connections = []
+    random.seed(1)
+    for _, synapse in cell.synapses.items():
+        spike_train = np.array([random.uniform(50, sim_time)])
+        connection = bglibpy.Connection(synapse, spike_train, stim_dt=dt)
+        connections.append(connection)
+
+    ssim.run(sim_time, forward_skip=False, v_init=-80, dt=dt, cvode=False)
+
+    return ssim.get_time(), ssim.get_voltage_traces()[gid]
+
+
+@launch_luigi(module="workflow", task="PrepareMEModelDirectory")
+def test_synapses(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
+    """Test to compare the output of cell with synapses between our run.py and bglibpy.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gid: cell id
+        gidx: index of cell
+    """
+
+    threshold = 1e-3
+
+    # get circuit path for bglibpy
+    config_circuit = configparser.ConfigParser()
+    config_circuit.read(os.path.join("tests", "luigi_test.cfg"))
+    circuit_config_path = config_circuit.get("paths", "circuit")
+
+    # run run.py
+    os.chdir("tests/output")
+    base_path = f"memodel_dirs/{mtype}/{etype}/{mtype}_{etype}_{gidx}"
+    path_to_mechanisms = os.path.join(base_path, "mechanisms")
+    subprocess.call(["nrnivmodl", path_to_mechanisms])
+    subprocess.call(["python", "run.py", "--c", "config_synapses.ini"])
+
+    # run cells from bglibpy
+    sim_time = 3000
+    _, bg_v = run_bglibpy_cell(circuit_config_path, gid, sim_time)
+
+    # load run.py output
+    py_path = os.path.join(base_path, "python_recordings", "soma_voltage_vecstim.dat")
+    py_v = np.loadtxt(py_path)
+
+    os.chdir("../..")
+
+    # compare
+    rms = np.sqrt(np.mean((bg_v - py_v[:, 1]) ** 2))
+    print(rms)
+    assert rms < threshold

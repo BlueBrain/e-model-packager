@@ -1,5 +1,6 @@
 """Create python recordings."""
 
+import argparse
 import os
 import numpy as np
 
@@ -11,38 +12,48 @@ from load import (
     create_cell,
 )
 
-config = load_config()
 
-output_dir = config.get("Paths", "output_dir")
-output_file = config.get("Paths", "output_file")
+def main(config_file):
+    """Main."""
+    config = load_config(filename=config_file)
 
-cell, release_params, dt_tmp = create_cell(config)
+    output_dir = config.get("Paths", "output_dir")
+    output_file = config.get("Paths", "output_file")
 
-# create protocols
-amp_filename = os.path.join(
-    config.get("Paths", "protocol_amplitudes_dir"),
-    config.get("Paths", "protocol_amplitudes_file"),
-)
-protocols = define_protocols(amp_filename, config)
+    cell, release_params, dt_tmp = create_cell(config)
 
-# simulator
-if config.has_section("Sim") and config.has_option("Sim", "dt"):
-    dt = config.getfloat("Sim", "dt")
-else:
-    dt = dt_tmp
-nrn = ephys.simulators.NrnSimulator(dt=dt)
+    # simulator
+    if config.has_section("Sim") and config.has_option("Sim", "dt"):
+        dt = config.getfloat("Sim", "dt")
+    else:
+        dt = dt_tmp
+    sim = ephys.simulators.NrnSimulator(dt=dt)
 
-# run
-print("Python Recordings Running...")
+    # create protocols
+    protocols = define_protocols(config, cell)
 
-responses = protocols.run(cell_model=cell, param_values=release_params, sim=nrn)
+    # run
+    print("Python Recordings Running...")
 
-for key, resp in responses.items():
-    output_path = os.path.join(output_dir, output_file + key + ".dat")
+    responses = protocols.run(cell_model=cell, param_values=release_params, sim=sim)
 
-    time = np.array(resp["time"])
-    soma_voltage = np.array(resp["voltage"])
+    for key, resp in responses.items():
+        output_path = os.path.join(output_dir, output_file + key + ".dat")
 
-    np.savetxt(output_path, np.transpose(np.vstack((time, soma_voltage))))
+        time = np.array(resp["time"])
+        soma_voltage = np.array(resp["voltage"])
 
-print("Python Recordings Done")
+        np.savetxt(output_path, np.transpose(np.vstack((time, soma_voltage))))
+
+    print("Python Recordings Done")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--c",
+        default="config.ini",
+        help="the name of the config file",
+    )
+    args = parser.parse_args()
+    main(args.c)

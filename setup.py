@@ -33,7 +33,7 @@ setup(
     dependency_links=[
         "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/"
     ],
-    install_requires=["luigi", "numpy", "bluepy", "bluepyopt", "bglibpy"],
+    install_requires=["luigi", "numpy", "bluepy", "bluepyopt", "bglibpy", "bluepysnap"],
     packages=find_packages(),
     python_requires=">=2.7",
     classifiers=[
@@ -46,6 +46,8 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
-    use_scm_version={"local_scheme": "no-local-version",},
+    use_scm_version={
+        "local_scheme": "no-local-version",
+    },
     setup_requires=["setuptools_scm"],
 )

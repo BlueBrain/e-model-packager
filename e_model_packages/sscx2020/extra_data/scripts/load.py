@@ -9,6 +9,11 @@ import bluepyopt.ephys as ephys
 
 from mymorphology import NrnFileMorphologyCustom
 from myrecordings import MyRecording
+from mysynapse import (
+    MyNrnMODPointProcessMechanism,
+    MyNrnNetStimStimulus,
+    MyNrnVecStimStimulus,
+)
 
 
 def load_config(config_dir="config", filename="config.ini"):
@@ -17,15 +22,28 @@ def load_config(config_dir="config", filename="config.ini"):
 
     defaults = {
         # protocol
+        "step_stimulus": "True",
         "total_duration": "3000",
         "stimulus_delay": "700",
         "stimulus_duration": "2000",
         "hold_stimulus_delay": "0",
         "hold_stimulus_duration": "3000",
-        "cvcode_active": "False",
+        "syn_stim_mode": "None",
+        "syn_total_duration": "${total_duration}",
+        "syn_interval": "0.025",
+        "syn_nmb_of_spikes": "5",
+        "syn_start": "50",
+        "syn_noise": "0",
+        "syn_stim_seed": "1",
         # morphology
         "do_replace_axon": "True",
         "do_set_nseg": "40",
+        # sim
+        "cvcode_active": "False",
+        # synapse
+        "add_synapses": "False",
+        "seed": "932156",
+        "rng_settings_mode": "Random123",
         # paths
         "inner_dir": "${Cell:mtype}_${Cell:etype}_${Cell:gidx}",
         "memodel_dir": "memodel_dirs/${Cell:mtype}/${Cell:etype}/${inner_dir}",
@@ -43,6 +61,9 @@ def load_config(config_dir="config", filename="config.ini"):
         "create_hoc_template_file": "cell_template_neurodamus.jinja2",
         "replace_axon_hoc_dir": "${templates_dir}",
         "replace_axon_hoc_file": "replace_axon_hoc.hoc",
+        "syn_dir": "${memodel_dir}/synapses",
+        "syn_data_file": "synapses.tsv",
+        "syn_conf_file": "synconf.txt",
     }
 
     config = configparser.ConfigParser(
@@ -51,7 +72,7 @@ def load_config(config_dir="config", filename="config.ini"):
     config.read(config_path)
 
     # make sure that config has all sections
-    secs = ["Cell", "Protocol", "Morphology", "Sim", "Paths"]
+    secs = ["Cell", "Protocol", "Morphology", "Sim", "Synapses", "Paths"]
     for sec in secs:
         if not config.has_section(sec):
             config.add_section(sec)
@@ -169,51 +190,168 @@ def load_mechanisms(mechs_filename):
     return mechanisms_list
 
 
-def define_protocols(amp_filename, config):
+def load_syn_locs(cell):
+    """Load synapse point process location."""
+    syn_locs = []
+    for mech in cell.mechanisms:
+        if hasattr(mech, "pprocesses"):
+            syn_locs.append(
+                ephys.locations.NrnPointProcessLocation("synapse_locs", mech)
+            )
+
+    if not syn_locs:
+        syn_locs = None
+
+    return syn_locs
+
+
+def get_syn_stim(
+    syn_locs,
+    syn_total_duration,
+    syn_nmb_of_spikes,
+    syn_interval,
+    syn_start,
+    syn_noise,
+    syn_stim_seed,
+    syn_stim_mode,
+):
+    """Get synapse stimulus depending on mode."""
+    if syn_stim_mode == "netstim":
+        return MyNrnNetStimStimulus(
+            syn_locs,
+            syn_total_duration,
+            syn_nmb_of_spikes,
+            syn_interval,
+            syn_start,
+            syn_noise,
+        )
+    elif syn_stim_mode == "vecstim":
+        return MyNrnVecStimStimulus(
+            syn_locs,
+            syn_total_duration,
+            syn_interval,
+            syn_start,
+            syn_stim_seed,
+        )
+    else:
+        return 0
+
+
+def define_protocols(config, cell=None):
     """Define Protocols."""
     # load config
+    step_stim = config.getboolean("Protocol", "step_stimulus")
     total_duration = config.getint("Protocol", "total_duration")
     step_delay = config.getint("Protocol", "stimulus_delay")
     step_duration = config.getint("Protocol", "stimulus_duration")
     hold_step_delay = config.getint("Protocol", "hold_stimulus_delay")
     hold_step_duration = config.getint("Protocol", "hold_stimulus_duration")
-    cvcode_active = config.getboolean("Protocol", "cvcode_active")
+    cvcode_active = config.getboolean("Sim", "cvcode_active")
+
+    add_synapses = config.getboolean("Synapses", "add_synapses")
+    syn_stim_mode = config.get("Protocol", "syn_stim_mode")
+    if syn_stim_mode not in ["vecstim", "netstim"]:
+        syn_stim_mode = None
+    if add_synapses and syn_stim_mode:
+        syn_total_duration = config.getint("Protocol", "syn_total_duration")
+        syn_interval = config.getfloat("Protocol", "syn_interval")
+        syn_nmb_of_spikes = config.getint("Protocol", "syn_nmb_of_spikes")
+        syn_start = config.getint("Protocol", "syn_start")
+        syn_noise = config.getint("Protocol", "syn_noise")
+        syn_stim_seed = config.getint("Protocol", "syn_stim_seed")
+
+    amp_filename = os.path.join(
+        config.get("Paths", "protocol_amplitudes_dir"),
+        config.get("Paths", "protocol_amplitudes_file"),
+    )
 
     # locations
     soma_loc = ephys.locations.NrnSeclistCompLocation(
         name="soma", seclist_name="somatic", sec_index=0, comp_x=0.5
     )
+    if add_synapses and syn_stim_mode:
+        if cell is not None:
+            syn_locs = load_syn_locs(cell)
+        else:
+            raise Exception("The cell is  missing in the define_protocol function.")
 
     # protocols
-    protocol_names = ["step{}".format(x) for x in range(1, 4)]
-    with open(amp_filename, "r") as f:
-        data = f.read().rstrip()
-    amps = data.split()
-    amplitudes = [float(amp) for amp in amps[1:]]  # do not take 1st value (hypamp)
-    hypamp = float(amps[0])
+    if step_stim:
+        protocol_names = ["step{}".format(x) for x in range(1, 4)]
+        with open(amp_filename, "r") as f:
+            data = f.read().rstrip()
+        amps = data.split()
+        amplitudes = [float(amp) for amp in amps[1:]]  # do not take 1st value (hypamp)
+        hypamp = float(amps[0])
+    else:
+        protocol_names = [syn_stim_mode]
 
     step_protocols = []
-    for protocol_name, amplitude in zip(protocol_names, amplitudes):
-        stim = ephys.stimuli.NrnSquarePulse(
-            step_amplitude=amplitude,
-            step_delay=step_delay,
-            step_duration=step_duration,
-            location=soma_loc,
-            total_duration=total_duration,
+    if step_stim:
+        for protocol_name, amplitude in zip(protocol_names, amplitudes):
+            # use MyRecording to sample time, voltage every 0.1 ms.
+            rec = MyRecording(name=protocol_name, location=soma_loc, variable="v")
+
+            stim = ephys.stimuli.NrnSquarePulse(
+                step_amplitude=amplitude,
+                step_delay=step_delay,
+                step_duration=step_duration,
+                location=soma_loc,
+                total_duration=total_duration,
+            )
+            hold_stim = ephys.stimuli.NrnSquarePulse(
+                step_amplitude=hypamp,
+                step_delay=hold_step_delay,
+                step_duration=hold_step_duration,
+                location=soma_loc,
+                total_duration=total_duration,
+            )
+
+            if syn_stim_mode and syn_locs is not None:
+                syn_stim = get_syn_stim(
+                    syn_locs,
+                    syn_total_duration,
+                    syn_nmb_of_spikes,
+                    syn_interval,
+                    syn_start,
+                    syn_noise,
+                    syn_stim_seed,
+                    syn_stim_mode,
+                )
+
+                stims = [stim, hold_stim, syn_stim]
+                protocol = ephys.protocols.SweepProtocol(
+                    protocol_name, stims, [rec], False
+                )
+            else:
+                protocol = ephys.protocols.StepProtocol(
+                    protocol_name, stim, hold_stim, [rec], cvode_active=cvcode_active
+                )
+            step_protocols.append(protocol)
+    elif syn_stim_mode and syn_locs is not None:
+        for protocol_name in protocol_names:
+            # use MyRecording to sample time, voltage every 0.1 ms.
+            rec = MyRecording(name=protocol_name, location=soma_loc, variable="v")
+
+            syn_stim = get_syn_stim(
+                syn_locs,
+                syn_total_duration,
+                syn_nmb_of_spikes,
+                syn_interval,
+                syn_start,
+                syn_noise,
+                syn_stim_seed,
+                syn_stim_mode,
+            )
+
+            stims = [syn_stim]
+            protocol = ephys.protocols.SweepProtocol(protocol_name, stims, [rec], False)
+            step_protocols.append(protocol)
+    else:
+        raise Exception(
+            f"No valid protocol was found. step_stimulus is {step_stim}"
+            f" and syn_stim_mode ({syn_stim_mode}) not in ['vecstim', 'netstim']."
         )
-        hold_stim = ephys.stimuli.NrnSquarePulse(
-            step_amplitude=hypamp,
-            step_delay=hold_step_delay,
-            step_duration=hold_step_duration,
-            location=soma_loc,
-            total_duration=total_duration,
-        )
-        # use MyRecording to sample time, voltage every 0.1 ms.
-        rec = MyRecording(name=protocol_name, location=soma_loc, variable="v")
-        protocol = ephys.protocols.StepProtocol(
-            protocol_name, stim, hold_stim, [rec], cvode_active=cvcode_active
-        )
-        step_protocols.append(protocol)
 
     return ephys.protocols.SequenceProtocol("twostep", protocols=step_protocols)
 
@@ -344,6 +482,28 @@ def get_axon_hoc(replace_axon_hoc):
         return f.read()
 
 
+def load_syn_mechs(config):
+    """Load synapse mechanisms."""
+    seed = config.getint("Synapses", "seed")
+    rng_settings_mode = config.get("Synapses", "rng_settings_mode")
+    syn_data_path = os.path.join(
+        config.get("Paths", "syn_dir"), config.get("Paths", "syn_data_file")
+    )
+    syn_conf_path = os.path.join(
+        config.get("Paths", "syn_dir"), config.get("Paths", "syn_conf_file")
+    )
+
+    # load synapse file data
+    synapses_data = load_tsv_data(syn_data_path)
+
+    # load synapse configuration
+    synconf_dict = load_synapse_configuration_data(syn_conf_path)
+
+    return MyNrnMODPointProcessMechanism(
+        "synapse_mechs", synapses_data, synconf_dict, seed, rng_settings_mode
+    )
+
+
 def create_cell(config):
     """Create a cell. Returns cell, release params and time step."""
     # load constants
@@ -368,6 +528,11 @@ def create_cell(config):
     )
     params_filename = find_param_file(recipes_path, emodel)
     mechs = load_mechanisms(params_filename)
+
+    # add synapses mechs
+    add_synapses = config.getboolean("Synapses", "add_synapses")
+    if add_synapses:
+        mechs += [load_syn_mechs(config)]
 
     # load parameters
     params_path = os.path.join(
@@ -397,3 +562,56 @@ def create_cell(config):
     )
 
     return cell, release_params, dt_tmp
+
+
+def load_tsv_data(tsv_path):
+    """Load synapse data from tsv."""
+    synapses = []
+    with open(tsv_path, "r") as f:
+        # first line is dimensions
+        for line in f.readlines()[1:]:
+            syn = {}
+            items = line.strip().split("\t")
+            syn_id = items[0]
+            projection, sid = syn_id.strip("()").split(",")
+            syn["synapse_id"] = syn_id
+            syn["projection"] = projection
+            syn["sid"] = int(sid)
+            syn["pre_cell_id"] = int(items[1])
+            syn["pre_mtype"] = items[2]
+            syn["sectionlist_id"] = int(items[3])
+            syn["sectionlist_index"] = int(items[4])
+            syn["seg_x"] = float(items[5])
+            syn["synapse_type"] = int(items[6])
+            syn["dep"] = float(items[7])
+            syn["fac"] = float(items[8])
+            syn["use"] = float(items[9])
+            syn["tau_d"] = float(items[10])
+            syn["delay"] = float(items[11])
+            syn["weight"] = float(items[12])
+            syn["Nrrp"] = float(items[13])
+
+            synapses.append(syn)
+
+    return synapses
+
+
+def load_synapse_configuration_data(synconf_path):
+    """Load synapse configuration data into dict[command]=list(ids)."""
+    synconf_dict = {}
+    with open(synconf_path, "r") as f:
+        synconfs = f.read().split("-1000000000000000.0")
+
+    for synconf in synconfs:
+        tmp = synconf.split("\n")
+        if "" in tmp:
+            tmp.remove("")
+        if len(tmp) == 2:
+            cmd, ids = tmp
+            ids = ids.replace(") ", ");")
+            ids = ids.split(";")
+            if "" in ids:
+                ids.remove("")
+            synconf_dict[cmd] = ids
+
+    return synconf_dict
