@@ -5,6 +5,9 @@
 */
 {load_file("stdrun.hoc")}
 {load_file("import3d.hoc")}
+{%- if add_synapses is sameas true %}
+{load_file("{{syn_dir}}/{{syn_hoc_filename}}")}
+{%- endif %}
 
 {%- if global_params %}
 /*
@@ -39,6 +42,10 @@ begintemplate {{template_name}}
   create soma[1], dend[1], apic[1], axon[1], myelin[1]
   public nSecAll, nSecSoma, nSecApical, nSecBasal, nSecMyelinated, nSecAxonalOrig, nSecAxonal
   public CellRef, synHelperList, synlist
+  {%- if add_synapses is sameas true %}
+  public synapses
+  objref synapses
+  {%- endif %}
   objref this, CellRef, segCounts, ASCIIrpt, synHelperList, synlist
 
   public all, somatic, apical, axonal, basal, myelinated, APC
@@ -118,6 +125,11 @@ proc init(/* args: morphology_dir, morphology_name */) {
   channel_seed_set = 0
   // Initialize random number generators
   re_init_rng()
+
+  {%- if add_synapses is sameas true %}
+  // Initialise synapses
+  load_synapses()
+  {%- endif %}
 }
 
 /*!
@@ -219,6 +231,14 @@ proc biophys() {
   distribute_distance(CellRef.{{location}}, "{{param_name}}", "{{value}}")
   {%- endfor %}
 }
+
+{%- if add_synapses is sameas true %}
+/** Load the synapses */                                                                             
+proc load_synapses() {
+    synapses = new {{synapses_template_name}}()
+    synapses.load_synapses(this)
+}
+{%- endif %}
 
 func sec_count(/* SectionList */) { local nSec
   nSec = 0

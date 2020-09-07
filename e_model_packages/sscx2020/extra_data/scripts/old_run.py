@@ -9,50 +9,56 @@ from __future__ import print_function
 
 
 # pylint: disable=C0325, W0212, F0401, W0612, F0401
-
-import configparser
+import argparse
 import os
-import neuron
 import numpy
+import random
+import neuron
 
-config = configparser.ConfigParser()
-config.read(os.path.join("config", "config.ini"))
-etype = config.get("Cell", "etype")
-mtype = config.get("Cell", "mtype")
-gidx = config.get("Cell", "gidx")
-inner = "_".join([mtype, etype, str(gidx)])
-
-path = os.path.join("memodel_dirs", mtype, etype, inner)
-recordings_dir = os.path.join(path, "old_python_recordings")
+from load import load_config
 
 
-def create_cell():
+def create_cell(path):
     """Create the cell model."""
     # Load main cell template
     neuron.h.load_file(os.path.join(path, "%s.hoc" % neuron.h.template_name))
 
     # Instantiate the cell from the template
-
     print("Loading cell")
+    # has to change current dir for the cell to load synapses if there is any.
+    cwd = os.getcwd()
+    os.chdir(path)
+
     template = getattr(neuron.h, neuron.h.template_name)
     cell = template(neuron.h.gid, neuron.h.morph_dir, neuron.h.morph_fname)
+
+    os.chdir(cwd)
     return cell
 
 
-def create_stimuli(cell, step_number):
+def create_stimuli(cell, step_number, config, path):
     """Create the stimuli."""
+    # load config
+    amps_file = config.get("Paths", "protocol_amplitudes_file")
+    stimulus_delay = config.getint("Protocol", "stimulus_delay")
+    stimulus_duration = config.getint("Protocol", "stimulus_duration")
+    hold_stimulus_delay = config.getint("Protocol", "hold_stimulus_delay")
+    hold_stimulus_duration = config.getint("Protocol", "hold_stimulus_duration")
+
     print("Attaching stimulus electrodes")
 
     stimuli = []
     step_amp = [0] * 3
 
-    with open(os.path.join(path, "current_amps.dat"), "r") as current_amps_file:
+    # get current amplitudes
+    with open(os.path.join(path, amps_file), "r") as current_amps_file:
         first_line = current_amps_file.read().split("\n")[0].strip()
         hyp_amp, step_amp[0], step_amp[1], step_amp[2] = first_line.split(" ")
 
+    # step stimulus
     iclamp = neuron.h.IClamp(0.5, sec=cell.soma[0])
-    iclamp.delay = 700
-    iclamp.dur = 2000
+    iclamp.delay = stimulus_delay
+    iclamp.dur = stimulus_duration
     iclamp.amp = float(step_amp[step_number - 1])
     print(
         "Setting up step current clamp: "
@@ -62,9 +68,10 @@ def create_stimuli(cell, step_number):
 
     stimuli.append(iclamp)
 
+    # hold stimulus
     hyp_iclamp = neuron.h.IClamp(0.5, sec=cell.soma[0])
-    hyp_iclamp.delay = 0
-    hyp_iclamp.dur = 3000
+    hyp_iclamp.delay = hold_stimulus_delay
+    hyp_iclamp.dur = hold_stimulus_duration
     hyp_iclamp.amp = float(hyp_amp)
     print(
         "Setting up hypamp current clamp: "
@@ -92,79 +99,171 @@ def create_recordings(cell):
     return recordings
 
 
-def run_step(step_number, plot_traces=None):
+def synapses_netstim(cell, config):
+    """Synapses stimuli."""
+    # load config data
+    syn_start = config.getint("Protocol", "syn_start")
+    syn_interval = config.getint("Protocol", "syn_interval")
+    syn_nmb_of_spikes = config.getint("Protocol", "syn_nmb_of_spikes")
+    syn_noise = config.getint("Protocol", "syn_noise")
+
+    persistency_list = []
+
+    # get synapse data
+    synapse_list = cell.synapses.synapse_list
+    delays = cell.synapses.delays.to_python()
+    weights = cell.synapses.weights.to_python()
+    synapses = [synapse_list.o(i) for i in range(int(synapse_list.count()))]
+
+    # create synapse stimuli
+    for synapse, delay, weight in zip(synapses, delays, weights):
+        netstim = neuron.h.NetStim()
+        netstim.interval = syn_interval
+        netstim.number = syn_nmb_of_spikes
+        netstim.start = syn_start
+        netstim.noise = syn_noise
+
+        netcon = neuron.h.NetCon(netstim, synapse, -30, delay, weight)
+
+        persistency_list.append(netstim)
+        persistency_list.append(netcon)
+
+    return persistency_list
+
+
+def synapses_vecstim(cell, config):
+    """Synapses stimuli."""
+    # load config
+    vecstim_random = config.get("Protocol", "vecstim_random")
+    seed = config.getint("Protocol", "syn_stim_seed")
+    syn_start = config.getint("Protocol", "syn_start")
+    syn_total_duration = config.getint("Protocol", "syn_total_duration")
+
+    persistency_list = []
+
+    # get synapse data
+    synapse_list = cell.synapses.synapse_list
+    delays = cell.synapses.delays.to_python()
+    weights = cell.synapses.weights.to_python()
+    synapses = [synapse_list.o(i) for i in range(int(synapse_list.count()))]
+
+    # create random nmb generator
+    if vecstim_random == "python":
+        random.seed(seed)
+    else:
+        rand = neuron.h.Random(seed)
+        rand.uniform(syn_start, syn_total_duration)
+
+    # create synapse stimuli
+    for synapse, delay, weight in zip(synapses, delays, weights):
+        if vecstim_random == "python":
+            spike_train = [random.uniform(syn_start, syn_total_duration)]
+        else:
+            spike_train = [rand.repick()]
+        t_vec = neuron.h.Vector(spike_train)
+        vecstim = neuron.h.VecStim()
+        vecstim.play(t_vec, neuron.h.dt)
+        netcon = neuron.h.NetCon(vecstim, synapse, -30, delay, weight)
+
+        persistency_list.append(t_vec)
+        persistency_list.append(vecstim)
+        persistency_list.append(netcon)
+
+    return persistency_list
+
+
+def run_simulation(config):
     """Run step current simulation with index step_number."""
-    cell = create_cell()
+    total_duration = config.getint("Protocol", "total_duration")
+    neuron.h.tstop = total_duration
 
-    stimuli = create_stimuli(cell, step_number)  # NOQA
-    recordings = create_recordings(cell)
-
-    # Overriding default 30s simulation,
-    print("Setting simulation time to 3s for the step currents")
-    neuron.h.tstop = 3000
-
-    print("Disabling variable timestep integration")
     neuron.h.cvode_active(0)
 
     print("Running for %f ms" % neuron.h.tstop)
     neuron.h.run()
 
+
+def save_recordings(recordings, recordings_dir, output_name):
+    """Save recordings."""
     time = numpy.array(recordings["time"])
     soma_voltage = numpy.array(recordings["soma(0.5)"])
 
-    soma_voltage_filename = os.path.join(
-        recordings_dir, "soma_voltage_step%d.dat" % step_number
-    )
+    soma_voltage_filename = os.path.join(recordings_dir, output_name)
     numpy.savetxt(
         soma_voltage_filename, numpy.transpose(numpy.vstack((time, soma_voltage)))
     )
 
-    print(
-        "Soma voltage for step %d saved to: %s" % (step_number, soma_voltage_filename)
-    )
 
-    if plot_traces:
-        import pylab
-
-        pylab.figure()
-        pylab.plot(recordings["time"], recordings["soma(0.5)"])
-        pylab.xlabel("time (ms)")
-        pylab.ylabel("Vm (mV)")
-        pylab.gcf().canvas.set_window_title("Step %d" % step_number)
-
-
-def init_simulation():
+def init_simulation(path, recordings_dir, constants_file):
     """Initialise simulation environment."""
     neuron.h.load_file("stdrun.hoc")
     neuron.h.load_file("import3d.hoc")
 
     print("Loading constants")
-    neuron.h.load_file(os.path.join(path, "constants.hoc"))
-
-    neuron.h.morph_dir = os.path.join(path, neuron.h.morph_dir)
+    neuron.h.load_file(os.path.join(path, constants_file))
 
     if not os.path.exists(recordings_dir):
         os.mkdir(recordings_dir)
 
 
-def main(plot_traces=False):
+def main(config_file):
     """Main."""
-    # Import matplotlib to plot the traces
-    if plot_traces:
-        import matplotlib
+    # load config
+    config = load_config(filename=config_file)
 
-        matplotlib.rcParams["path.simplify"] = False
+    path = config.get("Paths", "memodel_dir")
+    recordings_dir = os.path.join(path, "old_python_recordings")
 
-    init_simulation()
+    step_stimulus = config.getboolean("Protocol", "step_stimulus")
 
-    for step_number in range(1, 4):
-        run_step(step_number, plot_traces=plot_traces)
+    add_synapses = config.getboolean("Synapses", "add_synapses")
+    syn_stim_mode = config.get("Protocol", "syn_stim_mode")
 
-    if plot_traces:
-        import pylab
+    # init simulation
+    init_simulation(path, recordings_dir, config.get("Paths", "constants_file"))
 
-        pylab.show()
+    # create cell
+    cell = create_cell(path)
+
+    # create recordings
+    recordings = create_recordings(cell)
+
+    # add synapses stimuli
+    if add_synapses and syn_stim_mode in ["vecstim", "netstim"]:
+        if syn_stim_mode == "vecstim":
+            _ = synapses_vecstim(cell, config)
+        elif syn_stim_mode == "netstim":
+            _ = synapses_netstim(cell, config)
+
+    # run simulation
+    if step_stimulus:
+        for step_number in range(1, 4):
+            stimuli = create_stimuli(cell, step_number, config, path)  # NOQA
+            run_simulation(config)
+            save_recordings(
+                recordings, recordings_dir, "soma_voltage_step%d.dat" % step_number
+            )
+            print(
+                "Soma voltage for step %d saved to: %s"
+                % (step_number, "soma_voltage_step%d.dat" % step_number)
+            )
+    else:
+        run_simulation(config)
+        save_recordings(
+            recordings, recordings_dir, "soma_voltage_%s.dat" % syn_stim_mode
+        )
+        print(
+            "Soma voltage for %s saved to: %s"
+            % (syn_stim_mode, "soma_voltage_%s.dat" % syn_stim_mode)
+        )
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--c",
+        default="config.ini",
+        help="the name of the config file",
+    )
+    args = parser.parse_args()
+    main(args.c)

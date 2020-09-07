@@ -2,6 +2,7 @@
 import configparser
 import os
 import random
+import re
 import subprocess
 import numpy as np
 
@@ -10,6 +11,7 @@ from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
     get_morph_emodel_names,
     combine_names,
+    cwd,
 )
 
 
@@ -32,10 +34,8 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
 
     memodel_files_to_be_checked = [
         "constants.hoc",
-        "createsimulation.hoc",
         "current_amps.dat",
         "run_hoc.sh",
-        "run.hoc",
     ]
 
     output_files_to_be_checked = [
@@ -48,7 +48,9 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "myrecordings.py",
         "mymorphology.py",
         "mysynapse.py",
+        "mycell.py",
         "create_hoc.py",
+        "create_hoc_tools.py",
     ]
 
     templates = [
@@ -200,7 +202,7 @@ def test_synapses(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         gidx: index of cell
     """
 
-    threshold = 1e-3
+    threshold = 0.05
 
     # get circuit path for bglibpy
     config_circuit = configparser.ConfigParser()
@@ -228,3 +230,62 @@ def test_synapses(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     rms = np.sqrt(np.mean((bg_v - py_v[:, 1]) ** 2))
     print(rms)
     assert rms < threshold
+
+
+@launch_luigi(module="workflow", task="CreateHoc", reload_hoc=True)
+def test_synapses_hoc_vs_py_script(
+    mtype="L23_BP", etype="bNAC", gid=111728, gidx=150, configfile="config_synapses.ini"
+):
+    """Test to compare the voltages produced via python and hoc.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gid: cell id
+        gidx: index of cell
+        configfile : name of config file in /config to use when running script / creating hoc
+    """
+    threshold = 0.1
+    threshold_py_recs = 0.1
+
+    output_path = os.path.join("tests", "output")
+
+    # re-write config file to have consistent randomness accross simulations
+    new_config_file = "config_synapses_test.ini"
+    config_path = os.path.join(output_path, "config", configfile)
+    with open(config_path, "r") as config_f:
+        config = config_f.read()
+    new_config = re.sub("vecstim_random=.*", "vecstim_random=neuron", config)
+
+    new_config_path = os.path.join(output_path, "config", new_config_file)
+    with open(new_config_path, "w") as new_f:
+        new_f.write(new_config)
+
+    # get output path
+    inner_folder_name = combine_names(mtype, etype, gidx)
+    recording_path = os.path.join(mtype, etype, inner_folder_name)
+    script_path = os.path.join(output_path, "memodel_dirs", recording_path)
+
+    # run scripts
+    with cwd(script_path):
+        subprocess.call(["sh", "./run_hoc.sh"])
+    with cwd(output_path):
+        subprocess.call(["sh", "./run_py.sh", new_config_file])
+        subprocess.call(["sh", "./run_old_py.sh", new_config_file])
+
+    # load output
+    hoc_path = os.path.join(script_path, "hoc_recordings", "soma_voltage_vecstim.dat")
+    py_path = os.path.join(script_path, "python_recordings", "soma_voltage_vecstim.dat")
+    old_py_path = os.path.join(
+        script_path, "old_python_recordings", "soma_voltage_vecstim.dat"
+    )
+
+    hoc_voltage = np.loadtxt(hoc_path)
+    py_voltage = np.loadtxt(py_path)
+    old_py_voltage = np.loadtxt(old_py_path)
+
+    # check rms
+    rms = np.sqrt(np.mean((hoc_voltage[:, 1] - py_voltage[:, 1]) ** 2))
+    rms_py_recs = np.sqrt(np.mean((old_py_voltage[:, 1] - py_voltage[:, 1]) ** 2))
+    assert rms < threshold
+    assert rms_py_recs < threshold_py_recs

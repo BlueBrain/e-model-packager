@@ -170,16 +170,14 @@ class PrepareConfig(luigi.Task):
     def output(self):
         """Write config file."""
         output_dir = workflow_config.get("paths", "output")
-        config_file = os.path.join(output_dir, "config", "config.ini")
+        config_file1 = os.path.join(output_dir, "config", "config.ini")
+        config_file2 = os.path.join(output_dir, "config", "config_synapses.ini")
 
-        return luigi.LocalTarget(config_file)
+        return [luigi.LocalTarget(config_file1), luigi.LocalTarget(config_file2)]
 
-    def run(self):
-        """Write mtype, etype, gidx in config file."""
-        config_dir = workflow_config.get("paths", "emodel_config_dir")
-        config_path = os.path.join(config_dir, "config_example.ini")
-
-        with open(self.output().path, "w") as out_file:
+    def write_output(self, config_path, output_idx):
+        """Write file for a given output."""
+        with open(self.output()[output_idx].path, "w") as out_file:
             with open(config_path, "r") as in_file:
                 for line in in_file:
                     if "mtype" in line.split("="):
@@ -191,6 +189,15 @@ class PrepareConfig(luigi.Task):
 
                     if line[0] != "#":
                         out_file.write(line)
+
+    def run(self):
+        """Write mtype, etype, gidx in config file."""
+        config_dir = workflow_config.get("paths", "emodel_config_dir")
+        config_path = os.path.join(config_dir, "config_example.ini")
+        config_synapses_path = os.path.join(config_dir, "config_synapses.ini")
+
+        self.write_output(config_path, 0)
+        self.write_output(config_synapses_path, 1)
 
 
 class PrepareMEModelDirectory(luigi.Task):
@@ -260,8 +267,14 @@ class PrepareMEModelDirectory(luigi.Task):
         scripts_dir = workflow_config.get("paths", "scripts_dir")
         script_files = workflow_config.get("files", "memodel_scripts")
 
-        for script_file in script_files:
-            script_path = os.path.join(scripts_dir, script_file)
+        # check if multuple files to copy -> list of str
+        if isinstance(script_files, list):
+            for script_file in script_files:
+                script_path = os.path.join(scripts_dir, script_file)
+                shutil.copy(script_path, self.output().path)
+        # or only one file -> str
+        else:
+            script_path = os.path.join(scripts_dir, script_files)
             shutil.copy(script_path, self.output().path)
 
     def write_down_using_templates(self, templates_dir, template_vars):
@@ -304,7 +317,6 @@ class PrepareMEModelDirectory(luigi.Task):
     def write_synapses(self, blueconfig, synapse_dir):
         """Save the synapses from the circuit to a tsv."""
         ssim = bglibpy.SSim(blueconfig, record_dt=0.1)
-        circuit = ssim.bc_simulation.circuit
         ssim.instantiate_gids([self.gid], synapse_detail=2, add_replay=True)
 
         cell_info_dict = ssim.cells[self.gid].info_dict
@@ -313,7 +325,7 @@ class PrepareMEModelDirectory(luigi.Task):
         n_of_synapses = len(cell_info_dict["synapses"].items())
 
         # n_of_cols is actually not related to nmb of keys
-        n_of_cols = 14
+        n_of_cols = 13
 
         synapse_tsv_content = "%d %d\n" % (n_of_synapses, n_of_cols)
 
@@ -336,26 +348,28 @@ class PrepareMEModelDirectory(luigi.Task):
             weight = cell_info_dict["connections"][synapse_id]["post_netcon"]["weight"]
 
             pre_gid = synapse_dict["pre_cell_id"]
-            pre_mtype = circuit.cells.get(pre_gid).mtype
             post_sec_sectionlist_id, post_sec_sectionlist_index = self.convert_sec_name(
                 synapse_dict["post_sec_name"]
             )
 
+            # get synapse id without the ('', ) part.
+            _, sid = synapse_id
+
+            # do not save in scientific notation : hoc files can't read it.
             synapse_tsv_content += "%s\n" % "\t".join(
                 [
                     str(x)
                     for x in [
-                        synapse_dict["synapse_id"],
+                        sid,
                         pre_gid,
-                        pre_mtype,
                         post_sec_sectionlist_id,
                         post_sec_sectionlist_index,
                         "%.3f" % synapse_dict["post_segx"],
                         synapse_dict["syn_type"],
-                        "%.20e" % synapse_dict["synapse_parameters"]["Dep"],
-                        "%.20e" % synapse_dict["synapse_parameters"]["Fac"],
-                        "%.20e" % synapse_dict["synapse_parameters"]["Use"],
-                        "%.20e" % tau_d,
+                        synapse_dict["synapse_parameters"]["Dep"],
+                        synapse_dict["synapse_parameters"]["Fac"],
+                        synapse_dict["synapse_parameters"]["Use"],
+                        tau_d,
                         delay,
                         weight,
                         synapse.hsynapse.Nrrp,
@@ -365,7 +379,7 @@ class PrepareMEModelDirectory(luigi.Task):
             for command in synapse_dict["synapseconfigure_cmds"]:
                 if command not in synconf_ordering:
                     synconf_ordering.append(command)
-                synconf_dict[command].append(synapse_id)
+                synconf_dict[command].append(sid)
 
         synapse_tsv_filename = os.path.join(synapse_dir, "synapses.tsv")
         with open(synapse_tsv_filename, "w") as synapse_tsv_file:
@@ -457,12 +471,14 @@ class CreateHoc(luigi.Task):
         etype: electrophysiological type
         gid : cell id
         gidx: index of cell
+        configfile : name of config file in /config to use when creating hoc
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
+    configfile = luigi.Parameter(default="config.ini")
 
     def requires(self):
         """Requires the output paths to be made."""
@@ -485,14 +501,19 @@ class CreateHoc(luigi.Task):
         emodel = mecombo_emodels_[mecombo_]
 
         filename = emodel + ".hoc"
+        filenames = [filename, "run.hoc", "createsimulation.hoc"]
 
-        return luigi.LocalTarget(os.path.join(output_path, filename))
+        targets = []
+        for fname in filenames:
+            targets.append(luigi.LocalTarget(os.path.join(output_path, fname)))
+
+        return targets
 
     def run(self):
         """Createss the hoc script."""
         workflow_output_dir = workflow_config.get("paths", "output")
         with cwd(workflow_output_dir):
-            subprocess.call(["python", "create_hoc.py"])
+            subprocess.call(["python", "create_hoc.py", "--c", self.configfile])
 
 
 class RunHoc(luigi.Task):
@@ -503,17 +524,23 @@ class RunHoc(luigi.Task):
         etype: electrophysiological type
         gid : cell id
         gidx: index of cell
+        configfile : name of config file in /config to use when creating hoc
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
+    configfile = luigi.Parameter(default="config.ini")
 
     def requires(self):
         """Requires the hoc file to have been created."""
         return CreateHoc(
-            mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+            mtype=self.mtype,
+            etype=self.etype,
+            gid=self.gid,
+            gidx=self.gidx,
+            configfile=self.configfile,
         )
 
     def output(self):
@@ -552,11 +579,13 @@ class RunPyScript(luigi.Task):
         mtype: morphological type
         etype: electrophysiological type
         gidx: index of cell
+        configfile : name of config file in /config to use when running script
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
     gidx = luigi.IntParameter()
+    configfile = luigi.Parameter(default="config.ini")
 
     def requires(self):
         """Requires the output paths to be made."""
@@ -585,7 +614,7 @@ class RunPyScript(luigi.Task):
         """Executes the python script."""
         workflow_output_dir = workflow_config.get("paths", "output")
         with cwd(workflow_output_dir):
-            subprocess.call(["sh", "./run_py.sh"])
+            subprocess.call(["sh", "./run_py.sh", self.configfile])
 
 
 class RunOldPyScript(luigi.Task):
@@ -596,17 +625,23 @@ class RunOldPyScript(luigi.Task):
         etype: electrophysiological type
         gid: cell id
         gidx: index of cell
+        configfile : name of config file in /config to use when running script
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
+    configfile = luigi.Parameter(default="config.ini")
 
     def requires(self):
         """Requires the hoc file to have been created."""
         return CreateHoc(
-            mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+            mtype=self.mtype,
+            etype=self.etype,
+            gid=self.gid,
+            gidx=self.gidx,
+            configfile=self.configfile,
         )
 
     def output(self):
@@ -632,7 +667,7 @@ class RunOldPyScript(luigi.Task):
         """Executes the python script."""
         workflow_output_dir = workflow_config.get("paths", "output")
         with cwd(workflow_output_dir):
-            subprocess.call(["sh", "./run_old_py.sh"])
+            subprocess.call(["sh", "./run_old_py.sh", self.configfile])
 
 
 class DoRecordings(luigi.WrapperTask):
@@ -643,19 +678,23 @@ class DoRecordings(luigi.WrapperTask):
         etype: electrophysiological type
         gid: cell id
         gidx: index of cell
+        configfile : name of config file in /config to use when running script / creating hoc
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
+    configfile = luigi.Parameter(default="config.ini")
 
     def requires(self):
         """Launch both RunHoc and RunPyScript."""
         tasks = [
-            RunHoc(self.mtype, self.etype, self.gid, self.gidx),
-            RunPyScript(self.mtype, self.etype, self.gidx),
-            RunOldPyScript(self.mtype, self.etype, self.gid, self.gidx),
+            RunHoc(self.mtype, self.etype, self.gid, self.gidx, self.configfile),
+            RunPyScript(self.mtype, self.etype, self.gidx, self.configfile),
+            RunOldPyScript(
+                self.mtype, self.etype, self.gid, self.gidx, self.configfile
+            ),
         ]
         return tasks
 

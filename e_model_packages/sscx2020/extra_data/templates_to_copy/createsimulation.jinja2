@@ -9,11 +9,14 @@ load_file("import3d.hoc")
 load_file("constants.hoc")
 
 load_file(template_fname)
+{%- if add_synapses %}
+load_file("{{syn_dir}}/{{syn_hoc_file}}")
+{%- endif %}
 
 //=================== creating cell object ===========================
 objref cell
 
-proc create_cell() { local synapses_enabled localobj cellstring
+proc create_cell() { localobj cellstring
     cellstring = new String()
     sprint(cellstring.s, "cell = new %s(%d, \"%s\", \"%s\")", template_name, gid, morph_dir, morph_fname)
     execute(cellstring.s)
@@ -50,33 +53,40 @@ proc read_currents() { localobj currents_file
 objref holding_stimulus
 objref step_stimulus
 
+
 proc create_stimulus() {
-    strdef stepcurrent 
-    step_index = $1
-    holding_stimulus = new IClamp(0.5)
-    holding_stimulus.dur = tstop
-    holding_stimulus.del = 0
+    strdef stepcurrent
+    {%- if step_stimulus %}
+        step_index = $1
+        holding_stimulus = new IClamp(0.5)
+        holding_stimulus.dur = {{hold_stimulus_duration}}
+        holding_stimulus.del = {{hold_stimulus_delay}}
 
-    cell.soma holding_stimulus
+        cell.soma holding_stimulus
 
-    step_stimulus = new IClamp(0.5)
-    step_stimulus.dur = 2000
-    step_stimulus.del = 700
-    if (step_index == 1) { 
-        step_stimulus.amp = amp1
-        holding_stimulus.amp = holding
-    } else if (step_index == 2) {
-        step_stimulus.amp = amp2
-        holding_stimulus.amp = holding
-    } else if (step_index == 3) {
-        step_stimulus.amp = amp3
-        holding_stimulus.amp = holding
-    } else {
-        step_stimulus.amp = 0.0
-        holding_stimulus.amp = 0.0
-    }
+        step_stimulus = new IClamp(0.5)
+        step_stimulus.dur = {{stimulus_duration}}
+        step_stimulus.del = {{stimulus_delay}}
+        if (step_index == 1) { 
+            step_stimulus.amp = amp1
+            holding_stimulus.amp = holding
+        } else if (step_index == 2) {
+            step_stimulus.amp = amp2
+            holding_stimulus.amp = holding
+        } else if (step_index == 3) {
+            step_stimulus.amp = amp3
+            holding_stimulus.amp = holding
+        } else {
+            step_stimulus.amp = 0.0
+            holding_stimulus.amp = 0.0
+        }
 
-    cell.soma step_stimulus
+        cell.soma step_stimulus
+    {%- endif %}
+
+    {%- if add_synapses %}
+    cell.synapses.create_netcons() 
+    {%- endif %}
 }
 
 //============================= simulation ================================
@@ -84,7 +94,7 @@ proc create_stimulus() {
 proc simulate() {
     cvode.active(0)
 
-    print "Running simulation for ", tstop, " ms"
+    print "Running simulation for ", {{total_duration}}, " ms"
 
     run()
 }
@@ -95,7 +105,11 @@ proc save_recording() { localobj timevoltage, fh, fpath
     fpath = new String()
     step_index = $1
 
+    {%- if step_stimulus %}
     sprint(fpath.s, "hoc_recordings/soma_voltage_step%d.dat", step_index)
+    {%- else %}
+    sprint(fpath.s, "hoc_recordings/soma_voltage_%s.dat", "{{syn_stim_mode}}")
+    {%- endif %}
 
     timevoltage = new Matrix(time.size(), 2)
     timevoltage.setcol(0, time)
@@ -106,5 +120,9 @@ proc save_recording() { localobj timevoltage, fh, fpath
     timevoltage.fprint(0, fh, "%e ")
     fh.close()
 
-    print "Saved voltage trace of step ", step_index, " to: ", fpath.s 
+    {%- if step_stimulus %}
+    print "Saved voltage trace of step ", step_index, " to: ", fpath.s
+    {%- else %}
+    print "Saved voltage trace to: ", fpath.s
+    {%- endif %}
 }

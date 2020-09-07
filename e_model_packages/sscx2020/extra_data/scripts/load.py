@@ -2,6 +2,7 @@
 
 import collections
 import configparser
+import logging
 import json
 import os
 
@@ -9,11 +10,14 @@ import bluepyopt.ephys as ephys
 
 from mymorphology import NrnFileMorphologyCustom
 from myrecordings import MyRecording
+from mycell import MyCellModel
 from mysynapse import (
     MyNrnMODPointProcessMechanism,
     MyNrnNetStimStimulus,
     MyNrnVecStimStimulus,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def load_config(config_dir="config", filename="config.ini"):
@@ -35,6 +39,7 @@ def load_config(config_dir="config", filename="config.ini"):
         "syn_start": "50",
         "syn_noise": "0",
         "syn_stim_seed": "1",
+        "vecstim_random": "python",  # can be "python" or "neuron"
         # morphology
         "do_replace_axon": "True",
         "do_set_nseg": "40",
@@ -43,7 +48,7 @@ def load_config(config_dir="config", filename="config.ini"):
         # synapse
         "add_synapses": "False",
         "seed": "932156",
-        "rng_settings_mode": "Random123",
+        "rng_settings_mode": "Random123",  # can be "Random123" or "Compatibility"
         # paths
         "inner_dir": "${Cell:mtype}_${Cell:etype}_${Cell:gidx}",
         "memodel_dir": "memodel_dirs/${Cell:mtype}/${Cell:etype}/${inner_dir}",
@@ -61,9 +66,12 @@ def load_config(config_dir="config", filename="config.ini"):
         "create_hoc_template_file": "cell_template_neurodamus.jinja2",
         "replace_axon_hoc_dir": "${templates_dir}",
         "replace_axon_hoc_file": "replace_axon_hoc.hoc",
-        "syn_dir": "${memodel_dir}/synapses",
+        "syn_dir_for_hoc": "synapses",
+        "syn_dir": "${memodel_dir}/${syn_dir_for_hoc}",
         "syn_data_file": "synapses.tsv",
         "syn_conf_file": "synconf.txt",
+        "syn_hoc_file": "synapses.hoc",
+        "simul_hoc_file": "createsimulation.hoc",
     }
 
     config = configparser.ConfigParser(
@@ -205,17 +213,24 @@ def load_syn_locs(cell):
     return syn_locs
 
 
-def get_syn_stim(
-    syn_locs,
-    syn_total_duration,
-    syn_nmb_of_spikes,
-    syn_interval,
-    syn_start,
-    syn_noise,
-    syn_stim_seed,
-    syn_stim_mode,
-):
+def get_syn_stim(syn_locs, config, syn_stim_mode):
     """Get synapse stimulus depending on mode."""
+    # load config data
+    syn_total_duration = config.getint("Protocol", "syn_total_duration")
+    syn_interval = config.getfloat("Protocol", "syn_interval")
+    syn_nmb_of_spikes = config.getint("Protocol", "syn_nmb_of_spikes")
+    syn_start = config.getint("Protocol", "syn_start")
+    syn_noise = config.getint("Protocol", "syn_noise")
+    syn_stim_seed = config.getint("Protocol", "syn_stim_seed")
+    vecstim_random = config.get("Protocol", "vecstim_random")
+
+    if syn_stim_mode == "vecstim" and vecstim_random not in ["python", "neuron"]:
+        logger.warning(
+            "vecstim random not set to 'python' nor to 'neuron' in config file."
+        )
+        logger.warning("vecstim random will be re-set to 'python'.")
+        vecstim_random = "python"
+
     if syn_stim_mode == "netstim":
         return MyNrnNetStimStimulus(
             syn_locs,
@@ -225,128 +240,119 @@ def get_syn_stim(
             syn_start,
             syn_noise,
         )
-    elif syn_stim_mode == "vecstim":
+    if syn_stim_mode == "vecstim":
         return MyNrnVecStimStimulus(
             syn_locs,
             syn_total_duration,
             syn_interval,
             syn_start,
             syn_stim_seed,
+            vecstim_random,
         )
     else:
         return 0
 
 
-def define_protocols(config, cell=None):
-    """Define Protocols."""
-    # load config
-    step_stim = config.getboolean("Protocol", "step_stimulus")
+def step_stimuli(config, soma_loc, cvcode_active=False, syn_stim=None):
+    """Create Step Stimuli."""
+    step_protocols = []
+
+    # load config data
     total_duration = config.getint("Protocol", "total_duration")
     step_delay = config.getint("Protocol", "stimulus_delay")
     step_duration = config.getint("Protocol", "stimulus_duration")
     hold_step_delay = config.getint("Protocol", "hold_stimulus_delay")
     hold_step_duration = config.getint("Protocol", "hold_stimulus_duration")
-    cvcode_active = config.getboolean("Sim", "cvcode_active")
-
-    add_synapses = config.getboolean("Synapses", "add_synapses")
-    syn_stim_mode = config.get("Protocol", "syn_stim_mode")
-    if syn_stim_mode not in ["vecstim", "netstim"]:
-        syn_stim_mode = None
-    if add_synapses and syn_stim_mode:
-        syn_total_duration = config.getint("Protocol", "syn_total_duration")
-        syn_interval = config.getfloat("Protocol", "syn_interval")
-        syn_nmb_of_spikes = config.getint("Protocol", "syn_nmb_of_spikes")
-        syn_start = config.getint("Protocol", "syn_start")
-        syn_noise = config.getint("Protocol", "syn_noise")
-        syn_stim_seed = config.getint("Protocol", "syn_stim_seed")
-
     amp_filename = os.path.join(
         config.get("Paths", "protocol_amplitudes_dir"),
         config.get("Paths", "protocol_amplitudes_file"),
     )
 
-    # locations
+    # protocol names
+    protocol_names = ["step{}".format(x) for x in range(1, 4)]
+
+    # get current amplitude data
+    with open(amp_filename, "r") as f:
+        data = f.read().rstrip()
+    amps = data.split()
+    amplitudes = [float(amp) for amp in amps[1:]]  # do not take 1st value (hypamp)
+    hypamp = float(amps[0])
+
+    for protocol_name, amplitude in zip(protocol_names, amplitudes):
+        # use MyRecording to sample time, voltage every 0.1 ms.
+        rec = MyRecording(name=protocol_name, location=soma_loc, variable="v")
+
+        # create step stimulus
+        stim = ephys.stimuli.NrnSquarePulse(
+            step_amplitude=amplitude,
+            step_delay=step_delay,
+            step_duration=step_duration,
+            location=soma_loc,
+            total_duration=total_duration,
+        )
+
+        # create holding stimulus
+        hold_stim = ephys.stimuli.NrnSquarePulse(
+            step_amplitude=hypamp,
+            step_delay=hold_step_delay,
+            step_duration=hold_step_duration,
+            location=soma_loc,
+            total_duration=total_duration,
+        )
+
+        # create protocol
+        stims = [stim, hold_stim]
+        if syn_stim is not None:
+            stims.append(syn_stim)
+        protocol = ephys.protocols.SweepProtocol(
+            protocol_name, stims, [rec], cvcode_active
+        )
+
+        step_protocols.append(protocol)
+
+    return step_protocols
+
+
+def define_protocols(config, cell=None):
+    """Define Protocols."""
+    # load config
+    cvcode_active = config.getboolean("Sim", "cvcode_active")
+    step_stim = config.getboolean("Protocol", "step_stimulus")
+    add_synapses = config.getboolean("Synapses", "add_synapses")
+    syn_stim_mode = config.get("Protocol", "syn_stim_mode")
+
+    # synapses location and stimuli
+    if add_synapses and syn_stim_mode in ["vecstim", "netstim"]:
+        if cell is not None:
+            # locations
+            syn_locs = load_syn_locs(cell)
+            # get synpase stimuli
+            syn_stim = get_syn_stim(syn_locs, config, syn_stim_mode)
+        else:
+            raise Exception("The cell is  missing in the define_protocol function.")
+    else:
+        syn_stim = None
+
+    # recording location
     soma_loc = ephys.locations.NrnSeclistCompLocation(
         name="soma", seclist_name="somatic", sec_index=0, comp_x=0.5
     )
-    if add_synapses and syn_stim_mode:
-        if cell is not None:
-            syn_locs = load_syn_locs(cell)
-        else:
-            raise Exception("The cell is  missing in the define_protocol function.")
 
-    # protocols
+    # get step stimuli and make protocol(s)
     if step_stim:
-        protocol_names = ["step{}".format(x) for x in range(1, 4)]
-        with open(amp_filename, "r") as f:
-            data = f.read().rstrip()
-        amps = data.split()
-        amplitudes = [float(amp) for amp in amps[1:]]  # do not take 1st value (hypamp)
-        hypamp = float(amps[0])
-    else:
-        protocol_names = [syn_stim_mode]
+        # get step protocols
+        step_protocols = step_stimuli(config, soma_loc, cvcode_active, syn_stim)
 
-    step_protocols = []
-    if step_stim:
-        for protocol_name, amplitude in zip(protocol_names, amplitudes):
-            # use MyRecording to sample time, voltage every 0.1 ms.
-            rec = MyRecording(name=protocol_name, location=soma_loc, variable="v")
+    elif syn_stim:
+        protocol_name = syn_stim_mode
+        # use MyRecording to sample time, voltage every 0.1 ms.
+        rec = MyRecording(name=protocol_name, location=soma_loc, variable="v")
 
-            stim = ephys.stimuli.NrnSquarePulse(
-                step_amplitude=amplitude,
-                step_delay=step_delay,
-                step_duration=step_duration,
-                location=soma_loc,
-                total_duration=total_duration,
-            )
-            hold_stim = ephys.stimuli.NrnSquarePulse(
-                step_amplitude=hypamp,
-                step_delay=hold_step_delay,
-                step_duration=hold_step_duration,
-                location=soma_loc,
-                total_duration=total_duration,
-            )
-
-            if syn_stim_mode and syn_locs is not None:
-                syn_stim = get_syn_stim(
-                    syn_locs,
-                    syn_total_duration,
-                    syn_nmb_of_spikes,
-                    syn_interval,
-                    syn_start,
-                    syn_noise,
-                    syn_stim_seed,
-                    syn_stim_mode,
-                )
-
-                stims = [stim, hold_stim, syn_stim]
-                protocol = ephys.protocols.SweepProtocol(
-                    protocol_name, stims, [rec], False
-                )
-            else:
-                protocol = ephys.protocols.StepProtocol(
-                    protocol_name, stim, hold_stim, [rec], cvode_active=cvcode_active
-                )
-            step_protocols.append(protocol)
-    elif syn_stim_mode and syn_locs is not None:
-        for protocol_name in protocol_names:
-            # use MyRecording to sample time, voltage every 0.1 ms.
-            rec = MyRecording(name=protocol_name, location=soma_loc, variable="v")
-
-            syn_stim = get_syn_stim(
-                syn_locs,
-                syn_total_duration,
-                syn_nmb_of_spikes,
-                syn_interval,
-                syn_start,
-                syn_noise,
-                syn_stim_seed,
-                syn_stim_mode,
-            )
-
-            stims = [syn_stim]
-            protocol = ephys.protocols.SweepProtocol(protocol_name, stims, [rec], False)
-            step_protocols.append(protocol)
+        stims = [syn_stim]
+        protocol = ephys.protocols.SweepProtocol(
+            protocol_name, stims, [rec], cvcode_active
+        )
+        step_protocols = [protocol]
     else:
         raise Exception(
             f"No valid protocol was found. step_stimulus is {step_stim}"
@@ -557,8 +563,13 @@ def create_cell(config):
     )
 
     # create cell
-    cell = ephys.models.CellModel(
-        name=emodel, morph=morph, mechs=mechs, params=params, gid=gid
+    cell = MyCellModel(
+        name=emodel,
+        morph=morph,
+        mechs=mechs,
+        params=params,
+        gid=gid,
+        add_synapses=add_synapses,
     )
 
     return cell, release_params, dt_tmp
@@ -572,24 +583,19 @@ def load_tsv_data(tsv_path):
         for line in f.readlines()[1:]:
             syn = {}
             items = line.strip().split("\t")
-            syn_id = items[0]
-            projection, sid = syn_id.strip("()").split(",")
-            syn["synapse_id"] = syn_id
-            syn["projection"] = projection
-            syn["sid"] = int(sid)
+            syn["sid"] = int(items[0])
             syn["pre_cell_id"] = int(items[1])
-            syn["pre_mtype"] = items[2]
-            syn["sectionlist_id"] = int(items[3])
-            syn["sectionlist_index"] = int(items[4])
-            syn["seg_x"] = float(items[5])
-            syn["synapse_type"] = int(items[6])
-            syn["dep"] = float(items[7])
-            syn["fac"] = float(items[8])
-            syn["use"] = float(items[9])
-            syn["tau_d"] = float(items[10])
-            syn["delay"] = float(items[11])
-            syn["weight"] = float(items[12])
-            syn["Nrrp"] = float(items[13])
+            syn["sectionlist_id"] = int(items[2])
+            syn["sectionlist_index"] = int(items[3])
+            syn["seg_x"] = float(items[4])
+            syn["synapse_type"] = int(items[5])
+            syn["dep"] = float(items[6])
+            syn["fac"] = float(items[7])
+            syn["use"] = float(items[8])
+            syn["tau_d"] = float(items[9])
+            syn["delay"] = float(items[10])
+            syn["weight"] = float(items[11])
+            syn["Nrrp"] = float(items[12])
 
             synapses.append(syn)
 

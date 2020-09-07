@@ -86,7 +86,7 @@ class MySynapse:
     def execute_synapse_configuration(self, synconf_dict, synapse, sim, exec_all=False):
         """Create a hoc file configuring synapse."""
         for cmd, ids in synconf_dict.items():
-            if synapse["synapse_id"] in ids and (exec_all or "*" not in cmd):
+            if synapse["sid"] in ids and (exec_all or "*" not in cmd):
                 cmd = cmd.replace("%s", "\n%(syn)s")
                 hoc_cmd = cmd % {"syn": self.hsynapse.hname()}
                 hoc_cmd = "{%s}" % hoc_cmd
@@ -97,13 +97,7 @@ class MyNrnMODPointProcessMechanism(ephys.mechanisms.Mechanism):
     """Class containing all the synapses."""
 
     def __init__(
-        self,
-        name,
-        synapses_data,
-        synconf_dict,
-        seed,
-        rng_settings_mode,
-        comment="",
+        self, name, synapses_data, synconf_dict, seed, rng_settings_mode, comment=""
     ):
         """Constructor.
 
@@ -240,6 +234,7 @@ class MyNrnVecStimStimulus(ephys.stimuli.Stimulus):
         interval=None,
         start=None,
         seed=1,
+        vecstim_random="python",
     ):
         """Constructor.
 
@@ -249,6 +244,7 @@ class MyNrnVecStimStimulus(ephys.stimuli.Stimulus):
             interval: time between spikes (ms)
             start: most likely start time of first spike (ms)
             seed: seed for random number generator
+            vecstim_random: origin of the random nmb gener. for vecstim. can be python or neuron
         """
         super(MyNrnVecStimStimulus, self).__init__()
         if total_duration is None:
@@ -260,16 +256,25 @@ class MyNrnVecStimStimulus(ephys.stimuli.Stimulus):
         self.interval = interval
         self.start = start
         self.seed = seed
+        self.vecstim_random = vecstim_random
         self.connections = {}
 
     def instantiate(self, sim=None, icell=None):
         """Run stimulus."""
-        random.seed(self.seed)
+        if self.vecstim_random == "python":
+            random.seed(self.seed)
+        else:
+            rand = sim.neuron.h.Random(self.seed)
+            rand.uniform(self.start, self.total_duration)
 
         for location in self.locations:
             self.connections[location.name] = []
             for synapse in location.instantiate(sim=sim, icell=icell):
-                spike_train = [random.uniform(self.start, self.total_duration)]
+                if self.vecstim_random == "python":
+                    spike_train = [random.uniform(self.start, self.total_duration)]
+                else:
+                    spike_train = [rand.repick()]
+
                 t_vec = sim.neuron.h.Vector(spike_train)
                 vecstim = sim.neuron.h.VecStim()
                 vecstim.play(t_vec, self.interval)
