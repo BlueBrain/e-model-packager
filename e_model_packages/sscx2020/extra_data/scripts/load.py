@@ -8,13 +8,13 @@ import os
 
 import bluepyopt.ephys as ephys
 
-from mymorphology import NrnFileMorphologyCustom
-from myrecordings import MyRecording
-from mycell import MyCellModel
-from mysynapse import (
-    MyNrnMODPointProcessMechanism,
-    MyNrnNetStimStimulus,
-    MyNrnVecStimStimulus,
+from morphology import NrnFileMorphologyCustom
+from recordings import RecordingCustom
+from cell import CellModelCustom
+from synapse import (
+    NrnMODPointProcessMechanismCustom,
+    NrnNetStimStimulusCustom,
+    NrnVecStimStimulusCustom,
 )
 
 logger = logging.getLogger(__name__)
@@ -232,7 +232,7 @@ def get_syn_stim(syn_locs, config, syn_stim_mode):
         vecstim_random = "python"
 
     if syn_stim_mode == "netstim":
-        return MyNrnNetStimStimulus(
+        return NrnNetStimStimulusCustom(
             syn_locs,
             syn_total_duration,
             syn_nmb_of_spikes,
@@ -241,7 +241,7 @@ def get_syn_stim(syn_locs, config, syn_stim_mode):
             syn_noise,
         )
     if syn_stim_mode == "vecstim":
-        return MyNrnVecStimStimulus(
+        return NrnVecStimStimulusCustom(
             syn_locs,
             syn_total_duration,
             syn_interval,
@@ -279,8 +279,8 @@ def step_stimuli(config, soma_loc, cvcode_active=False, syn_stim=None):
     hypamp = float(amps[0])
 
     for protocol_name, amplitude in zip(protocol_names, amplitudes):
-        # use MyRecording to sample time, voltage every 0.1 ms.
-        rec = MyRecording(name=protocol_name, location=soma_loc, variable="v")
+        # use RecordingCustom to sample time, voltage every 0.1 ms.
+        rec = RecordingCustom(name=protocol_name, location=soma_loc, variable="v")
 
         # create step stimulus
         stim = ephys.stimuli.NrnSquarePulse(
@@ -345,8 +345,8 @@ def define_protocols(config, cell=None):
 
     elif syn_stim:
         protocol_name = syn_stim_mode
-        # use MyRecording to sample time, voltage every 0.1 ms.
-        rec = MyRecording(name=protocol_name, location=soma_loc, variable="v")
+        # use RecordingCustom to sample time, voltage every 0.1 ms.
+        rec = RecordingCustom(name=protocol_name, location=soma_loc, variable="v")
 
         stims = [syn_stim]
         protocol = ephys.protocols.SweepProtocol(
@@ -505,7 +505,7 @@ def load_syn_mechs(config):
     # load synapse configuration
     synconf_dict = load_synapse_configuration_data(syn_conf_path)
 
-    return MyNrnMODPointProcessMechanism(
+    return NrnMODPointProcessMechanismCustom(
         "synapse_mechs", synapses_data, synconf_dict, seed, rng_settings_mode
     )
 
@@ -563,7 +563,7 @@ def create_cell(config):
     )
 
     # create cell
-    cell = MyCellModel(
+    cell = CellModelCustom(
         name=emodel,
         morph=morph,
         mechs=mechs,

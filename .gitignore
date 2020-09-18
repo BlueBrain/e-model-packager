@@ -11,3 +11,4 @@ doc/build
 /tests/output
 .eggs
 .vscode
+.notebooks

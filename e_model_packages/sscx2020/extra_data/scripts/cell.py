@@ -9,7 +9,7 @@ from create_hoc_tools import create_hoc
 logger = logging.getLogger(__name__)
 
 
-class MyCellModel(ephys.models.CellModel):
+class CellModelCustom(ephys.models.CellModel):
     """Cell model class."""
 
     def __init__(
@@ -27,10 +27,10 @@ class MyCellModel(ephys.models.CellModel):
             gid (int): id of cell
             add_synapses (bool): set to True to add synapses to the cell
         """
-        super(MyCellModel, self).__init__(name, morph, mechs, params, gid)
+        super(CellModelCustom, self).__init__(name, morph, mechs, params, gid)
         self.add_synapses = add_synapses
 
-    def my_create_hoc(
+    def create_custom_hoc(
         self,
         param_values,
         ignored_globals=(),

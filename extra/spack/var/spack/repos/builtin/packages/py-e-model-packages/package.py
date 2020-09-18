@@ -11,12 +11,14 @@ class PyEModelPackages(PythonPackage):
     """Creates e-model packages from circuits"""
 
     homepage = "https://bbpteam.epfl.ch/documentation/projects/e-model-packages"
-    git      = "ssh://bbpcode.epfl.ch/cells/e-model-packages"
+    git = "ssh://bbpcode.epfl.ch/cells/e-model-packages"
 
-    version('develop', branch='master')
-    version('0.0.1.dev0', tag='e-model-packages-v0.0.1.dev0', preferred=True)
+    version("develop", branch="master")
+    version("0.0.1.dev0", tag="e-model-packages-v0.0.1.dev0", preferred=True)
 
-    depends_on('py-setuptools', type='build')  # type=('build', 'run') if specifying entry points in 'setup.py'
+    depends_on(
+        "py-setuptools", type="build"
+    )  # type=('build', 'run') if specifying entry points in 'setup.py'
 
     # for all 'foo>=X' in 'install_requires' and 'extra_requires':
     # depends_on('py-foo@<min>:')

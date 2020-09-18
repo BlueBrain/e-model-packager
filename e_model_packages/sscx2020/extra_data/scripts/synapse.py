@@ -3,7 +3,7 @@ import random
 import bluepyopt.ephys as ephys
 
 
-class MySynapse:
+class SynapseCustom:
     """Attach a synapse to the simulation."""
 
     def __init__(
@@ -93,7 +93,7 @@ class MySynapse:
                 sim.neuron.h(hoc_cmd)
 
 
-class MyNrnMODPointProcessMechanism(ephys.mechanisms.Mechanism):
+class NrnMODPointProcessMechanismCustom(ephys.mechanisms.Mechanism):
     """Class containing all the synapses."""
 
     def __init__(
@@ -109,7 +109,7 @@ class MyNrnMODPointProcessMechanism(ephys.mechanisms.Mechanism):
             rng_settings_mode (str) : mode of the random number generator
             comment (str) : comment
         """
-        super(MyNrnMODPointProcessMechanism, self).__init__(name, comment)
+        super(NrnMODPointProcessMechanismCustom, self).__init__(name, comment)
         self.synapses_data = synapses_data
         self.synconf_dict = synconf_dict
         self.seed = seed
@@ -142,7 +142,7 @@ class MyNrnMODPointProcessMechanism(ephys.mechanisms.Mechanism):
             # get section
             section = self.get_cell_section_for_synapse(synapse, icell)
 
-            my_synapse = MySynapse(
+            my_synapse = SynapseCustom(
                 sim,
                 icell,
                 synapse,
@@ -159,7 +159,7 @@ class MyNrnMODPointProcessMechanism(ephys.mechanisms.Mechanism):
         self.pprocesses = None
 
 
-class MyNrnNetStimStimulus(ephys.stimuli.Stimulus):
+class NrnNetStimStimulusCustom(ephys.stimuli.Stimulus):
     """Current stimulus based on current amplitude and time series."""
 
     def __init__(
@@ -182,7 +182,7 @@ class MyNrnNetStimStimulus(ephys.stimuli.Stimulus):
             noise: fractional randomness (0 deterministic,
                    1 negexp interval distrubtion)
         """
-        super(MyNrnNetStimStimulus, self).__init__()
+        super(NrnNetStimStimulusCustom, self).__init__()
         if total_duration is None:
             raise ValueError("NrnNetStimStimulus: Need to specify a total duration")
         else:
@@ -224,7 +224,7 @@ class MyNrnNetStimStimulus(ephys.stimuli.Stimulus):
         )
 
 
-class MyNrnVecStimStimulus(ephys.stimuli.Stimulus):
+class NrnVecStimStimulusCustom(ephys.stimuli.Stimulus):
     """Current stimulus based on stochastic current amplitude."""
 
     def __init__(
@@ -246,7 +246,7 @@ class MyNrnVecStimStimulus(ephys.stimuli.Stimulus):
             seed: seed for random number generator
             vecstim_random: origin of the random nmb gener. for vecstim. can be python or neuron
         """
-        super(MyNrnVecStimStimulus, self).__init__()
+        super(NrnVecStimStimulusCustom, self).__init__()
         if total_duration is None:
             raise ValueError("NrnNetStimStimulus: Need to specify a total duration")
         else:

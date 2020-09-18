@@ -57,7 +57,7 @@ def get_hoc(config, syn_temp_name="hoc_synapses"):
     cell, release_params, _ = create_cell(config)
 
     # get cell hoc
-    cell_hoc = cell.my_create_hoc(
+    cell_hoc = cell.create_custom_hoc(
         release_params,
         template=template,
         template_dir=template_dir,
