@@ -7,7 +7,7 @@ from spack import *
 
 
 # replace all 'x-y' with 'xY' (e.g. 'Py-morph-tool' -> 'PyMorphTool')
-class Py-e-model-packages(PythonPackage):
+class PyEModelPackages(PythonPackage):
     """Creates e-model packages from circuits"""
 
     homepage = "https://bbpteam.epfl.ch/documentation/projects/e-model-packages"
