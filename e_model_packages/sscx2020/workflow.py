@@ -670,6 +670,33 @@ class RunOldPyScript(luigi.Task):
             subprocess.call(["sh", "./run_old_py.sh", self.configfile])
 
 
+class CreateSystemLog(luigi.Task):
+    """Task to log the modules and python packages used in the execution."""
+
+    def output(self):
+        """A log file to be written."""
+        workflow_output_dir = workflow_config.get("paths", "output")
+        return luigi.LocalTarget(os.path.join(workflow_output_dir, "system-state.log"))
+
+    def run(self):
+        """Writes down the loaded modules, pip packages and python version."""
+        module_list = subprocess.run(
+            ["modulecmd", "bash", "list"], capture_output=True, check=True
+        )
+        py_version = subprocess.run(
+            ["python", "--version"], capture_output=True, check=True
+        )
+        pip_list = subprocess.run(["pip", "list"], capture_output=True, check=True)
+
+        modules = " ".join(
+            [x.decode("utf-8") for x in [module_list.stdout, module_list.stderr]]
+        )
+        python_ver, pip = [x.stdout.decode("utf-8") for x in [py_version, pip_list]]
+
+        with self.output().open("w") as outfile:
+            outfile.write(f"{modules}\n{python_ver}\n{pip}")
+
+
 class DoRecordings(luigi.WrapperTask):
     """Launch both RunHoc and RunPyScript.
 
@@ -704,4 +731,4 @@ class SSCX2020(luigi.WrapperTask):
 
     def requires(self):
         """The ParseCircuit method is required."""
-        return ParseCircuit()
+        return [CreateSystemLog(), ParseCircuit()]
