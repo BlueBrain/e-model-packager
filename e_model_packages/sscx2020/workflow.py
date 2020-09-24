@@ -118,8 +118,7 @@ class PrepareOutputDirectory(luigi.Task):
         """Copy python recordings config into output directory."""
         output_config_dir = os.path.join(output_dir, "config")
         shutil.copytree(
-            workflow_config.get("paths", "emodel_config_dir"),
-            output_config_dir,
+            workflow_config.get("paths", "emodel_config_dir"), output_config_dir,
         )
 
     @staticmethod
@@ -317,6 +316,7 @@ class PrepareMEModelDirectory(luigi.Task):
     def write_synapses(self, blueconfig, synapse_dir):
         """Save the synapses from the circuit to a tsv."""
         ssim = bglibpy.SSim(blueconfig, record_dt=0.1)
+        circuit = ssim.bc_simulation.circuit
         ssim.instantiate_gids([self.gid], synapse_detail=2, add_replay=True)
 
         cell_info_dict = ssim.cells[self.gid].info_dict
@@ -325,12 +325,13 @@ class PrepareMEModelDirectory(luigi.Task):
         n_of_synapses = len(cell_info_dict["synapses"].items())
 
         # n_of_cols is actually not related to nmb of keys
-        n_of_cols = 13
+        n_of_cols = 14
 
         synapse_tsv_content = "%d %d\n" % (n_of_synapses, n_of_cols)
 
         synconf_dict = collections.defaultdict(list)
         synconf_ordering = []
+        mtype_map = []
 
         for (synapse_id, synapse_dict), (_, synapse) in zip(
             cell_info_dict["synapses"].items(), cell.synapses.items()
@@ -351,6 +352,15 @@ class PrepareMEModelDirectory(luigi.Task):
             post_sec_sectionlist_id, post_sec_sectionlist_index = self.convert_sec_name(
                 synapse_dict["post_sec_name"]
             )
+
+            # assign pre-cell mtype to an id
+            pre_mtype = circuit.cells.get(pre_gid).mtype
+            if pre_mtype in mtype_map:
+                # can use index. one occurence of pre_mtype & list is not long
+                pre_mtype_id = mtype_map.index(pre_mtype)
+            else:
+                pre_mtype_id = len(mtype_map)
+                mtype_map.append(pre_mtype)
 
             # get synapse id without the ('', ) part.
             _, sid = synapse_id
@@ -373,6 +383,7 @@ class PrepareMEModelDirectory(luigi.Task):
                         delay,
                         weight,
                         synapse.hsynapse.Nrrp,
+                        pre_mtype_id,
                     ]
                 ]
             )
@@ -391,13 +402,16 @@ class PrepareMEModelDirectory(luigi.Task):
                 self.generate_synconf_content(synconf_dict, synconf_ordering)
             )
 
+        mtype_map_content = ""
+        for idx, pre_mtype in enumerate(mtype_map):
+            mtype_map_content += f"{idx} {pre_mtype}\n"
+
+        mtype_filename = os.path.join(synapse_dir, "mtype_map.tsv")
+        with open(mtype_filename, "w") as mtype_file:
+            mtype_file.write(mtype_map_content)
+
     def fill_in_templates(
-        self,
-        mecombo_thresholds,
-        mecombo_hypamps,
-        mecombo,
-        emodel,
-        morph_fname,
+        self, mecombo_thresholds, mecombo_hypamps, mecombo, emodel, morph_fname,
     ):
         """Fill in and write constants.hoc & current_amp.dat templates."""
         templates_dir = workflow_config.get("paths", "templates_dir")
@@ -455,11 +469,7 @@ class PrepareMEModelDirectory(luigi.Task):
         # templates to be filled
         emodel = mecombo_emodels[mecombo]
         self.fill_in_templates(
-            mecombo_thresholds,
-            mecombo_hypamps,
-            mecombo,
-            emodel,
-            morph_fname,
+            mecombo_thresholds, mecombo_hypamps, mecombo, emodel, morph_fname,
         )
 
 

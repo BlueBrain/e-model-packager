@@ -7,7 +7,18 @@ class SynapseCustom:
     """Attach a synapse to the simulation."""
 
     def __init__(
-        self, sim, icell, synapse, section, seed, rng_settings_mode, synconf_dict
+        self,
+        sim,
+        icell,
+        synapse,
+        section,
+        seed,
+        rng_settings_mode,
+        synconf_dict,
+        start=None,
+        interval=None,
+        number=None,
+        noise=None,
     ):
         """Constructor.
 
@@ -19,6 +30,10 @@ class SynapseCustom:
             seed (int) : random seed number
             rng_settings_mode (str) : mode of the random number generator
             synconf_dict (dict) : synapse configuration
+            start (int/None): force synapse to start firing at given value
+            interval (int/None): force synapse to fire at given interval
+            number (int/None): force synapse to fire N times
+            noise (int/None): force synapse to have given noise
         """
         self.seed = seed
         self.rng_settings_mode = rng_settings_mode
@@ -50,6 +65,14 @@ class SynapseCustom:
 
         self.delay = synapse["delay"]
         self.weight = synapse["weight"]
+
+        self.pre_mtype = synapse["pre_mtype"]
+
+        # netstim params if given
+        self.start = start
+        self.interval = interval
+        self.number = number
+        self.noise = noise
 
     def set_random_nmb_generator(self, sim, icell, synapse):
         """Sets the random number generator."""
@@ -97,7 +120,15 @@ class NrnMODPointProcessMechanismCustom(ephys.mechanisms.Mechanism):
     """Class containing all the synapses."""
 
     def __init__(
-        self, name, synapses_data, synconf_dict, seed, rng_settings_mode, comment=""
+        self,
+        name,
+        synapses_data,
+        synconf_dict,
+        seed,
+        rng_settings_mode,
+        pre_mtypes=None,
+        stim_params=None,
+        comment="",
     ):
         """Constructor.
 
@@ -107,6 +138,10 @@ class NrnMODPointProcessMechanismCustom(ephys.mechanisms.Mechanism):
             synconf_dict (dict) : synapse configuration
             seed (int) : random seed number
             rng_settings_mode (str) : mode of the random number generator
+            pre_mtypes (list of ints): activate only synapses whose pre_mtype is in this list
+                if None, all synapses are activated
+            stim_params (dict or None): dict with pre_mtype as key, and netstim params list as item
+                netstim params list is [start, interval, number, noise]
             comment (str) : comment
         """
         super(NrnMODPointProcessMechanismCustom, self).__init__(name, comment)
@@ -114,6 +149,8 @@ class NrnMODPointProcessMechanismCustom(ephys.mechanisms.Mechanism):
         self.synconf_dict = synconf_dict
         self.seed = seed
         self.rng_settings_mode = rng_settings_mode
+        self.pre_mtypes = pre_mtypes
+        self.stim_params = stim_params
         self.rng = None
         self.pprocesses = None
 
@@ -139,20 +176,37 @@ class NrnMODPointProcessMechanismCustom(ephys.mechanisms.Mechanism):
 
         self.pprocesses = []
         for synapse in self.synapses_data:
-            # get section
-            section = self.get_cell_section_for_synapse(synapse, icell)
+            if self.pre_mtypes is None or synapse["pre_mtype"] in self.pre_mtypes:
+                # get section
+                section = self.get_cell_section_for_synapse(synapse, icell)
 
-            my_synapse = SynapseCustom(
-                sim,
-                icell,
-                synapse,
-                section,
-                self.seed,
-                self.rng_settings_mode,
-                self.synconf_dict,
-            )
+                if self.stim_params is None:
+                    synapse_obj = SynapseCustom(
+                        sim,
+                        icell,
+                        synapse,
+                        section,
+                        self.seed,
+                        self.rng_settings_mode,
+                        self.synconf_dict,
+                    )
+                else:
+                    stim_params = self.stim_params[synapse["pre_mtype"]]
+                    synapse_obj = SynapseCustom(
+                        sim,
+                        icell,
+                        synapse,
+                        section,
+                        self.seed,
+                        self.rng_settings_mode,
+                        self.synconf_dict,
+                        stim_params[0],  # start
+                        stim_params[1],  # interval
+                        stim_params[2],  # number
+                        stim_params[3],  # noise
+                    )
 
-            self.pprocesses.append(my_synapse)
+                self.pprocesses.append(synapse_obj)
 
     def destroy(self, sim=None):
         """Destroy mechanism instantiation."""
@@ -197,14 +251,24 @@ class NrnNetStimStimulusCustom(ephys.stimuli.Stimulus):
 
     def instantiate(self, sim=None, icell=None):
         """Run stimulus."""
+        if self.connections is None:
+            self.connections = {}
         for location in self.locations:
             self.connections[location.name] = []
             for synapse in location.instantiate(sim=sim, icell=icell):
                 netstim = sim.neuron.h.NetStim()
-                netstim.interval = self.interval
-                netstim.number = self.number
-                netstim.start = self.start
-                netstim.noise = self.noise
+                netstim.interval = (
+                    synapse.interval if synapse.interval is not None else self.interval
+                )
+                netstim.number = (
+                    synapse.number if synapse.number is not None else self.number
+                )
+                netstim.start = (
+                    synapse.start if synapse.start is not None else self.start
+                )
+                netstim.noise = (
+                    synapse.noise if synapse.noise is not None else self.noise
+                )
                 netcon = sim.neuron.h.NetCon(
                     netstim, synapse.hsynapse, -30, synapse.delay, synapse.weight
                 )
@@ -261,6 +325,9 @@ class NrnVecStimStimulusCustom(ephys.stimuli.Stimulus):
 
     def instantiate(self, sim=None, icell=None):
         """Run stimulus."""
+        if self.connections is None:
+            self.connections = {}
+
         if self.vecstim_random == "python":
             random.seed(self.seed)
         else:

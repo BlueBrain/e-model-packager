@@ -32,7 +32,7 @@ def load_config(config_dir="config", filename="config.ini"):
         "stimulus_duration": "2000",
         "hold_stimulus_delay": "0",
         "hold_stimulus_duration": "3000",
-        "syn_stim_mode": "None",
+        "syn_stim_mode": "vecstim",
         "syn_total_duration": "${total_duration}",
         "syn_interval": "0.025",
         "syn_nmb_of_spikes": "5",
@@ -71,6 +71,7 @@ def load_config(config_dir="config", filename="config.ini"):
         "syn_data_file": "synapses.tsv",
         "syn_conf_file": "synconf.txt",
         "syn_hoc_file": "synapses.hoc",
+        "syn_mtype_map": "mtype_map.tsv",
         "simul_hoc_file": "createsimulation.hoc",
     }
 
@@ -596,6 +597,7 @@ def load_tsv_data(tsv_path):
             syn["delay"] = float(items[10])
             syn["weight"] = float(items[11])
             syn["Nrrp"] = float(items[12])
+            syn["pre_mtype"] = int(items[13])
 
             synapses.append(syn)
 
