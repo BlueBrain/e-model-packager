@@ -118,7 +118,8 @@ class PrepareOutputDirectory(luigi.Task):
         """Copy python recordings config into output directory."""
         output_config_dir = os.path.join(output_dir, "config")
         shutil.copytree(
-            workflow_config.get("paths", "emodel_config_dir"), output_config_dir,
+            workflow_config.get("paths", "emodel_config_dir"),
+            output_config_dir,
         )
 
     @staticmethod
@@ -411,7 +412,12 @@ class PrepareMEModelDirectory(luigi.Task):
             mtype_file.write(mtype_map_content)
 
     def fill_in_templates(
-        self, mecombo_thresholds, mecombo_hypamps, mecombo, emodel, morph_fname,
+        self,
+        mecombo_thresholds,
+        mecombo_hypamps,
+        mecombo,
+        emodel,
+        morph_fname,
     ):
         """Fill in and write constants.hoc & current_amp.dat templates."""
         templates_dir = workflow_config.get("paths", "templates_dir")
@@ -469,7 +475,11 @@ class PrepareMEModelDirectory(luigi.Task):
         # templates to be filled
         emodel = mecombo_emodels[mecombo]
         self.fill_in_templates(
-            mecombo_thresholds, mecombo_hypamps, mecombo, emodel, morph_fname,
+            mecombo_thresholds,
+            mecombo_hypamps,
+            mecombo,
+            emodel,
+            morph_fname,
         )
 
 

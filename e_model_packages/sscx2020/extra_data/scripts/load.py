@@ -34,7 +34,7 @@ def load_config(config_dir="config", filename="config.ini"):
         "hold_stimulus_duration": "3000",
         "syn_stim_mode": "vecstim",
         "syn_total_duration": "${total_duration}",
-        "syn_interval": "0.025",
+        "syn_interval": "100",
         "syn_nmb_of_spikes": "5",
         "syn_start": "50",
         "syn_noise": "0",
@@ -218,7 +218,7 @@ def get_syn_stim(syn_locs, config, syn_stim_mode):
     """Get synapse stimulus depending on mode."""
     # load config data
     syn_total_duration = config.getint("Protocol", "syn_total_duration")
-    syn_interval = config.getfloat("Protocol", "syn_interval")
+    syn_interval = config.getint("Protocol", "syn_interval")
     syn_nmb_of_spikes = config.getint("Protocol", "syn_nmb_of_spikes")
     syn_start = config.getint("Protocol", "syn_start")
     syn_noise = config.getint("Protocol", "syn_noise")
@@ -245,7 +245,6 @@ def get_syn_stim(syn_locs, config, syn_stim_mode):
         return NrnVecStimStimulusCustom(
             syn_locs,
             syn_total_duration,
-            syn_interval,
             syn_start,
             syn_stim_seed,
             vecstim_random,
@@ -489,7 +488,7 @@ def get_axon_hoc(replace_axon_hoc):
         return f.read()
 
 
-def load_syn_mechs(config):
+def load_syn_mechs(config, pre_mtypes=None, stim_params=None):
     """Load synapse mechanisms."""
     seed = config.getint("Synapses", "seed")
     rng_settings_mode = config.get("Synapses", "rng_settings_mode")
@@ -507,7 +506,13 @@ def load_syn_mechs(config):
     synconf_dict = load_synapse_configuration_data(syn_conf_path)
 
     return NrnMODPointProcessMechanismCustom(
-        "synapse_mechs", synapses_data, synconf_dict, seed, rng_settings_mode
+        "synapse_mechs",
+        synapses_data,
+        synconf_dict,
+        seed,
+        rng_settings_mode,
+        pre_mtypes,
+        stim_params,
     )
 
 

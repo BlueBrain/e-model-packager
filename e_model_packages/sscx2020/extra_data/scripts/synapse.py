@@ -295,7 +295,6 @@ class NrnVecStimStimulusCustom(ephys.stimuli.Stimulus):
         self,
         locations=None,
         total_duration=None,
-        interval=None,
         start=None,
         seed=1,
         vecstim_random="python",
@@ -317,7 +316,6 @@ class NrnVecStimStimulusCustom(ephys.stimuli.Stimulus):
             self.total_duration = total_duration
 
         self.locations = locations
-        self.interval = interval
         self.start = start
         self.seed = seed
         self.vecstim_random = vecstim_random
@@ -344,7 +342,7 @@ class NrnVecStimStimulusCustom(ephys.stimuli.Stimulus):
 
                 t_vec = sim.neuron.h.Vector(spike_train)
                 vecstim = sim.neuron.h.VecStim()
-                vecstim.play(t_vec, self.interval)
+                vecstim.play(t_vec, sim.dt)
                 netcon = sim.neuron.h.NetCon(
                     vecstim, synapse.hsynapse, -30, synapse.delay, synapse.weight
                 )
