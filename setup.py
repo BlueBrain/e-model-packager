@@ -33,7 +33,15 @@ setup(
     dependency_links=[
         "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/"
     ],
-    install_requires=["luigi", "numpy", "bluepy", "bluepyopt", "bglibpy", "bluepysnap"],
+    install_requires=[
+        "luigi",
+        "numpy",
+        "bluepy",
+        "bluepyopt",
+        "bglibpy",
+        "bluepysnap",
+        "pandas<1.1",
+    ],
     packages=find_packages(),
     python_requires=">=2.7",
     classifiers=[

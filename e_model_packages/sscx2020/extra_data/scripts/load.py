@@ -50,8 +50,7 @@ def load_config(config_dir="config", filename="config.ini"):
         "seed": "932156",
         "rng_settings_mode": "Random123",  # can be "Random123" or "Compatibility"
         # paths
-        "inner_dir": "${Cell:mtype}_${Cell:etype}_${Cell:gidx}",
-        "memodel_dir": "memodel_dirs/${Cell:mtype}/${Cell:etype}/${inner_dir}",
+        "memodel_dir": ".",
         "output_dir": "${memodel_dir}/python_recordings",
         "output_file": "soma_voltage_",
         "constants_dir": "${memodel_dir}",

@@ -1,21 +1,40 @@
 """Test file."""
 import configparser
 import os
-import random
 import re
-import subprocess
 import numpy as np
+import pytest
 
 import bglibpy
 from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
     get_morph_emodel_names,
+    get_output_path,
     combine_names,
-    cwd,
 )
 
 
-@launch_luigi(module="workflow", task="PrepareMEModelDirectory")
+@pytest.fixture(scope="session")
+def prepare_test_synapses_config():
+    """Prepares a test config with synapses that uses neuron's rng."""
+    mtype = "L23_BP"
+    etype = "bNAC"
+    gidx = 150
+    configfile = "config_synapses.ini"
+
+    output_path = os.path.join("tests", "output")
+    memodel_path = get_output_path(mtype, etype, gidx, output_path)
+
+    # re-write config file to have consistent randomness accross simulations
+    config_path = os.path.join(memodel_path, "config", configfile)
+    with open(config_path, "r") as config_f:
+        config = config_f.read()
+    new_config = re.sub("vecstim_random=.*", "vecstim_random=neuron", config)
+    with open(config_path, "w") as config_f:
+        config_f.write(new_config)
+
+
+@launch_luigi(module="workflow", task="PrepareConfig")
 def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     """Check that e-model directories have been created, given the attributes of a given test cell
 
@@ -36,9 +55,6 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "constants.hoc",
         "current_amps.dat",
         "run_hoc.sh",
-    ]
-
-    output_files_to_be_checked = [
         "LICENSE.txt",
         "run_py.sh",
         "run.py",
@@ -90,15 +106,17 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
 
     synapses = ["synapses.tsv", "synconf.txt"]
 
-    output_files_to_be_checked.append(os.path.join("config", "recipes", "recipes.json"))
+    memodel_files_to_be_checked.append(
+        os.path.join("config", "recipes", "recipes.json")
+    )
     for item in config_files:
-        output_files_to_be_checked.append(os.path.join("config", item))
+        memodel_files_to_be_checked.append(os.path.join("config", item))
 
     for item in templates:
-        output_files_to_be_checked.append(os.path.join("templates", item))
+        memodel_files_to_be_checked.append(os.path.join("templates", item))
 
     for item in py_rec_config:
-        output_files_to_be_checked.append(os.path.join("config", "params", item))
+        memodel_files_to_be_checked.append(os.path.join("config", "params", item))
 
     for item in mechanisms:
         memodel_files_to_be_checked.append(os.path.join("mechanisms", item))
@@ -119,18 +137,12 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     for item in memodel_files_to_be_checked:
         if os.path.isfile(os.path.join(memodel_path, item)) is False:
             print("Test failed: " + os.path.join(memodel_path, item) + " not found.")
+            print(f"cwd is {os.getcwd()} ")
             assert False
 
     for item in directories_to_be_checked:
         if os.path.isdir(os.path.join(memodel_path, item)) is False:
             print("Test failed: " + os.path.join(memodel_path, item) + " not found.")
-            assert False
-
-    output_path = os.path.join("tests", "output")
-
-    for item in output_files_to_be_checked:
-        if os.path.isfile(os.path.join(output_path, item)) is False:
-            print("Test failed: " + os.path.join(output_path, item) + " not found.")
             assert False
 
 
@@ -175,14 +187,16 @@ def test_voltages(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
 def run_bglibpy_cell(blueconfig_path, gid, sim_time, dt=0.025):
     """Run the cell in bglibpy with synapses"""
     bglibpy.set_verbose(0)
+
     ssim = bglibpy.SSim(blueconfig_path, record_dt=0.1)
     ssim.instantiate_gids([gid], add_synapses=True)
     cell = ssim.cells[gid]
 
+    rng = bglibpy.neuron.h.Random(1)
+    rng.uniform(50, sim_time)
     connections = []
-    random.seed(1)
     for _, synapse in cell.synapses.items():
-        spike_train = np.array([random.uniform(50, sim_time)])
+        spike_train = np.array([rng.repick()])
         connection = bglibpy.Connection(synapse, spike_train, stim_dt=dt)
         connections.append(connection)
 
@@ -191,8 +205,11 @@ def run_bglibpy_cell(blueconfig_path, gid, sim_time, dt=0.025):
     return ssim.get_time(), ssim.get_voltage_traces()[gid]
 
 
-@launch_luigi(module="workflow", task="PrepareMEModelDirectory")
-def test_synapses(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
+@pytest.mark.usefixtures("prepare_test_synapses_config")
+@launch_luigi(module="workflow", task="RunPyScript")
+def test_synapses(
+    mtype="L23_BP", etype="bNAC", gid=111728, gidx=150, configfile="config_synapses.ini"
+):
     """Test to compare the output of cell with synapses between our run.py and bglibpy.
 
     Attributes:
@@ -200,6 +217,7 @@ def test_synapses(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         etype: electrophysiological type
         gid: cell id
         gidx: index of cell
+        configfile: the configuration file of the emodel.
     """
 
     threshold = 0.05
@@ -209,22 +227,17 @@ def test_synapses(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     config_circuit.read(os.path.join("tests", "luigi_test.cfg"))
     circuit_config_path = config_circuit.get("paths", "circuit")
 
-    # run run.py
-    os.chdir("tests/output")
-    base_path = f"memodel_dirs/{mtype}/{etype}/{mtype}_{etype}_{gidx}"
-    path_to_mechanisms = os.path.join(base_path, "mechanisms")
-    subprocess.call(["nrnivmodl", path_to_mechanisms])
-    subprocess.call(["python", "run.py", "--c", "config_synapses.ini"])
-
     # run cells from bglibpy
     sim_time = 3000
     _, bg_v = run_bglibpy_cell(circuit_config_path, gid, sim_time)
 
-    # load run.py output
-    py_path = os.path.join(base_path, "python_recordings", "soma_voltage_vecstim.dat")
-    py_v = np.loadtxt(py_path)
+    base_path = f"memodel_dirs/{mtype}/{etype}/{mtype}_{etype}_{gidx}"
 
-    os.chdir("../..")
+    # load run.py output
+    py_path = os.path.join(
+        "tests", "output", base_path, "python_recordings", "soma_voltage_vecstim.dat"
+    )
+    py_v = np.loadtxt(py_path)
 
     # compare
     rms = np.sqrt(np.mean((bg_v - py_v[:, 1]) ** 2))
@@ -232,7 +245,8 @@ def test_synapses(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     assert rms < threshold
 
 
-@launch_luigi(module="workflow", task="CreateHoc", reload_hoc=True)
+@pytest.mark.usefixtures("prepare_test_synapses_config")
+@launch_luigi(module="workflow", task="DoRecordings", reload_hoc=True)
 def test_synapses_hoc_vs_py_script(
     mtype="L23_BP", etype="bNAC", gid=111728, gidx=150, configfile="config_synapses.ini"
 ):
@@ -249,35 +263,15 @@ def test_synapses_hoc_vs_py_script(
     threshold_py_recs = 0.1
 
     output_path = os.path.join("tests", "output")
-
-    # re-write config file to have consistent randomness accross simulations
-    new_config_file = "config_synapses_test.ini"
-    config_path = os.path.join(output_path, "config", configfile)
-    with open(config_path, "r") as config_f:
-        config = config_f.read()
-    new_config = re.sub("vecstim_random=.*", "vecstim_random=neuron", config)
-
-    new_config_path = os.path.join(output_path, "config", new_config_file)
-    with open(new_config_path, "w") as new_f:
-        new_f.write(new_config)
-
-    # get output path
-    inner_folder_name = combine_names(mtype, etype, gidx)
-    recording_path = os.path.join(mtype, etype, inner_folder_name)
-    script_path = os.path.join(output_path, "memodel_dirs", recording_path)
-
-    # run scripts
-    with cwd(script_path):
-        subprocess.call(["sh", "./run_hoc.sh"])
-    with cwd(output_path):
-        subprocess.call(["sh", "./run_py.sh", new_config_file])
-        subprocess.call(["sh", "./run_old_py.sh", new_config_file])
+    memodel_path = get_output_path(mtype, etype, gidx, output_path)
 
     # load output
-    hoc_path = os.path.join(script_path, "hoc_recordings", "soma_voltage_vecstim.dat")
-    py_path = os.path.join(script_path, "python_recordings", "soma_voltage_vecstim.dat")
+    hoc_path = os.path.join(memodel_path, "hoc_recordings", "soma_voltage_vecstim.dat")
+    py_path = os.path.join(
+        memodel_path, "python_recordings", "soma_voltage_vecstim.dat"
+    )
     old_py_path = os.path.join(
-        script_path, "old_python_recordings", "soma_voltage_vecstim.dat"
+        memodel_path, "old_python_recordings", "soma_voltage_vecstim.dat"
     )
 
     hoc_voltage = np.loadtxt(hoc_path)

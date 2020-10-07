@@ -12,3 +12,4 @@ doc/build
 .eggs
 .vscode
 .notebooks
+.pytest_cache

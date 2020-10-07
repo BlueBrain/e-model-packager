@@ -61,6 +61,7 @@ class ParseCircuit(luigi.Task):
                 for gidx, gid in enumerate(gids):
                     gidx = gidx + 1  # 1 indexed for users
                     tasks.append(PrepareMEModelDirectory(mtype, etype, gid, gidx))
+                    tasks.append(CreateHoc(mtype, etype, gid, gidx))
         else:
             gids = list(
                 circuit.cells.ids({bpcell.MTYPE: self.mtype, bpcell.ETYPE: self.etype})
@@ -71,7 +72,10 @@ class ParseCircuit(luigi.Task):
                 gids[self.gidx - 1],
             ]
 
-            tasks = [PrepareMEModelDirectory(self.mtype, self.etype, gid, self.gidx)]
+            tasks = [
+                PrepareMEModelDirectory(self.mtype, self.etype, gid, self.gidx),
+                CreateHoc(self.mtype, self.etype, gid, self.gidx),
+            ]
 
         return tasks
 
@@ -89,64 +93,21 @@ class ParseCircuit(luigi.Task):
 class PrepareOutputDirectory(luigi.Task):
     """Task to prepare the output directory.
 
-    Copy scripts, config, templates and params files in the main output directory.
+    Create the main output directory.
     """
 
     def output(self):
         """Copy files."""
-        targets = []
         output_dir = workflow_config.get("paths", "output")
-        files = workflow_config.get("files", "general_scripts")
 
-        for f in files:
-            targets.append(luigi.LocalTarget(os.path.join(output_dir, f)))
-        targets.append(luigi.LocalTarget(os.path.join(output_dir, "config")))
-        targets.append(luigi.LocalTarget(os.path.join(output_dir, "templates")))
-
-        return targets
-
-    @staticmethod
-    def copy_templates(output_dir):
-        """Copy mechanisms into output directory."""
-        output_templates_dir = os.path.join(output_dir, "templates")
-        shutil.copytree(
-            workflow_config.get("paths", "templates_to_copy_dir"), output_templates_dir
-        )
-
-    @staticmethod
-    def copy_config(output_dir):
-        """Copy python recordings config into output directory."""
-        output_config_dir = os.path.join(output_dir, "config")
-        shutil.copytree(
-            workflow_config.get("paths", "emodel_config_dir"),
-            output_config_dir,
-        )
-
-    @staticmethod
-    def copy_scripts(output_dir):
-        """Copy scripts."""
-        scripts_dir = workflow_config.get("paths", "scripts_dir")
-        script_files = workflow_config.get("files", "general_scripts")
-
-        for script_file in script_files:
-            script_path = os.path.join(scripts_dir, script_file)
-            shutil.copy(script_path, output_dir)
+        return luigi.LocalTarget(output_dir)
 
     def run(self):
-        """Copy scripts, config and templates."""
-        output_dir = workflow_config.get("paths", "output")
+        """Create the output folder."""
+        output_dir = self.output().path
 
         if not os.path.isdir(output_dir):
             os.makedirs(output_dir)
-
-        # teamplates to be copied
-        self.copy_templates(output_dir)
-
-        # python recordings config
-        self.copy_config(output_dir)
-
-        # scripts
-        self.copy_scripts(output_dir)
 
 
 class PrepareConfig(luigi.Task):
@@ -155,23 +116,29 @@ class PrepareConfig(luigi.Task):
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
-        gid: id of cell in the circuit
+        gid : cell id
         gidx: index of cell
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
+    gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
 
     def requires(self):
         """Requires the output directory to have been created."""
-        return PrepareOutputDirectory()
+        return [
+            PrepareMEModelDirectory(
+                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+            ),
+        ]
 
     def output(self):
         """Write config file."""
         output_dir = workflow_config.get("paths", "output")
-        config_file1 = os.path.join(output_dir, "config", "config.ini")
-        config_file2 = os.path.join(output_dir, "config", "config_synapses.ini")
+        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+        config_file1 = os.path.join(memodel_dir, "config", "config.ini")
+        config_file2 = os.path.join(memodel_dir, "config", "config_synapses.ini")
 
         return [luigi.LocalTarget(config_file1), luigi.LocalTarget(config_file2)]
 
@@ -217,10 +184,7 @@ class PrepareMEModelDirectory(luigi.Task):
 
     def requires(self):
         """Requires the script to have been copied in the main output directory."""
-        tasks = [
-            PrepareOutputDirectory(),
-            PrepareConfig(self.mtype, self.etype, self.gidx),
-        ]
+        tasks = [PrepareOutputDirectory()]
         return tasks
 
     def output(self):
@@ -254,6 +218,23 @@ class PrepareMEModelDirectory(luigi.Task):
         shutil.copy(morph_path, memodel_morph_dir)
 
         return mecombo, morph_fname
+
+    @staticmethod
+    def copy_config(output_dir):
+        """Copy python recordings config into output directory."""
+        output_config_dir = os.path.join(output_dir, "config")
+        shutil.copytree(
+            workflow_config.get("paths", "emodel_config_dir"),
+            output_config_dir,
+        )
+
+    @staticmethod
+    def copy_templates(output_dir):
+        """Copy mechanisms into output directory."""
+        output_templates_dir = os.path.join(output_dir, "templates")
+        shutil.copytree(
+            workflow_config.get("paths", "templates_to_copy_dir"), output_templates_dir
+        )
 
     def copy_mechanisms(self):
         """Copy mechanisms into output directory."""
@@ -472,6 +453,12 @@ class PrepareMEModelDirectory(luigi.Task):
         # scripts
         self.copy_scripts()
 
+        # config
+        self.copy_config(memodel_dir)
+
+        # templates to be copied
+        self.copy_templates(memodel_dir)
+
         # templates to be filled
         emodel = mecombo_emodels[mecombo]
         self.fill_in_templates(
@@ -502,7 +489,14 @@ class CreateHoc(luigi.Task):
 
     def requires(self):
         """Requires the output paths to be made."""
-        return ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
+        return [
+            PrepareConfig(
+                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+            ),
+            PrepareMEModelDirectory(
+                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+            ),
+        ]
 
     def get_output_path(self):
         """Returns the path to the outputs directory."""
@@ -531,7 +525,7 @@ class CreateHoc(luigi.Task):
 
     def run(self):
         """Createss the hoc script."""
-        workflow_output_dir = workflow_config.get("paths", "output")
+        workflow_output_dir = self.get_output_path()
         with cwd(workflow_output_dir):
             subprocess.call(["python", "create_hoc.py", "--c", self.configfile])
 
@@ -573,11 +567,17 @@ class RunHoc(luigi.Task):
         )
         output_path = os.path.join(script_path, "hoc_recordings")
 
-        for idx in range(3):
-            output_list.append(
-                luigi.LocalTarget(
-                    os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+        if self.configfile == "config.ini":
+            for idx in range(3):
+                output_list.append(
+                    luigi.LocalTarget(
+                        os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+                    )
                 )
+
+        elif self.configfile == "config_synapses.ini":
+            output_list.append(
+                luigi.LocalTarget(os.path.join(output_path, "soma_voltage_vecstim.dat"))
             )
 
         return output_list
@@ -598,18 +598,25 @@ class RunPyScript(luigi.Task):
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        gid : cell id
         gidx: index of cell
         configfile : name of config file in /config to use when running script
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
+    gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
     configfile = luigi.Parameter(default="config.ini")
 
     def requires(self):
         """Requires the output paths to be made."""
-        return ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx)
+        return [
+            ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx),
+            PrepareConfig(
+                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+            ),
+        ]
 
     def output(self):
         """Produces the python recordings."""
@@ -621,19 +628,26 @@ class RunPyScript(luigi.Task):
         )
         output_path = os.path.join(script_path, "python_recordings")
 
-        for idx in range(3):
-            output_list.append(
-                luigi.LocalTarget(
-                    os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+        if self.configfile == "config.ini":
+            for idx in range(3):
+                output_list.append(
+                    luigi.LocalTarget(
+                        os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+                    )
                 )
+
+        elif self.configfile == "config_synapses.ini":
+            output_list.append(
+                luigi.LocalTarget(os.path.join(output_path, "soma_voltage_vecstim.dat"))
             )
 
         return output_list
 
     def run(self):
         """Executes the python script."""
-        workflow_output_dir = workflow_config.get("paths", "output")
-        with cwd(workflow_output_dir):
+        output_dir = workflow_config.get("paths", "output")
+        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+        with cwd(memodel_dir):
             subprocess.call(["sh", "./run_py.sh", self.configfile])
 
 
@@ -674,24 +688,35 @@ class RunOldPyScript(luigi.Task):
         )
         output_path = os.path.join(script_path, "old_python_recordings")
 
-        for idx in range(3):
-            output_list.append(
-                luigi.LocalTarget(
-                    os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+        if self.configfile == "config.ini":
+            for idx in range(3):
+                output_list.append(
+                    luigi.LocalTarget(
+                        os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+                    )
                 )
+
+        elif self.configfile == "config_synapses.ini":
+            output_list.append(
+                luigi.LocalTarget(os.path.join(output_path, "soma_voltage_vecstim.dat"))
             )
 
         return output_list
 
     def run(self):
         """Executes the python script."""
-        workflow_output_dir = workflow_config.get("paths", "output")
-        with cwd(workflow_output_dir):
+        output_dir = workflow_config.get("paths", "output")
+        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+        with cwd(memodel_dir):
             subprocess.call(["sh", "./run_old_py.sh", self.configfile])
 
 
 class CreateSystemLog(luigi.Task):
     """Task to log the modules and python packages used in the execution."""
+
+    def requires(self):
+        """Requires the main output directory to be present."""
+        return PrepareOutputDirectory()
 
     def output(self):
         """A log file to be written."""
@@ -738,7 +763,7 @@ class DoRecordings(luigi.WrapperTask):
         """Launch both RunHoc and RunPyScript."""
         tasks = [
             RunHoc(self.mtype, self.etype, self.gid, self.gidx, self.configfile),
-            RunPyScript(self.mtype, self.etype, self.gidx, self.configfile),
+            RunPyScript(self.mtype, self.etype, self.gid, self.gidx, self.configfile),
             RunOldPyScript(
                 self.mtype, self.etype, self.gid, self.gidx, self.configfile
             ),
