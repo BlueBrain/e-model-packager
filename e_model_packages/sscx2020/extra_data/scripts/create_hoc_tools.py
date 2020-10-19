@@ -82,7 +82,6 @@ def create_hoc(
     template_filename="cell_template.jinja2",
     disable_banner=None,
     template_dir=None,
-    custom_jinja_params=None,
     add_synapses=False,
     synapses_template_name="hoc_synapses",
     syn_hoc_filename="synapses.hoc",
@@ -104,8 +103,6 @@ def create_hoc(
         template_filename (str): file name of the jinja2 template
         template_dir (str): dir name of the jinja2 template
         disable_banner (bool): if not True: a banner is added to the hoc file
-        custom_jinja_params (dict): dict of additional jinja2 params in case
-        of a custom template
         add_synapses (bool): if True: synapses are loaded in the hoc
         synapses_template_name (str): synapse class name in hoc
         syn_hoc_filename (str): file name of synapse hoc file
@@ -142,9 +139,6 @@ def create_hoc(
 
     re_init_rng = _generate_reinitrng(mechs)
 
-    if custom_jinja_params is None:
-        custom_jinja_params = {}
-
     return template.render(
         template_name=template_name,
         banner=banner,
@@ -160,7 +154,6 @@ def create_hoc(
         synapses_template_name=synapses_template_name,
         syn_hoc_filename=syn_hoc_filename,
         syn_dir=syn_dir,
-        **custom_jinja_params,
     )
 
 

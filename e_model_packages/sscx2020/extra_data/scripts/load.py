@@ -1,7 +1,11 @@
 """Functions mainly for loading params for run.py."""
 
 import collections
-import configparser
+
+try:
+    import ConfigParser as configparser  # for python2
+except ImportError:
+    import configparser  # for python3
 import logging
 import json
 import os
@@ -33,7 +37,7 @@ def load_config(config_dir="config", filename="config.ini"):
         "hold_stimulus_delay": "0",
         "hold_stimulus_duration": "3000",
         "syn_stim_mode": "vecstim",
-        "syn_total_duration": "${total_duration}",
+        "syn_total_duration": "%(total_duration)s",
         "syn_interval": "100",
         "syn_nmb_of_spikes": "5",
         "syn_start": "50",
@@ -51,22 +55,22 @@ def load_config(config_dir="config", filename="config.ini"):
         "rng_settings_mode": "Random123",  # can be "Random123" or "Compatibility"
         # paths
         "memodel_dir": ".",
-        "output_dir": "${memodel_dir}/python_recordings",
+        "output_dir": "%(memodel_dir)s/python_recordings",
         "output_file": "soma_voltage_",
-        "constants_dir": "${memodel_dir}",
+        "constants_dir": "%(memodel_dir)s",
         "constants_file": "constants.hoc",
         "recipes_dir": "config/recipes",
         "recipes_file": "recipes.json",
         "params_dir": "config/params",
         "params_file": "final.json",
-        "protocol_amplitudes_dir": "${memodel_dir}",
+        "protocol_amplitudes_dir": "%(memodel_dir)s",
         "protocol_amplitudes_file": "current_amps.dat",
         "templates_dir": "templates",
         "create_hoc_template_file": "cell_template_neurodamus.jinja2",
-        "replace_axon_hoc_dir": "${templates_dir}",
+        "replace_axon_hoc_dir": "%(templates_dir)s",
         "replace_axon_hoc_file": "replace_axon_hoc.hoc",
         "syn_dir_for_hoc": "synapses",
-        "syn_dir": "${memodel_dir}/${syn_dir_for_hoc}",
+        "syn_dir": "%(memodel_dir)s/%(syn_dir_for_hoc)s",
         "syn_data_file": "synapses.tsv",
         "syn_conf_file": "synconf.txt",
         "syn_hoc_file": "synapses.hoc",
@@ -74,9 +78,7 @@ def load_config(config_dir="config", filename="config.ini"):
         "simul_hoc_file": "createsimulation.hoc",
     }
 
-    config = configparser.ConfigParser(
-        defaults=defaults, interpolation=configparser.ExtendedInterpolation()
-    )
+    config = configparser.ConfigParser(defaults=defaults)
     config.read(config_path)
 
     # make sure that config has all sections
@@ -354,8 +356,10 @@ def define_protocols(config, cell=None):
         step_protocols = [protocol]
     else:
         raise Exception(
-            f"No valid protocol was found. step_stimulus is {step_stim}"
-            f" and syn_stim_mode ({syn_stim_mode}) not in ['vecstim', 'netstim']."
+            "No valid protocol was found. step_stimulus is {}".format(step_stim)
+            + " and syn_stim_mode ({}) not in ['vecstim', 'netstim'].".format(
+                syn_stim_mode
+            )
         )
 
     return ephys.protocols.SequenceProtocol("twostep", protocols=step_protocols)

@@ -236,6 +236,12 @@ class PrepareMEModelDirectory(luigi.Task):
             workflow_config.get("paths", "templates_to_copy_dir"), output_templates_dir
         )
 
+    @staticmethod
+    def copy_GUI_utils(output_dir):
+        """Copy mechanisms into output directory."""
+        output_GUI_dir = os.path.join(output_dir, "GUI_utils")
+        shutil.copytree(workflow_config.get("paths", "GUI_dir"), output_GUI_dir)
+
     def copy_mechanisms(self):
         """Copy mechanisms into output directory."""
         memodel_mechanisms_dir = os.path.join(self.output().path, "mechanisms")
@@ -458,6 +464,9 @@ class PrepareMEModelDirectory(luigi.Task):
 
         # templates to be copied
         self.copy_templates(memodel_dir)
+
+        # GUI scripts
+        self.copy_GUI_utils(memodel_dir)
 
         # templates to be filled
         emodel = mecombo_emodels[mecombo]

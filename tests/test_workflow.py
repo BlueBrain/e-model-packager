@@ -67,6 +67,7 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "cell.py",
         "create_hoc.py",
         "create_hoc_tools.py",
+        "GUI.py",
     ]
 
     templates = [
@@ -106,6 +107,14 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
 
     synapses = ["synapses.tsv", "synconf.txt"]
 
+    GUI_files = [
+        "interface.py",
+        "style.py",
+        "frames.py",
+        "plotshape.py",
+        "simulator.py",
+    ]
+
     memodel_files_to_be_checked.append(
         os.path.join("config", "recipes", "recipes.json")
     )
@@ -123,6 +132,9 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
 
     for item in synapses:
         memodel_files_to_be_checked.append(os.path.join("synapses", item))
+
+    for item in GUI_files:
+        memodel_files_to_be_checked.append(os.path.join("GUI_utils", item))
 
     config = configparser.ConfigParser()
     config.read(os.path.join("tests", "luigi_test.cfg"))

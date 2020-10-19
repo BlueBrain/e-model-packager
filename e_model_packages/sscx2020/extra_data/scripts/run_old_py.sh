@@ -8,10 +8,9 @@ else
     source config/$1
 fi
 
-MY_PATH=memodel_dirs/$mtype/$etype/${mtype}_${etype}_${gidx}
 # preloaded=False not implemented yet in BluePyOpt mechanisms
 if [ ! -f "x86_64/special" ]; then
-    nrnivmodl $MY_PATH/mechanisms
+    nrnivmodl mechanisms
 fi
 
 if [ $# -eq 0 ]
