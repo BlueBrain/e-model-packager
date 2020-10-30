@@ -1,0 +1,2 @@
+bluepyopt==1.9.66
+matplotlib

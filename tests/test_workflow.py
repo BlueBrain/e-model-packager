@@ -68,6 +68,7 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "create_hoc.py",
         "create_hoc_tools.py",
         "GUI.py",
+        "requirements.txt",
     ]
 
     templates = [
