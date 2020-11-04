@@ -34,7 +34,7 @@ def prepare_test_synapses_config():
         config_f.write(new_config)
 
 
-@launch_luigi(module="workflow", task="PrepareConfig")
+@launch_luigi(module="workflow", task="PrepareMEModelDirectory")
 def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     """Check that e-model directories have been created, given the attributes of a given test cell
 
@@ -52,14 +52,10 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     ]
 
     memodel_files_to_be_checked = [
-        "constants.hoc",
-        "current_amps.dat",
         "run_hoc.sh",
         "LICENSE.txt",
         "run_py.sh",
         "run.py",
-        "run_old_py.sh",
-        "old_run.py",
         "load.py",
         "recordings.py",
         "morphology.py",
@@ -69,6 +65,7 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "create_hoc_tools.py",
         "GUI.py",
         "requirements.txt",
+        "cell_info.json",
     ]
 
     templates = [
@@ -104,7 +101,12 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "StochKv3.mod",
     ]
 
-    config_files = ["config_example.ini", "config.ini", "config_synapses.ini"]
+    config_files = [
+        "config.ini",
+        "config_synapses.ini",
+        "constants.json",
+        "current_amps.json",
+    ]
 
     synapses = ["synapses.tsv", "synconf.txt"]
 

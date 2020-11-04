@@ -1,10 +1,14 @@
 """Workflow to build e-model packages."""
+# pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-order
+# pylint: disable=import-error
 import collections
 import json
 import os
 import re
 import shutil
 import subprocess
+import sys
 
 import luigi
 from bluepy.v2 import Cell as bpcell
@@ -18,6 +22,13 @@ from e_model_packages.sscx2020.utils import (
     get_output_path,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
+
+# for loading create_hoc & old_run modules
+# that are supposed to be loaded from the memodel directory.
+sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
+from load import load_config
+from create_hoc import get_hoc, write_hocs
+from old_run import main as old_python_main
 
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
@@ -110,63 +121,6 @@ class PrepareOutputDirectory(luigi.Task):
             os.makedirs(output_dir)
 
 
-class PrepareConfig(luigi.Task):
-    """Task to prepare the e-model directory.
-
-    Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gid : cell id
-        gidx: index of cell
-    """
-
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gid = luigi.IntParameter()
-    gidx = luigi.IntParameter()
-
-    def requires(self):
-        """Requires the output directory to have been created."""
-        return [
-            PrepareMEModelDirectory(
-                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
-            ),
-        ]
-
-    def output(self):
-        """Write config file."""
-        output_dir = workflow_config.get("paths", "output")
-        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
-        config_file1 = os.path.join(memodel_dir, "config", "config.ini")
-        config_file2 = os.path.join(memodel_dir, "config", "config_synapses.ini")
-
-        return [luigi.LocalTarget(config_file1), luigi.LocalTarget(config_file2)]
-
-    def write_output(self, config_path, output_idx):
-        """Write file for a given output."""
-        with open(self.output()[output_idx].path, "w") as out_file:
-            with open(config_path, "r") as in_file:
-                for line in in_file:
-                    if "mtype" in line.split("="):
-                        line = "mtype={}\n".format(self.mtype)
-                    elif "etype" in line.split("="):
-                        line = "etype={}\n".format(self.etype)
-                    elif "gidx" in line.split("="):
-                        line = "gidx={}\n".format(self.gidx)
-
-                    if line[0] != "#":
-                        out_file.write(line)
-
-    def run(self):
-        """Write mtype, etype, gidx in config file."""
-        config_dir = workflow_config.get("paths", "emodel_config_dir")
-        config_path = os.path.join(config_dir, "config_example.ini")
-        config_synapses_path = os.path.join(config_dir, "config_synapses.ini")
-
-        self.write_output(config_path, 0)
-        self.write_output(config_synapses_path, 1)
-
-
 class PrepareMEModelDirectory(luigi.Task):
     """Task to prepare the e-model directory.
 
@@ -205,28 +159,54 @@ class PrepareMEModelDirectory(luigi.Task):
         os.makedirs(os.path.join(memodel_dir, "python_recordings"))
         os.makedirs(os.path.join(memodel_dir, "old_python_recordings"))
 
-    def copy_morph_emodel(self, circuit, blueconfig, memodel_morph_dir):
+    def get_cell_data_from_circuit(self, circuit):
+        """Get cell data from bluepy circuit."""
+        cell = circuit.cells.get(self.gid)
+        return cell.me_combo, cell.morphology, "L{}".format(cell.layer)
+
+    def write_cell_info(self, morphology, layer, output_dir):
+        """Create cell_info.json file and write it."""
+        cell_info_path = os.path.join(output_dir, "cell_info.json")
+
+        me_type = "_".join((self.mtype, self.etype))
+        name = "_".join((me_type, str(self.gidx)))
+
+        cell_info = {
+            "cell name": name,
+            "e-type": self.etype,
+            "gid": self.gid,
+            "layer": layer,
+            "m-type": self.mtype,
+            "me-type": me_type,
+            "morphology": morphology,
+        }
+
+        with open(cell_info_path, "w") as out_file:
+            json.dump(cell_info, out_file, indent=4, cls=NpEncoder)
+
+    @staticmethod
+    def copy_morph_emodel(morph_fname, blueconfig, memodel_morph_dir):
         """Copy morphology and emodel."""
         circ_morph_dir = os.path.join(blueconfig.Run["MorphologyPath"], "ascii")
-
-        cell = circuit.cells.get(self.gid)
-        mecombo = cell.me_combo
-
-        morph_fname = "%s.asc" % cell.morphology
         morph_path = os.path.join(circ_morph_dir, morph_fname)
 
         shutil.copy(morph_path, memodel_morph_dir)
 
-        return mecombo, morph_fname
-
     @staticmethod
     def copy_config(output_dir):
-        """Copy python recordings config into output directory."""
-        output_config_dir = os.path.join(output_dir, "config")
-        shutil.copytree(
-            workflow_config.get("paths", "emodel_config_dir"),
-            output_config_dir,
-        )
+        """Copy python recordings config into output directory.
+
+        This copies the folders inside /config, but not the config.ini.
+        The config.ini / config_synapses.ini are copied by edit_and_write_config.
+        """
+        base_input_dir = workflow_config.get("paths", "emodel_config_dir")
+        for folder in ["params", "recipes"]:
+            output_config_dir = os.path.join(output_dir, "config", folder)
+            input_dir = os.path.join(base_input_dir, folder)
+            shutil.copytree(
+                input_dir,
+                output_config_dir,
+            )
 
     @staticmethod
     def copy_templates(output_dir):
@@ -263,16 +243,6 @@ class PrepareMEModelDirectory(luigi.Task):
         else:
             script_path = os.path.join(scripts_dir, script_files)
             shutil.copy(script_path, self.output().path)
-
-    def write_down_using_templates(self, templates_dir, template_vars):
-        """Fill in and write constants.hoc & current_amp.dat templates given templates & vars."""
-        for template_fn, variables in template_vars.items():
-            template_path = os.path.join(templates_dir, template_fn)
-            template = open(template_path).read()
-            content = template.format(**variables)
-
-            output_path = os.path.join(self.output().path, template_fn)
-            open(output_path, "w").write(content)
 
     @staticmethod
     def convert_sec_name(sec_name):
@@ -407,27 +377,66 @@ class PrepareMEModelDirectory(luigi.Task):
         morph_fname,
     ):
         """Fill in and write constants.hoc & current_amp.dat templates."""
-        templates_dir = workflow_config.get("paths", "templates_dir")
+        output_dir = "config"
 
+        # current amps
         threshold = mecombo_thresholds[mecombo]
         holding = mecombo_hypamps[mecombo]
+        current_amps = {
+            "holding": holding,
+            "amps": [1.50 * threshold, 2.00 * threshold, 2.50 * threshold],
+        }
 
-        template_vars = {}
+        currents_amp_path = os.path.join(
+            self.output().path, output_dir, "current_amps.json"
+        )
+        with open(currents_amp_path, "w") as out_file:
+            json.dump(current_amps, out_file, indent=4, cls=NpEncoder)
 
-        template_vars["constants.hoc"] = {
+        # constants
+        constants = {
+            "celsius": 34,
+            "v_init": -80,
+            "tstop": 3000,
+            "dt": 0.025,
             "template_name": emodel,
             "gid": self.gid,
             "morph_dir": "morphology",
             "morph_fname": morph_fname,
         }
-        template_vars["current_amps.dat"] = {
-            "holding": holding,
-            "amp1": 1.50 * threshold,
-            "amp2": 2.00 * threshold,
-            "amp3": 2.50 * threshold,
-        }
 
-        self.write_down_using_templates(templates_dir, template_vars)
+        constants_path = os.path.join(self.output().path, output_dir, "constants.json")
+        with open(constants_path, "w") as out_file:
+            json.dump(constants, out_file, indent=4, cls=NpEncoder)
+
+    def write_config(self, config_path, new_config_path):
+        """Write file for a given output."""
+        with open(new_config_path, "w") as out_file:
+            with open(config_path, "r") as in_file:
+                for line in in_file:
+                    if "mtype" in line.split("="):
+                        line = "mtype={}\n".format(self.mtype)
+                    elif "etype" in line.split("="):
+                        line = "etype={}\n".format(self.etype)
+                    elif "gidx" in line.split("="):
+                        line = "gidx={}\n".format(self.gidx)
+
+                    if line[0] != "#":
+                        out_file.write(line)
+
+    def edit_and_write_config(self, output_dir):
+        """Write mtype, etype, gidx in config file."""
+        config_dir = workflow_config.get("paths", "emodel_config_dir")
+        config_path = os.path.join(config_dir, "config_example.ini")
+        config_synapses_path = os.path.join(config_dir, "config_synapses.ini")
+
+        new_config_path = os.path.join(output_dir, "config", "config.ini")
+        new_config_synapses_path = os.path.join(
+            output_dir, "config", "config_synapses.ini"
+        )
+
+        self.write_config(config_path, new_config_path)
+        self.write_config(config_synapses_path, new_config_synapses_path)
 
     def run(self):
         """Create me-model directories."""
@@ -445,10 +454,15 @@ class PrepareMEModelDirectory(luigi.Task):
         # make dirs
         self.makedirs(memodel_morph_dir, synapses_dir)
 
-        # morph & mecombo
-        mecombo, morph_fname = self.copy_morph_emodel(
-            circuit, blueconfig, memodel_morph_dir
-        )
+        # get cell data
+        mecombo, morphology, layer = self.get_cell_data_from_circuit(circuit)
+
+        # create cell_info.json
+        self.write_cell_info(morphology, layer, memodel_dir)
+
+        # copy morphology
+        morph_fname = "{}.asc".format(morphology)
+        self.copy_morph_emodel(morph_fname, blueconfig, memodel_morph_dir)
 
         # synapses
         self.write_synapses(circuit_config_path, synapses_dir)
@@ -478,6 +492,9 @@ class PrepareMEModelDirectory(luigi.Task):
             morph_fname,
         )
 
+        # edit and write module config files
+        self.edit_and_write_config(memodel_dir)
+
 
 class CreateHoc(luigi.Task):
     """Task to create the hoc file of an emodel.
@@ -499,12 +516,9 @@ class CreateHoc(luigi.Task):
     def requires(self):
         """Requires the output paths to be made."""
         return [
-            PrepareConfig(
-                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
-            ),
             PrepareMEModelDirectory(
                 mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
-            ),
+            )
         ]
 
     def get_output_path(self):
@@ -536,7 +550,23 @@ class CreateHoc(luigi.Task):
         """Createss the hoc script."""
         workflow_output_dir = self.get_output_path()
         with cwd(workflow_output_dir):
-            subprocess.call(["python", "create_hoc.py", "--c", self.configfile])
+            # subprocess.call(["python", "create_hoc.py", "--c", self.configfile])
+            run_hoc_filename = "run.hoc"
+            config = load_config(filename=self.configfile)
+
+            cell_hoc, emodel, syn_hoc, simul_hoc, run_hoc = get_hoc(
+                config=config, syn_temp_name="hoc_synapses"
+            )
+
+            write_hocs(
+                config,
+                cell_hoc,
+                emodel,
+                simul_hoc,
+                run_hoc,
+                run_hoc_filename,
+                syn_hoc,
+            )
 
 
 class RunHoc(luigi.Task):
@@ -620,12 +650,7 @@ class RunPyScript(luigi.Task):
 
     def requires(self):
         """Requires the output paths to be made."""
-        return [
-            ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx),
-            PrepareConfig(
-                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
-            ),
-        ]
+        return [ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx)]
 
     def output(self):
         """Produces the python recordings."""
@@ -717,7 +742,11 @@ class RunOldPyScript(luigi.Task):
         output_dir = workflow_config.get("paths", "output")
         memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
         with cwd(memodel_dir):
-            subprocess.call(["sh", "./run_old_py.sh", self.configfile])
+            # compile mechanisms if needed
+            if os.path.exists(os.path.join("x86_64", "special")):
+                subprocess.call(["nrnivmodl", "mechanisms"])
+            # run old_python
+            old_python_main(self.configfile)
 
 
 class CreateSystemLog(luigi.Task):

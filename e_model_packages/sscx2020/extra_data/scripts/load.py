@@ -57,14 +57,14 @@ def load_config(config_dir="config", filename="config.ini"):
         "memodel_dir": ".",
         "output_dir": "%(memodel_dir)s/python_recordings",
         "output_file": "soma_voltage_",
-        "constants_dir": "%(memodel_dir)s",
-        "constants_file": "constants.hoc",
+        "constants_dir": "config",
+        "constants_file": "constants.json",
         "recipes_dir": "config/recipes",
         "recipes_file": "recipes.json",
         "params_dir": "config/params",
         "params_file": "final.json",
-        "protocol_amplitudes_dir": "%(memodel_dir)s",
-        "protocol_amplitudes_file": "current_amps.dat",
+        "protocol_amplitudes_dir": "config",
+        "protocol_amplitudes_file": "current_amps.json",
         "templates_dir": "templates",
         "create_hoc_template_file": "cell_template_neurodamus.jinja2",
         "replace_axon_hoc_dir": "%(templates_dir)s",
@@ -139,26 +139,16 @@ def get_global_param(name, value):
     )
 
 
-def load_constants(constants_path="constants.hoc"):
+def load_constants(constants_path):
     """Get etype, morphology, timestep and gid."""
     with open(constants_path, "r") as f:
-        lines = f.readlines()
+        data = json.load(f)
 
-    for line in lines:
-        line = line.split("=")
-        if line[0] == "template_name":
-            fname = line[1].rstrip()
-            emodel = fname.strip('"')
-        elif line[0] == "morph_dir":
-            fname = line[1].rstrip()
-            morph_dir = fname.strip('"')
-        elif line[0] == "morph_fname":
-            fname = line[1].rstrip()
-            morph_fname = fname.strip('"')
-        elif line[0] == "dt":
-            dt = float(line[1].rstrip())
-        elif line[0] == "gid":
-            gid = int(line[1].rstrip())
+    emodel = data["template_name"]
+    morph_dir = data["morph_dir"]
+    morph_fname = data["morph_fname"]
+    dt = data["dt"]
+    gid = data["gid"]
 
     return emodel, morph_dir, morph_fname, dt, gid
 
@@ -274,10 +264,9 @@ def step_stimuli(config, soma_loc, cvcode_active=False, syn_stim=None):
 
     # get current amplitude data
     with open(amp_filename, "r") as f:
-        data = f.read().rstrip()
-    amps = data.split()
-    amplitudes = [float(amp) for amp in amps[1:]]  # do not take 1st value (hypamp)
-    hypamp = float(amps[0])
+        data = json.load(f)
+    amplitudes = data["amps"]
+    hypamp = data["holding"]
 
     for protocol_name, amplitude in zip(protocol_names, amplitudes):
         # use RecordingCustom to sample time, voltage every 0.1 ms.

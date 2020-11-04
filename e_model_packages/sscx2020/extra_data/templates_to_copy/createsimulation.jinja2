@@ -5,20 +5,22 @@ Do not distribute without further notice.
 
 load_file("nrngui.hoc")
 load_file("import3d.hoc")
-
-load_file("constants.hoc")
-
-load_file(template_fname)
+load_file("{{template_name}}.hoc")
 {%- if add_synapses %}
 load_file("{{syn_dir}}/{{syn_hoc_file}}")
 {%- endif %}
+//======================== constants ========================
+celsius={{celsius}}
+v_init={{v_init}}
+tstop={{total_duration}}
+dt={{dt}}
 
 //=================== creating cell object ===========================
 objref cell
 
 proc create_cell() { localobj cellstring
     cellstring = new String()
-    sprint(cellstring.s, "cell = new %s(%d, \"%s\", \"%s\")", template_name, gid, morph_dir, morph_fname)
+    sprint(cellstring.s, "cell = new %s(%d, \"%s\", \"%s\")", "{{template_name}}", {{gid}}, "{{morph_dir}}", "{{morph_fname}}")
     execute(cellstring.s)
 }
 //==================== recording settings ==========================
@@ -34,18 +36,12 @@ proc create_recording() {
 
 }
 
-proc read_currents() { localobj currents_file
-   strdef line
+proc read_currents() {
 
-   holding = 0.0
-   amp1 = 0.0
-   amp2 = 0.0
-   amp3 = 0.0
-   currents_file = new File("current_amps.dat")
-   currents_file.ropen()
-   currents_file.gets(line)
-   sscanf(line, "%f %f %f %f", &holding, &amp1, &amp2, &amp3)
-   currents_file.close()  
+   holding = {{holding}}
+   amp1 = {{amp1}}
+   amp2 = {{amp2}}
+   amp3 = {{amp3}}
 }
 
 //==================== stimulus settings ===========================

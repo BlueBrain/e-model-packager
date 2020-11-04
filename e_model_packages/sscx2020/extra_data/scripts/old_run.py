@@ -10,9 +10,10 @@ from __future__ import print_function
 
 # pylint: disable=C0325, W0212, F0401, W0612, F0401
 import argparse
+import json
 import os
-import numpy
 import random
+import numpy
 import neuron
 
 from load import load_config
@@ -36,9 +37,10 @@ def create_cell(path):
     return cell
 
 
-def create_stimuli(cell, step_number, config, path):
+def create_stimuli(cell, step_number, config):
     """Create the stimuli."""
     # load config
+    amps_dir = config.get("Paths", "protocol_amplitudes_dir")
     amps_file = config.get("Paths", "protocol_amplitudes_file")
     stimulus_delay = config.getint("Protocol", "stimulus_delay")
     stimulus_duration = config.getint("Protocol", "stimulus_duration")
@@ -51,9 +53,10 @@ def create_stimuli(cell, step_number, config, path):
     step_amp = [0] * 3
 
     # get current amplitudes
-    with open(os.path.join(path, amps_file), "r") as current_amps_file:
-        first_line = current_amps_file.read().split("\n")[0].strip()
-        hyp_amp, step_amp[0], step_amp[1], step_amp[2] = first_line.split(" ")
+    with open(os.path.join(amps_dir, amps_file), "r") as f:
+        data = json.load(f)
+    step_amp = data["amps"]
+    hyp_amp = data["holding"]
 
     # step stimulus
     iclamp = neuron.h.IClamp(0.5, sec=cell.soma[0])
@@ -194,13 +197,23 @@ def save_recordings(recordings, recordings_dir, output_name):
     )
 
 
-def init_simulation(path, recordings_dir, constants_file):
+def init_simulation(recordings_dir, constants_file):
     """Initialise simulation environment."""
     neuron.h.load_file("stdrun.hoc")
     neuron.h.load_file("import3d.hoc")
 
     print("Loading constants")
-    neuron.h.load_file(os.path.join(path, constants_file))
+    with open(constants_file, "r") as f:
+        data = json.load(f)
+    neuron.h("celsius={}".format(data["celsius"]))
+    neuron.h("v_init={}".format(data["v_init"]))
+    neuron.h("tstop={}".format(data["tstop"]))
+    neuron.h("gid={}".format(data["gid"]))
+    neuron.h("dt={}".format(data["dt"]))
+    neuron.h("strdef template_name, morph_dir, morph_fname")
+    neuron.h('template_name="{}"'.format(data["template_name"]))
+    neuron.h('morph_dir="{}"'.format(data["morph_dir"]))
+    neuron.h('morph_fname="{}"'.format(data["morph_fname"]))
 
     if not os.path.exists(recordings_dir):
         os.mkdir(recordings_dir)
@@ -220,7 +233,10 @@ def main(config_file):
     syn_stim_mode = config.get("Protocol", "syn_stim_mode")
 
     # init simulation
-    init_simulation(path, recordings_dir, config.get("Paths", "constants_file"))
+    constants_path = os.path.join(
+        config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
+    )
+    init_simulation(recordings_dir, constants_path)
 
     # create cell
     cell = create_cell(path)
@@ -238,7 +254,7 @@ def main(config_file):
     # run simulation
     if step_stimulus:
         for step_number in range(1, 4):
-            stimuli = create_stimuli(cell, step_number, config, path)  # NOQA
+            stimuli = create_stimuli(cell, step_number, config)  # NOQA
             run_simulation(config)
             save_recordings(
                 recordings, recordings_dir, "soma_voltage_step%d.dat" % step_number

@@ -1,4 +1,5 @@
 """Creates .hoc from cell."""
+import json
 import os
 from datetime import datetime
 
@@ -171,7 +172,34 @@ def create_simul_hoc(template_dir, template_filename, config):
     syn_dir = config.get("Paths", "syn_dir_for_hoc")
     syn_hoc_file = config.get("Paths", "syn_hoc_file")
 
-    # laod template
+    # load data from constants.json
+    constants_path = os.path.join(
+        config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
+    )
+    with open(constants_path, "r") as f:
+        data = json.load(f)
+    hoc_name = data["template_name"]
+    morph_dir = data["morph_dir"]
+    morph_fname = data["morph_fname"]
+    gid = data["gid"]
+    if config.has_section("Sim") and config.has_option("Sim", "dt"):
+        dt = config.getfloat("Sim", "dt")
+    else:
+        dt = data["dt"]
+    celsius = data["celsius"]
+    v_init = data["v_init"]
+
+    # load data from current_amps
+    amp_filename = os.path.join(
+        config.get("Paths", "protocol_amplitudes_dir"),
+        config.get("Paths", "protocol_amplitudes_file"),
+    )
+    with open(amp_filename, "r") as f:
+        data = json.load(f)
+    amp1, amp2, amp3 = data["amps"]
+    holding = data["holding"]
+
+    # load template
     template_path = os.path.join(template_dir, template_filename)
     with open(template_path) as template_file:
         template = template_file.read()
@@ -189,4 +217,15 @@ def create_simul_hoc(template_dir, template_filename, config):
         syn_stim_mode=syn_stim_mode,
         syn_dir=syn_dir,
         syn_hoc_file=syn_hoc_file,
+        template_name=hoc_name,
+        morph_dir=morph_dir,
+        morph_fname=morph_fname,
+        gid=gid,
+        amp1=amp1,
+        amp2=amp2,
+        amp3=amp3,
+        holding=holding,
+        dt=dt,
+        celsius=celsius,
+        v_init=v_init,
     )

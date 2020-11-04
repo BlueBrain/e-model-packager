@@ -1,5 +1,6 @@
 """Class containing simulation for the GUI."""
 
+import json
 import os
 import numpy as np
 
@@ -8,14 +9,9 @@ from recordings import RecordingCustom
 from morphology import NrnFileMorphologyCustom
 from recordings import RecordingCustom
 from cell import CellModelCustom
-from synapse import (
-    NrnMODPointProcessMechanismCustom,
-    NrnNetStimStimulusCustom,
-    NrnVecStimStimulusCustom,
-)
+from synapse import NrnNetStimStimulusCustom
 from load import (
     load_config,
-    define_protocols,
     load_syn_locs,
     load_syn_mechs,
     get_axon_hoc,
@@ -174,10 +170,9 @@ class NeuronSimulation:
         )
 
         with open(amp_filename, "r") as f:
-            data = f.read().rstrip()
-        amps = data.split()
-        amplitudes = [float(amp) for amp in amps[1:]]  # do not take 1st value (hypamp)
-        hypamp = float(amps[0])
+            data = json.load(f)
+        amplitudes = data["amps"]
+        hypamp = data["holding"]
 
         return amplitudes, hypamp
 
