@@ -41,6 +41,7 @@ setup(
         "bglibpy",
         "bluepysnap",
         "pandas<1.1",
+        "h5py<3.0.0",
     ],
     packages=find_packages(),
     python_requires=">=2.7",
