@@ -217,7 +217,7 @@ def run_bglibpy_cell(blueconfig_path, gid, sim_time, dt=0.025):
 
     ssim.run(sim_time, forward_skip=False, v_init=-80, dt=dt, cvode=False)
 
-    return ssim.get_time_trace(), ssim.get_voltage_traces(gid)
+    return ssim.get_time_trace(), ssim.get_voltage_trace(gid)
 
 
 @pytest.mark.usefixtures("prepare_test_synapses_config")
