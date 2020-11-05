@@ -31,6 +31,8 @@ def load_config(config_dir="config", filename="config.ini"):
     defaults = {
         # protocol
         "step_stimulus": "True",
+        "run_all_steps": "True",
+        "run_step_number": "1",
         "total_duration": "3000",
         "stimulus_delay": "700",
         "stimulus_duration": "2000",
@@ -246,10 +248,13 @@ def get_syn_stim(syn_locs, config, syn_stim_mode):
 
 def step_stimuli(config, soma_loc, cvcode_active=False, syn_stim=None):
     """Create Step Stimuli."""
+    step_number = 3
     step_protocols = []
 
     # load config data
     total_duration = config.getint("Protocol", "total_duration")
+    run_all_steps = config.getboolean("Protocol", "run_all_steps")
+    run_step_number = config.getint("Protocol", "run_step_number")
     step_delay = config.getint("Protocol", "stimulus_delay")
     step_duration = config.getint("Protocol", "stimulus_duration")
     hold_step_delay = config.getint("Protocol", "hold_stimulus_delay")
@@ -258,6 +263,25 @@ def step_stimuli(config, soma_loc, cvcode_active=False, syn_stim=None):
         config.get("Paths", "protocol_amplitudes_dir"),
         config.get("Paths", "protocol_amplitudes_file"),
     )
+
+    if run_all_steps:
+        from_step = 0
+        up_to = step_number
+    elif run_step_number in range(1, step_number + 1):
+        from_step = run_step_number - 1
+        up_to = run_step_number
+    else:
+        logger.warning(
+            " ".join(
+                (
+                    "Bad run_step_number parameter.",
+                    "Should be between 1 and {}.".format(step_number),
+                    "Only first step will be run.",
+                )
+            )
+        )
+        from_step = 0
+        up_to = 1
 
     # protocol names
     protocol_names = ["step{}".format(x) for x in range(1, 4)]
@@ -268,7 +292,9 @@ def step_stimuli(config, soma_loc, cvcode_active=False, syn_stim=None):
     amplitudes = data["amps"]
     hypamp = data["holding"]
 
-    for protocol_name, amplitude in zip(protocol_names, amplitudes):
+    for protocol_name, amplitude in zip(
+        protocol_names[from_step:up_to], amplitudes[from_step:up_to]
+    ):
         # use RecordingCustom to sample time, voltage every 0.1 ms.
         rec = RecordingCustom(name=protocol_name, location=soma_loc, variable="v")
 
