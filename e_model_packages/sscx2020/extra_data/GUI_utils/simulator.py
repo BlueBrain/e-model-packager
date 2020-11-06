@@ -65,7 +65,7 @@ class NeuronSimulation:
     """Class containing BPO cell, simulation & protocol.
 
     Attributes:
-        config (dict): dictionnary containing configuration data
+        config (dict): dictionary containing configuration data
         cell_path (str): path to cell repo. should be "."
         total_duration (int): duration of cell simulation (ms)
         steps (list of floats): default step stimuli (mV)
