@@ -23,8 +23,8 @@ VERSION = imp.load_source("", "e_model_packages/version.py").__version__
 setup(
     name="e-model-packages",
     version=VERSION,
-    author="Anil Tuncel",
-    author_email="anil.tuncel@epfl.ch",
+    author="Anil Tuncel, Aurélien Jaquier",
+    author_email="bbp-ou-cell@groupes.epfl.ch",
     description="Creates e-model packages from circuits",
     long_description=README,
     long_description_content_type="text/x-rst",
