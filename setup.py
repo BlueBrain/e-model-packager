@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import imp
 import sys
 
 from setuptools import setup, find_packages
@@ -17,8 +18,11 @@ else:
     with open("README.rst", encoding="utf-8") as f:
         README = f.read()
 
+VERSION = imp.load_source("", "e_model_packages/version.py").__version__
+
 setup(
     name="e-model-packages",
+    version=VERSION,
     author="Anil Tuncel",
     author_email="anil.tuncel@epfl.ch",
     description="Creates e-model packages from circuits",
@@ -56,8 +60,4 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
-    use_scm_version={
-        "local_scheme": "no-local-version",
-    },
-    setup_requires=["setuptools_scm"],
 )
