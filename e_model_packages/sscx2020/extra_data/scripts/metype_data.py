@@ -23,7 +23,7 @@ class NpEncoder(json.JSONEncoder):
 
 
 def base_dict(unit, name, value):
-    """Basic dictionary for building the me-type json file."""
+    """Basic dictionnary for building the me-type json file."""
     return {"unit": unit, "name": name, "value": value, "tooltip": ""}
 
 
@@ -50,7 +50,7 @@ def get_morph_path(config):
 
 
 def get_morph_data(config):
-    """Return the morphological data in a dictionary."""
+    """Return the morphological data in a dictionnary."""
     # get morph path
     morph_path = get_morph_path(config)
 
@@ -135,13 +135,16 @@ def get_physiology_data(config):
     )
 
     voltage_base = efel_results[0]["voltage_base"][0]
-    ss_voltage = efel_results[0]["steady_state_voltage_stimend"][0]
     dct = efel_results[0]["decay_time_constant_after_stim"][0]
 
     # Calculate input resistance
-    input_resistance = float(ss_voltage - voltage_base) / current_amplitude
+    trace["decay_start_after_stim"] = efel_results[0]["voltage_base"]
+    trace["decay_end_after_stim"] = efel_results[0]["steady_state_voltage_stimend"]
+    trace["stimulus_current"] = [current_amplitude]
+    efel_results = efel.getFeatureValues([trace], ["ohmic_input_resistance_vb_ssse"])
+    input_resistance = efel_results[0]["ohmic_input_resistance_vb_ssse"][0]
 
-    # build dictionary to be returned
+    # build dictionnary to be returned
     names = ["resting membrane potential", "input resistance", "membrane time constant"]
     vals = [voltage_base, input_resistance, dct]
     units = ["mV", "MOhm", "ms"]
@@ -154,7 +157,7 @@ def get_physiology_data(config):
 
 
 def get_mechanisms_data(config):
-    """Return a dictionary containing channel mechanisms for each section."""
+    """Return a dictionnary containing channel mechanisms for each section."""
     # get emodel
     constants_path = os.path.join(
         config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
@@ -169,7 +172,7 @@ def get_mechanisms_data(config):
     )
     mechs_filename = find_param_file(recipes_path, emodel)
 
-    # get mechs data and fill in dictionary
+    # get mechs data and fill in dictionnary
     with open(mechs_filename) as mechs_file:
         mech_definitions = json.load(
             mechs_file, object_pairs_hook=collections.OrderedDict

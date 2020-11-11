@@ -118,7 +118,7 @@ class CreateMETypeJson(luigi.Task):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
-    configfile = luigi.Parameter(default="config.ini")
+    configfile = "config.ini"
 
     def requires(self):
         """Requires the script to have been copied in the main output directory."""
@@ -638,9 +638,28 @@ class RunHoc(luigi.Task):
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
     configfile = luigi.Parameter(default="config.ini")
+    has_rerun_create_hoc = False
 
     def requires(self):
         """Requires the hoc file to have been created."""
+        # The first time that luigi comes to check
+        # if CreateHoc is complete, destroy the target.
+        # This forces luigi to rerun CreateHoc
+        # and still leaves the target complete afterwards.
+        if not self.has_rerun_create_hoc:
+            targets = CreateHoc(
+                mtype=self.mtype,
+                etype=self.etype,
+                gid=self.gid,
+                gidx=self.gidx,
+                configfile=self.configfile,
+            ).output()
+            for target in targets:
+                if target.exists():
+                    target.remove()
+
+            self.has_rerun_create_hoc = True
+
         return CreateHoc(
             mtype=self.mtype,
             etype=self.etype,
