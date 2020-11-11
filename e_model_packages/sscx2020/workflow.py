@@ -20,15 +20,17 @@ from e_model_packages.sscx2020.utils import (
     get_mecombo_emodels,
     cwd,
     get_output_path,
+    create_single_step_config,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
-# for loading create_hoc & old_run modules
+# for loading create_hoc, old_run & metype_data modules
 # that are supposed to be loaded from the memodel directory.
 sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
 from load import load_config
 from create_hoc import get_hoc, write_hocs
 from old_run import main as old_python_main
+from metype_data import write_metype_json
 
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
@@ -73,6 +75,7 @@ class ParseCircuit(luigi.Task):
                     gidx = gidx + 1  # 1 indexed for users
                     tasks.append(PrepareMEModelDirectory(mtype, etype, gid, gidx))
                     tasks.append(CreateHoc(mtype, etype, gid, gidx))
+                    tasks.append(CreateMETypeJson(mtype, etype, gid, gidx))
         else:
             gids = list(
                 circuit.cells.ids({bpcell.MTYPE: self.mtype, bpcell.ETYPE: self.etype})
@@ -86,6 +89,7 @@ class ParseCircuit(luigi.Task):
             tasks = [
                 PrepareMEModelDirectory(self.mtype, self.etype, gid, self.gidx),
                 CreateHoc(self.mtype, self.etype, gid, self.gidx),
+                CreateMETypeJson(self.mtype, self.etype, gid, self.gidx),
             ]
 
         return tasks
@@ -99,6 +103,57 @@ class ParseCircuit(luigi.Task):
         """Write the JSON."""
         with self.output().open("w") as out_file:
             json.dump(self.mtype_etype_gids, out_file, indent=4, cls=NpEncoder)
+
+
+class CreateMETypeJson(luigi.Task):
+    """Task to create a me-type factsheet json file.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gid: id of cell in the circuit
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gid = luigi.IntParameter()
+    gidx = luigi.IntParameter()
+    configfile = luigi.Parameter(default="config.ini")
+
+    def requires(self):
+        """Requires the script to have been copied in the main output directory."""
+        tasks = [
+            RunPyScript(
+                self.mtype,
+                self.etype,
+                self.gid,
+                self.gidx,
+                self.configfile,
+                run_single_step=True,
+            )
+        ]
+        return tasks
+
+    def output(self):
+        """The JSON output."""
+        output_dir = workflow_config.get("paths", "output")
+        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+        return luigi.LocalTarget(os.path.join(memodel_dir, "me_type_factsheeet.json"))
+
+    def run(self):
+        """Creates the me-type json file."""
+        output_dir = workflow_config.get("paths", "output")
+        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+
+        with cwd(memodel_dir):
+            config = load_config(filename=self.configfile)
+            write_metype_json(config)
+
+        # remove extra output
+        os.remove(
+            os.path.join(memodel_dir, "python_recordings", "soma_voltage_step1.dat")
+        )
 
 
 class PrepareOutputDirectory(luigi.Task):
@@ -547,13 +602,11 @@ class CreateHoc(luigi.Task):
         return targets
 
     def run(self):
-        """Createss the hoc script."""
+        """Creates the hoc script."""
         workflow_output_dir = self.get_output_path()
         with cwd(workflow_output_dir):
-            # subprocess.call(["python", "create_hoc.py", "--c", self.configfile])
             run_hoc_filename = "run.hoc"
             config = load_config(filename=self.configfile)
-
             cell_hoc, emodel, syn_hoc, simul_hoc, run_hoc = get_hoc(
                 config=config, syn_temp_name="hoc_synapses"
             )
@@ -640,6 +693,7 @@ class RunPyScript(luigi.Task):
         gid : cell id
         gidx: index of cell
         configfile : name of config file in /config to use when running script
+        run_single_step: set to True to only run one single step protocol
     """
 
     mtype = luigi.Parameter()
@@ -647,10 +701,15 @@ class RunPyScript(luigi.Task):
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
     configfile = luigi.Parameter(default="config.ini")
+    run_single_step = luigi.BoolParameter(default=False)
 
     def requires(self):
         """Requires the output paths to be made."""
-        return [ParseCircuit(mtype=self.mtype, etype=self.etype, gidx=self.gidx)]
+        return [
+            PrepareMEModelDirectory(
+                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+            )
+        ]
 
     def output(self):
         """Produces the python recordings."""
@@ -663,12 +722,21 @@ class RunPyScript(luigi.Task):
         output_path = os.path.join(script_path, "python_recordings")
 
         if self.configfile == "config.ini":
-            for idx in range(3):
+            if self.run_single_step:
                 output_list.append(
                     luigi.LocalTarget(
-                        os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
+                        os.path.join(output_path, "soma_voltage_step1.dat")
                     )
                 )
+            else:
+                for idx in range(3):
+                    output_list.append(
+                        luigi.LocalTarget(
+                            os.path.join(
+                                output_path, "soma_voltage_step%d.dat" % (idx + 1)
+                            )
+                        )
+                    )
 
         elif self.configfile == "config_synapses.ini":
             output_list.append(
@@ -681,8 +749,18 @@ class RunPyScript(luigi.Task):
         """Executes the python script."""
         output_dir = workflow_config.get("paths", "output")
         memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
-        with cwd(memodel_dir):
-            subprocess.call(["sh", "./run_py.sh", self.configfile])
+        if self.run_single_step:
+            new_config = "config_single_step.ini"
+            config_dir = os.path.join(memodel_dir, "config")
+            create_single_step_config(self.configfile, new_config, config_dir)
+
+            with cwd(memodel_dir):
+                subprocess.call(["sh", "./run_py.sh", new_config])
+
+            os.remove(os.path.join(config_dir, new_config))
+        else:
+            with cwd(memodel_dir):
+                subprocess.call(["sh", "./run_py.sh", self.configfile])
 
 
 class RunOldPyScript(luigi.Task):

@@ -66,6 +66,7 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "GUI.py",
         "requirements.txt",
         "cell_info.json",
+        "metype_data.py",
     ]
 
     templates = [
@@ -298,3 +299,23 @@ def test_synapses_hoc_vs_py_script(
     rms_py_recs = np.sqrt(np.mean((old_py_voltage[:, 1] - py_voltage[:, 1]) ** 2))
     assert rms < threshold
     assert rms_py_recs < threshold_py_recs
+
+
+@launch_luigi(module="workflow", task="CreateMETypeJson")
+def test_metype_factsheet_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
+    """Check that the me-type factsheet json file has been created.
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gid: id of cell in the circuit
+        gidx: index of cell
+    """
+
+    path_ = os.path.join("tests", "output", "memodel_dirs")
+    memodel_path = os.path.join(
+        path_, mtype, etype, "_".join([mtype, etype, str(gidx)])
+    )
+
+    metype_factsheet = os.path.join(memodel_path, "me_type_factsheeet.json")
+    assert os.path.isfile(metype_factsheet)
