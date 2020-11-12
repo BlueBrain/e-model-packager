@@ -294,8 +294,8 @@ class NrnVecStimStimulusCustom(ephys.stimuli.Stimulus):
     def __init__(
         self,
         locations=None,
-        total_duration=None,
         start=None,
+        stop=None,
         seed=1,
         vecstim_random="python",
     ):
@@ -303,17 +303,17 @@ class NrnVecStimStimulusCustom(ephys.stimuli.Stimulus):
 
         Args:
             locations: synapse point process location to connect to
-            total_duration: duration of run (ms)
-            interval: time between spikes (ms)
             start: most likely start time of first spike (ms)
+            stop: time after which no synapses are allowed to fire (ms)
             seed: seed for random number generator
             vecstim_random: origin of the random nmb gener. for vecstim. can be python or neuron
         """
         super(NrnVecStimStimulusCustom, self).__init__()
-        if total_duration is None:
-            raise ValueError("NrnNetStimStimulus: Need to specify a total duration")
+        if stop is None:
+            raise ValueError("NrnVecStimStimulus: Need to specify a stop time")
         else:
-            self.total_duration = total_duration
+            # must be named total_duration because of ephys.protocols
+            self.total_duration = stop
 
         self.locations = locations
         self.start = start

@@ -26,7 +26,7 @@ class NrnFileMorphologyCustom(ephys.morphologies.NrnFileMorphology):
         Args:
             morphology_path (str): path to the morphology file
             do_replace_axon (bool): set to True to replace the axon
-            do_set_nseg (int): number of segments
+            do_set_nseg (bool): if True, it will put 40 segments per section
             comment (str) : comment for class heritance
             replace_axon_hoc (str) : hoc script as a string to replace the axon
             do_simplify_morph (bool) : set to True to simplify the morphology
@@ -145,10 +145,7 @@ class NrnFileMorphologyCustom(ephys.morphologies.NrnFileMorphology):
     def set_nseg(self, icell):
         """Set the nseg of every section."""
         if self.do_set_nseg:
-            if self.do_set_nseg:
-                div = 40
-            else:
-                div = self.do_set_nseg
+            div = 40
 
             logger.debug("Using set_nseg divider {}".format(div))
 

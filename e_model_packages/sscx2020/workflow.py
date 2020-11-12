@@ -118,7 +118,7 @@ class CreateMETypeJson(luigi.Task):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
-    configfile = "config.ini"
+    configfile = None
 
     def requires(self):
         """Requires the script to have been copied in the main output directory."""
@@ -239,8 +239,8 @@ class PrepareMEModelDirectory(luigi.Task):
             json.dump(cell_info, out_file, indent=4, cls=NpEncoder)
 
     @staticmethod
-    def copy_morph_emodel(morph_fname, blueconfig, memodel_morph_dir):
-        """Copy morphology and emodel."""
+    def copy_morph(morph_fname, blueconfig, memodel_morph_dir):
+        """Copy morphology."""
         circ_morph_dir = os.path.join(blueconfig.Run["MorphologyPath"], "ascii")
         morph_path = os.path.join(circ_morph_dir, morph_fname)
 
@@ -248,19 +248,13 @@ class PrepareMEModelDirectory(luigi.Task):
 
     @staticmethod
     def copy_config(output_dir):
-        """Copy python recordings config into output directory.
-
-        This copies the folders inside /config, but not the config.ini.
-        The config.ini / config_synapses.ini are copied by edit_and_write_config.
-        """
-        base_input_dir = workflow_config.get("paths", "emodel_config_dir")
-        for folder in ["params", "recipes"]:
-            output_config_dir = os.path.join(output_dir, "config", folder)
-            input_dir = os.path.join(base_input_dir, folder)
-            shutil.copytree(
-                input_dir,
-                output_config_dir,
-            )
+        """Copy python recordings config into output directory."""
+        input_dir = workflow_config.get("paths", "emodel_config_dir")
+        output_config_dir = os.path.join(output_dir, "config")
+        shutil.copytree(
+            input_dir,
+            output_config_dir,
+        )
 
     @staticmethod
     def copy_templates(output_dir):
@@ -467,35 +461,6 @@ class PrepareMEModelDirectory(luigi.Task):
         with open(constants_path, "w") as out_file:
             json.dump(constants, out_file, indent=4, cls=NpEncoder)
 
-    def write_config(self, config_path, new_config_path):
-        """Write file for a given output."""
-        with open(new_config_path, "w") as out_file:
-            with open(config_path, "r") as in_file:
-                for line in in_file:
-                    if "mtype" in line.split("="):
-                        line = "mtype={}\n".format(self.mtype)
-                    elif "etype" in line.split("="):
-                        line = "etype={}\n".format(self.etype)
-                    elif "gidx" in line.split("="):
-                        line = "gidx={}\n".format(self.gidx)
-
-                    if line[0] != "#":
-                        out_file.write(line)
-
-    def edit_and_write_config(self, output_dir):
-        """Write mtype, etype, gidx in config file."""
-        config_dir = workflow_config.get("paths", "emodel_config_dir")
-        config_path = os.path.join(config_dir, "config_example.ini")
-        config_synapses_path = os.path.join(config_dir, "config_synapses.ini")
-
-        new_config_path = os.path.join(output_dir, "config", "config.ini")
-        new_config_synapses_path = os.path.join(
-            output_dir, "config", "config_synapses.ini"
-        )
-
-        self.write_config(config_path, new_config_path)
-        self.write_config(config_synapses_path, new_config_synapses_path)
-
     def run(self):
         """Create me-model directories."""
         circuit_config_path = workflow_config.get("paths", "circuit")
@@ -516,7 +481,7 @@ class PrepareMEModelDirectory(luigi.Task):
 
         # copy morphology
         morph_fname = "{}.asc".format(morphology)
-        self.copy_morph_emodel(morph_fname, blueconfig, memodel_morph_dir)
+        self.copy_morph(morph_fname, blueconfig, memodel_morph_dir)
 
         # synapses
         self.write_synapses(circuit_config_path, synapses_dir)
@@ -548,9 +513,6 @@ class PrepareMEModelDirectory(luigi.Task):
             morph_fname,
         )
 
-        # edit and write module config files
-        self.edit_and_write_config(memodel_dir)
-
 
 class CreateHoc(luigi.Task):
     """Task to create the hoc file of an emodel.
@@ -567,7 +529,7 @@ class CreateHoc(luigi.Task):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
-    configfile = luigi.Parameter(default="config.ini")
+    configfile = luigi.Parameter(default=None)
 
     def requires(self):
         """Requires the output paths to be made."""
@@ -637,7 +599,7 @@ class RunHoc(luigi.Task):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
-    configfile = luigi.Parameter(default="config.ini")
+    configfile = luigi.Parameter(default=None)
     has_rerun_create_hoc = False
 
     def requires(self):
@@ -678,7 +640,7 @@ class RunHoc(luigi.Task):
         )
         output_path = os.path.join(script_path, "hoc_recordings")
 
-        if self.configfile == "config.ini":
+        if self.configfile is None:
             for idx in range(3):
                 output_list.append(
                     luigi.LocalTarget(
@@ -719,7 +681,7 @@ class RunPyScript(luigi.Task):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
-    configfile = luigi.Parameter(default="config.ini")
+    configfile = luigi.Parameter(default=None)
     run_single_step = luigi.BoolParameter(default=False)
 
     def requires(self):
@@ -740,7 +702,7 @@ class RunPyScript(luigi.Task):
         )
         output_path = os.path.join(script_path, "python_recordings")
 
-        if self.configfile == "config.ini":
+        if self.configfile is None:
             if self.run_single_step:
                 output_list.append(
                     luigi.LocalTarget(
@@ -779,7 +741,10 @@ class RunPyScript(luigi.Task):
             os.remove(os.path.join(config_dir, new_config))
         else:
             with cwd(memodel_dir):
-                subprocess.call(["sh", "./run_py.sh", self.configfile])
+                if self.configfile:
+                    subprocess.call(["sh", "./run_py.sh", self.configfile])
+                else:
+                    subprocess.call(["sh", "./run_py.sh"])
 
 
 class RunOldPyScript(luigi.Task):
@@ -797,7 +762,7 @@ class RunOldPyScript(luigi.Task):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
-    configfile = luigi.Parameter(default="config.ini")
+    configfile = luigi.Parameter(default=None)
 
     def requires(self):
         """Requires the hoc file to have been created."""
@@ -819,7 +784,7 @@ class RunOldPyScript(luigi.Task):
         )
         output_path = os.path.join(script_path, "old_python_recordings")
 
-        if self.configfile == "config.ini":
+        if self.configfile is None:
             for idx in range(3):
                 output_list.append(
                     luigi.LocalTarget(
@@ -892,7 +857,7 @@ class DoRecordings(luigi.WrapperTask):
     etype = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
-    configfile = luigi.Parameter(default="config.ini")
+    configfile = luigi.Parameter(default=None)
 
     def requires(self):
         """Launch both RunHoc and RunPyScript."""

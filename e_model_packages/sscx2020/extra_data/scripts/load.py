@@ -24,10 +24,8 @@ from synapse import (
 logger = logging.getLogger(__name__)
 
 
-def load_config(config_dir="config", filename="config.ini"):
+def load_config(config_dir="config", filename=None):
     """Set config from config file and set default value."""
-    config_path = os.path.join(config_dir, filename)
-
     defaults = {
         # protocol
         "step_stimulus": "True",
@@ -39,7 +37,7 @@ def load_config(config_dir="config", filename="config.ini"):
         "hold_stimulus_delay": "0",
         "hold_stimulus_duration": "3000",
         "syn_stim_mode": "vecstim",
-        "syn_total_duration": "%(total_duration)s",
+        "syn_stop": "%(total_duration)s",
         "syn_interval": "100",
         "syn_nmb_of_spikes": "5",
         "syn_start": "50",
@@ -48,7 +46,6 @@ def load_config(config_dir="config", filename="config.ini"):
         "vecstim_random": "python",  # can be "python" or "neuron"
         # morphology
         "do_replace_axon": "True",
-        "do_set_nseg": "40",
         # sim
         "cvcode_active": "False",
         # synapse
@@ -81,7 +78,9 @@ def load_config(config_dir="config", filename="config.ini"):
     }
 
     config = configparser.ConfigParser(defaults=defaults)
-    config.read(config_path)
+    if filename is not None:
+        config_path = os.path.join(config_dir, filename)
+        config.read(config_path)
 
     # make sure that config has all sections
     secs = ["Cell", "Protocol", "Morphology", "Sim", "Synapses", "Paths"]
@@ -210,7 +209,8 @@ def load_syn_locs(cell):
 def get_syn_stim(syn_locs, config, syn_stim_mode):
     """Get synapse stimulus depending on mode."""
     # load config data
-    syn_total_duration = config.getint("Protocol", "syn_total_duration")
+    netstim_total_duration = config.getint("Protocol", "total_duration")
+    syn_stop = config.getint("Protocol", "syn_stop")
     syn_interval = config.getint("Protocol", "syn_interval")
     syn_nmb_of_spikes = config.getint("Protocol", "syn_nmb_of_spikes")
     syn_start = config.getint("Protocol", "syn_start")
@@ -228,7 +228,7 @@ def get_syn_stim(syn_locs, config, syn_stim_mode):
     if syn_stim_mode == "netstim":
         return NrnNetStimStimulusCustom(
             syn_locs,
-            syn_total_duration,
+            netstim_total_duration,
             syn_nmb_of_spikes,
             syn_interval,
             syn_start,
@@ -237,8 +237,8 @@ def get_syn_stim(syn_locs, config, syn_stim_mode):
     if syn_stim_mode == "vecstim":
         return NrnVecStimStimulusCustom(
             syn_locs,
-            syn_total_duration,
             syn_start,
+            syn_stop,
             syn_stim_seed,
             vecstim_random,
         )
@@ -578,12 +578,10 @@ def create_cell(config):
     )
     replace_axon_hoc = get_axon_hoc(axon_hoc_path)
     do_replace_axon = config.getboolean("Morphology", "do_replace_axon")
-    do_set_nseg = config.getint("Morphology", "do_set_nseg")
     morph = NrnFileMorphologyCustom(
         morph_path,
         do_replace_axon=do_replace_axon,
         replace_axon_hoc=replace_axon_hoc,
-        do_set_nseg=do_set_nseg,
     )
 
     # create cell

@@ -67,6 +67,7 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "requirements.txt",
         "cell_info.json",
         "metype_data.py",
+        "README.md",
     ]
 
     templates = [
@@ -103,7 +104,6 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     ]
 
     config_files = [
-        "config.ini",
         "config_synapses.ini",
         "constants.json",
         "current_amps.json",

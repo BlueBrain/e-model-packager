@@ -140,7 +140,7 @@ def synapses_vecstim(cell, config):
     vecstim_random = config.get("Protocol", "vecstim_random")
     seed = config.getint("Protocol", "syn_stim_seed")
     syn_start = config.getint("Protocol", "syn_start")
-    syn_total_duration = config.getint("Protocol", "syn_total_duration")
+    syn_stop = config.getint("Protocol", "syn_stop")
 
     persistency_list = []
 
@@ -155,12 +155,12 @@ def synapses_vecstim(cell, config):
         random.seed(seed)
     else:
         rand = neuron.h.Random(seed)
-        rand.uniform(syn_start, syn_total_duration)
+        rand.uniform(syn_start, syn_stop)
 
     # create synapse stimuli
     for synapse, delay, weight in zip(synapses, delays, weights):
         if vecstim_random == "python":
-            spike_train = [random.uniform(syn_start, syn_total_duration)]
+            spike_train = [random.uniform(syn_start, syn_stop)]
         else:
             spike_train = [rand.repick()]
         t_vec = neuron.h.Vector(spike_train)
@@ -278,7 +278,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--c",
-        default="config.ini",
+        default=None,
         help="the name of the config file",
     )
     args = parser.parse_args()

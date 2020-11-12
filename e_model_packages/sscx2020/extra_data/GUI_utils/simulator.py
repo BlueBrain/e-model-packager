@@ -96,7 +96,7 @@ class NeuronSimulation:
             type=0 if inhib, type=1 if excit
     """
 
-    def __init__(self, config_file="config.ini"):
+    def __init__(self, config_file=None):
         """Constructor. Load default params from config file."""
         # load config file
         self.config = load_config(filename=config_file)
@@ -181,11 +181,7 @@ class NeuronSimulation:
         if self.pre_mtypes:
             syn_locs = load_syn_locs(self.cell)
             syn_total_duration = self.total_duration
-            # netstim
-            return NrnNetStimStimulusCustom(
-                syn_locs,
-                syn_total_duration,
-            )
+            return NrnNetStimStimulusCustom(syn_locs, syn_total_duration)
         return None
 
     def load_protocol(self, protocol_name="protocol"):
@@ -272,12 +268,10 @@ class NeuronSimulation:
         )
         replace_axon_hoc = get_axon_hoc(axon_hoc_path)
         do_replace_axon = self.config.getboolean("Morphology", "do_replace_axon")
-        do_set_nseg = self.config.getint("Morphology", "do_set_nseg")
         morph = NrnFileMorphologyCustom(
             morph_path,
             do_replace_axon=do_replace_axon,
             replace_axon_hoc=replace_axon_hoc,
-            do_set_nseg=do_set_nseg,
         )
 
         # create cell

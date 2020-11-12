@@ -52,7 +52,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--c",
-        default="config.ini",
+        default=None,
         help="the name of the config file",
     )
     args = parser.parse_args()

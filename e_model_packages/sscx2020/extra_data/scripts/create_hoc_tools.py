@@ -42,7 +42,7 @@ def create_synapse_hoc(
     syn_start = config.get("Protocol", "syn_start")
     syn_noise = config.get("Protocol", "syn_noise")
     syn_nmb_of_spikes = config.get("Protocol", "syn_nmb_of_spikes")
-    syn_total_duration = config.get("Protocol", "syn_total_duration")
+    syn_stop = config.get("Protocol", "syn_stop")
     syn_stim_seed = config.get("Protocol", "syn_stim_seed")
     syn_dir = config.get("Paths", "syn_dir_for_hoc")
     syn_conf_file = config.get("Paths", "syn_conf_file")
@@ -64,7 +64,7 @@ def create_synapse_hoc(
         syn_start=syn_start,
         syn_noise=syn_noise,
         syn_nmb_of_spikes=syn_nmb_of_spikes,
-        syn_total_duration=syn_total_duration,
+        syn_stop=syn_stop,
         syn_stim_seed=syn_stim_seed,
         rng_settings_mode=rng_settings_mode,
         syn_dir=syn_dir,

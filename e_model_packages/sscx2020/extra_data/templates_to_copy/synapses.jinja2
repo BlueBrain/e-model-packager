@@ -243,7 +243,7 @@ proc create_netcons() { local isynapse, netstim_id, delay, weight, seg_x \
 
     {%- if syn_stim_mode=="vecstim" %}
     rand = new Random({{syn_stim_seed}})
-    rand.uniform({{syn_start}},{{syn_total_duration}})  
+    rand.uniform({{syn_start}},{{syn_stop}})  
     {%- endif %}
 
     for isynapse=0, synapse_list.count()-1 {
