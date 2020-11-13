@@ -4,6 +4,7 @@ import json
 import os
 from contextlib import contextmanager
 import numpy as np
+import pandas as pd
 import bluepy
 from bluepy_configfile.configfile import BlueConfig
 
@@ -29,28 +30,23 @@ class NpEncoder(json.JSONEncoder):
             return super(NpEncoder, self).default(o)
 
 
-def get_mecombo_emodels(blueconfig):
-    """Create a dict matching me_combo names to template_names."""
+def get_mecombo_emodel(blueconfig, mecombo):
+    """Returns the emodel name as well as it's threshold and holding currents.
+
+    Args:
+        blueconfig(object): Blueconfig object.
+        mecombo(str): Name of mecombo.
+    """
     mecombo_filename = blueconfig.Run["MEComboInfoFile"]
 
-    with open(mecombo_filename) as mecombo_file:
-        mecombo_content = mecombo_file.read()
+    df = pd.read_csv(mecombo_filename, sep="\t")
+    mecombo_row = df[df["combo_name"] == mecombo]
 
-    mecombo_emodels = {}
-    mecombo_thresholds = {}
-    mecombo_hypamps = {}
+    emodel = mecombo_row["emodel"].values[0]
+    threshold_curr = mecombo_row["threshold_current"].values[0]
+    holding_curr = mecombo_row["holding_current"].values[0]
 
-    for line in mecombo_content.split("\n")[1:-1]:
-        mecombo_info = line.split("\t")
-        emodel = mecombo_info[4]
-        me_combo = mecombo_info[5]
-        threshold = float(mecombo_info[6])
-        hypamp = float(mecombo_info[7])
-        mecombo_emodels[me_combo] = emodel
-        mecombo_thresholds[me_combo] = threshold
-        mecombo_hypamps[me_combo] = hypamp
-
-    return mecombo_emodels, mecombo_thresholds, mecombo_hypamps
+    return emodel, threshold_curr, holding_curr
 
 
 def combine_names(mtype, etype, gidx):
@@ -62,11 +58,10 @@ def get_morph_emodel_names(gid, config):
     """Get morphology and emodel filenames."""
     circuit, blueconfig = read_circuit(config["paths"]["circuit"])
 
-    mecombo_emodels, _, _ = get_mecombo_emodels(blueconfig)
     cell = circuit.cells.get(gid)
-
     morph_fname = "%s.asc" % cell.morphology
-    emodel = mecombo_emodels[cell.me_combo]
+
+    emodel, _, _ = get_mecombo_emodel(blueconfig, cell.me_combo)
     emodel_fname = "%s.hoc" % emodel
 
     return morph_fname, emodel_fname

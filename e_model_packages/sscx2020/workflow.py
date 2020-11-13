@@ -17,7 +17,7 @@ import bglibpy
 from e_model_packages.sscx2020.utils import (
     read_circuit,
     NpEncoder,
-    get_mecombo_emodels,
+    get_mecombo_emodel,
     cwd,
     get_output_path,
     create_single_step_config,
@@ -424,18 +424,22 @@ class PrepareMEModelDirectory(luigi.Task):
 
     def fill_in_templates(
         self,
-        mecombo_thresholds,
-        mecombo_hypamps,
-        mecombo,
+        threshold,
+        holding,
         emodel,
         morph_fname,
     ):
-        """Fill in and write constants.hoc & current_amp.dat templates."""
+        """Fill in and write constants.json & current_amp.json templates.
+
+        Args:
+        threshold(float): threshold current.
+        holding(float): holding current.
+        emodel(str): emodel name.
+        morph_fname(str): morphology filename.
+        """
         output_dir = "config"
 
         # current amps
-        threshold = mecombo_thresholds[mecombo]
-        holding = mecombo_hypamps[mecombo]
         current_amps = {
             "holding": holding,
             "amps": [1.50 * threshold, 2.00 * threshold, 2.50 * threshold],
@@ -497,10 +501,6 @@ class PrepareMEModelDirectory(luigi.Task):
         circuit_config_path = workflow_config.get("paths", "circuit")
         circuit, blueconfig = read_circuit(circuit_config_path)
 
-        mecombo_emodels, mecombo_thresholds, mecombo_hypamps = get_mecombo_emodels(
-            blueconfig
-        )
-
         memodel_dir = self.output().path
         memodel_morph_dir = os.path.join(memodel_dir, "morphology")
         synapses_dir = os.path.join(memodel_dir, "synapses")
@@ -536,12 +536,14 @@ class PrepareMEModelDirectory(luigi.Task):
         # GUI scripts
         self.copy_GUI_utils(memodel_dir)
 
+        emodel, threshold_current, holding_current = get_mecombo_emodel(
+            blueconfig, mecombo
+        )
+
         # templates to be filled
-        emodel = mecombo_emodels[mecombo]
         self.fill_in_templates(
-            mecombo_thresholds,
-            mecombo_hypamps,
-            mecombo,
+            threshold_current,
+            holding_current,
             emodel,
             morph_fname,
         )
@@ -586,10 +588,9 @@ class CreateHoc(luigi.Task):
 
         circuit_config_path = workflow_config.get("paths", "circuit")
         circuit_, blueconfig_ = read_circuit(circuit_config_path)
-        mecombo_emodels_, _, _ = get_mecombo_emodels(blueconfig_)
         cell_ = circuit_.cells.get(self.gid)
         mecombo_ = cell_.me_combo
-        emodel = mecombo_emodels_[mecombo_]
+        emodel, _, _ = get_mecombo_emodel(blueconfig_, mecombo_)
 
         filename = emodel + ".hoc"
         filenames = [filename, "run.hoc", "createsimulation.hoc"]
