@@ -82,7 +82,6 @@ class ParseCircuit(luigi.Task):
             )
             gid = gids[self.gidx - 1]
             self.mtype_etype_gids[self.mtype][self.etype] = [
-                self.gidx - 1,
                 gids[self.gidx - 1],
             ]
 
