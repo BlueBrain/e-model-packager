@@ -2,13 +2,17 @@
 import argparse
 import collections
 import json
+import logging
 import os
 import numpy as np
+import re
 
 import efel
 import neurom as nm
 
-from load import find_param_file, load_config
+from load import find_param_file, load_config, load_params
+
+logger = logging.getLogger(__name__)
 
 
 class NpEncoder(json.JSONEncoder):
@@ -156,8 +160,18 @@ def get_physiology_data(config):
     return {"values": values, "name": "Physiology"}
 
 
-def get_mechanisms_data(config):
-    """Return a dictionnary containing channel mechanisms for each section."""
+def edit_dist_func(value):
+    """Edit function expression to be latex and plot readable."""
+    if "math" in value:
+        value = value.replace("math.", "")
+    if "(x)" in value:
+        value = value.replace("(x)", "x")
+    latex = re.sub(r"exp*\(([0-9x*.]*)\)", "e^{\\1}", value)
+    return latex, value
+
+
+def get_param_data(config):
+    """Returns final params, param data by section, exponential function expression."""
     # get emodel
     constants_path = os.path.join(
         config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
@@ -170,44 +184,169 @@ def get_mechanisms_data(config):
     recipes_path = os.path.join(
         config.get("Paths", "recipes_dir"), config.get("Paths", "recipes_file")
     )
-    mechs_filename = find_param_file(recipes_path, emodel)
+    params_filename = find_param_file(recipes_path, emodel)
 
-    # get mechs data and fill in dictionnary
-    with open(mechs_filename) as mechs_file:
-        mech_definitions = json.load(
-            mechs_file, object_pairs_hook=collections.OrderedDict
-        )["mechanisms"]
+    params_path = os.path.join(
+        config.get("Paths", "params_dir"), config.get("Paths", "params_file")
+    )
+    release_params = load_params(params_filename=params_path, emodel=emodel)
 
-    dend_mechs = []
-    soma_mechs = []
-    axon_mechs = []
-    for sectionlist, channels in mech_definitions.items():
-        # sectionlist "all" is ignored here
-        if sectionlist == "alldend":
-            dend_mechs += channels["mech"]
-        elif sectionlist == "somadend":
-            dend_mechs += channels["mech"]
-            soma_mechs += channels["mech"]
-        elif sectionlist == "somaxon":
-            soma_mechs += channels["mech"]
-            axon_mechs += channels["mech"]
-        elif sectionlist == "allact":
-            dend_mechs += channels["mech"]
-            soma_mechs += channels["mech"]
-            axon_mechs += channels["mech"]
-        elif sectionlist == "apical":
-            dend_mechs += channels["mech"]
-        elif sectionlist == "basal":
-            dend_mechs += channels["mech"]
-        elif sectionlist == "axonal":
-            axon_mechs += channels["mech"]
-        elif sectionlist == "somatic":
-            soma_mechs += channels["mech"]
+    with open(params_filename) as params_file:
+        definitions = json.load(params_file, object_pairs_hook=collections.OrderedDict)
 
+    return (
+        release_params,
+        definitions["parameters"],
+        definitions["distributions"]["exp"]["fun"],
+    )
+
+
+def get_channel_and_equations(name, param_config, value, exp_fun):
+    """Returns the channel and a dictionnay containing equation type (uniform or exp) and value."""
+    # isolate channel and biophys
+    split_name = name.split("_")
+    if len(split_name) == 4:
+        biophys = "_".join(split_name[0:2])
+        channel = "_".join(split_name[2:4])
+    elif len(split_name) == 3:
+        biophys = split_name[0]
+        channel = "_".join(split_name[1:3])
+    elif len(split_name) == 2:
+        biophys = split_name[0]
+        channel = split_name[1]
+
+    # type
+    if "dist" in param_config:
+        type_ = "exponential"
+        if param_config["dist"] != "exp":
+            logger.warning(
+                "dist is set to {}.".format(param_config["dist"])
+                + " Expected 'exp'. Set type to exponential anyway."
+            )
+        value = exp_fun.format(distance="x", value=value)
+        latex, plot = edit_dist_func(value)
+    else:
+        type_ = "uniform"
+        latex = value
+        plot = value
+
+    return channel, biophys, {"latex": latex, "plot": plot, "type": type_}
+
+
+def get_mechanisms_data(config):
+    """Return a dictionnary containing channel mechanisms for each section."""
+    release_params, parameters, exp_fun = get_param_data(config)
+
+    dendrite = {"channels": {}}
+    axonal = {"channels": {}}
+    somatic = {"channels": {}}
+
+    for section, params in parameters.items():
+        # do not take into account "comment"
+        if isinstance(params, list):
+            for param_config in params:
+                name = param_config["name"]
+                full_name = ".".join((name, section))
+
+                # only take into account parameters present in finals.json
+                if full_name in release_params:
+                    value = release_params[full_name]
+                    channel, biophys, equation_dict = get_channel_and_equations(
+                        name, param_config, value, exp_fun
+                    )
+
+                    # do not take into account "all" section
+                    # set default to create keys then add equations
+                    # this allows to either create channel data or append to channel key
+                    if section == "alldend":
+                        dendrite["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        dendrite["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                    elif section == "somadend":
+                        dendrite["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        dendrite["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                        somatic["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        somatic["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                    elif section == "somaxon":
+                        somatic["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        somatic["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                        axonal["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        axonal["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                    elif section == "allact":
+                        dendrite["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        dendrite["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                        somatic["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        somatic["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                        axonal["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        axonal["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                    elif section == "apical":
+                        dendrite["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        dendrite["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                    elif section == "basal":
+                        dendrite["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        dendrite["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                    elif section == "axonal":
+                        axonal["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        axonal["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+                    elif section == "somatic":
+                        somatic["channels"].setdefault(
+                            channel, {"equations": {biophys: equation_dict}}
+                        )
+                        somatic["channels"][channel]["equations"][
+                            biophys
+                        ] = equation_dict
+
+    location_map = {"dendrite": dendrite, "somatic": somatic, "axonal": axonal}
     values = [
-        {"values": dend_mechs, "name": "dendrite"},
-        {"values": axon_mechs, "name": "axonal"},
-        {"values": soma_mechs, "name": "somatic"},
+        {
+            "tooltip": "",
+            "location_map": location_map,
+            "unit": "",
+            "name": "list of ion channel mechanisms",
+        }
     ]
     return {"values": values, "name": "Channel mechanisms"}
 
