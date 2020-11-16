@@ -27,7 +27,7 @@ class NpEncoder(json.JSONEncoder):
 
 
 def base_dict(unit, name, value):
-    """Basic dictionnary for building the me-type json file."""
+    """Basic dictionary for building the me-type json file."""
     return {"unit": unit, "name": name, "value": value, "tooltip": ""}
 
 
@@ -54,7 +54,7 @@ def get_morph_path(config):
 
 
 def get_morph_data(config):
-    """Return the morphological data in a dictionnary."""
+    """Return the morphological data in a dictionary."""
     # get morph path
     morph_path = get_morph_path(config)
 
@@ -143,12 +143,11 @@ def get_physiology_data(config):
 
     # Calculate input resistance
     trace["decay_start_after_stim"] = efel_results[0]["voltage_base"]
-    trace["decay_end_after_stim"] = efel_results[0]["steady_state_voltage_stimend"]
     trace["stimulus_current"] = [current_amplitude]
     efel_results = efel.getFeatureValues([trace], ["ohmic_input_resistance_vb_ssse"])
     input_resistance = efel_results[0]["ohmic_input_resistance_vb_ssse"][0]
 
-    # build dictionnary to be returned
+    # build dictionary to be returned
     names = ["resting membrane potential", "input resistance", "membrane time constant"]
     vals = [voltage_base, input_resistance, dct]
     units = ["mV", "MOhm", "ms"]
@@ -161,7 +160,18 @@ def get_physiology_data(config):
 
 
 def edit_dist_func(value):
-    """Edit function expression to be latex and plot readable."""
+    """Edit function expression to be latex and plot readable.
+
+    Args:
+        value (str): the distribution function expressed as a string.
+            ex: "(-0.8696 + 2.087*math.exp((x)*0.0031))*3.1236056887012746e-06"
+
+    Returns:
+        latex (str): a latex-compatible version of the distrib. function
+            ex: "(-0.8696 + 2.087*e^{x*0.0031})*3.1236056887012746e-06"
+        value (str): a plottable version of the distrib. function
+            ex: "(-0.8696 + 2.087exp(x*0.0031))*3.1236056887012746e-06"
+    """
     if "math" in value:
         value = value.replace("math.", "")
     if "(x)" in value:
@@ -180,7 +190,7 @@ def get_param_data(config):
         data = json.load(f)
     emodel = data["template_name"]
 
-    # get mechanisms file
+    # get params file
     recipes_path = os.path.join(
         config.get("Paths", "recipes_dir"), config.get("Paths", "recipes_file")
     )
@@ -202,7 +212,23 @@ def get_param_data(config):
 
 
 def get_channel_and_equations(name, param_config, value, exp_fun):
-    """Returns the channel and a dictionnay containing equation type (uniform or exp) and value."""
+    """Returns the channel and a dictionary containing equation type (uniform or exp) and value.
+
+    Args:
+        name (str): the name of the ion channel and its parameter.
+            should have the form channel_parameter (ex: "gCa_HVAbar_Ca_HVA2")
+        param_config (dict): parameter dictionary taken from parameter data file.
+            should have a "dist" key if the distribution is exponential.
+        value (float): parameter value (obtained from optimisation).
+        exp_fun (str): the distribution function expressed as a string.
+            ex: "(-0.8696 + 2.087*math.exp((x)*0.0031))*3.1236056887012746e-06"
+
+    Returns:
+        channel (str): name of the channel (ex: "Ca_HVA2")
+        biophys (str): parameter name (ex: "gCa_HVAbar")
+        equations (dict): dictionary containing equation values (for plotting and latex display)
+            and type (uniform or exponential)
+    """
     # isolate channel and biophys
     split_name = name.split("_")
     if len(split_name) == 4:
@@ -234,7 +260,7 @@ def get_channel_and_equations(name, param_config, value, exp_fun):
 
 
 def get_mechanisms_data(config):
-    """Return a dictionnary containing channel mechanisms for each section."""
+    """Return a dictionary containing channel mechanisms for each section."""
     release_params, parameters, exp_fun = get_param_data(config)
 
     dendrite = {"channels": {}}

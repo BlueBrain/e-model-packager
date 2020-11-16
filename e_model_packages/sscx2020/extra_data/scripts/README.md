@@ -12,7 +12,7 @@ Running the cell with the default configuration should as easy as :
 
     sh run_py.sh
 
-if you want to run the three standard step stimuli protocols with synapses desactivated,
+if you want to run the three standard step stimuli protocols with synapses deactivated,
 or :
 
     sh run_py.sh config_synapses.ini
@@ -27,7 +27,7 @@ section.
 ## How to run the cell using hoc
 
 Running the cell with the default configuration
-(three standard step stimuli protocols with synapses desactivated)
+(three standard step stimuli protocols with synapses deactivated)
 should as easy as :
 
     sh run_hoc.sh
