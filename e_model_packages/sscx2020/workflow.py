@@ -24,13 +24,13 @@ from e_model_packages.sscx2020.utils import (
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
-# for loading create_hoc, old_run & metype_data modules
+# for loading create_hoc, old_run & factsheets modules
 # that are supposed to be loaded from the memodel directory.
 sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
 from load import load_config
 from create_hoc import get_hoc, write_hocs
 from old_run import main as old_python_main
-from metype_data import write_metype_json
+from write_factsheets import write_metype_json, write_etype_json, write_morph_json
 
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
@@ -138,7 +138,14 @@ class CreateMETypeJson(luigi.Task):
         """The JSON output."""
         output_dir = workflow_config.get("paths", "output")
         memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
-        return luigi.LocalTarget(os.path.join(memodel_dir, "me_type_factsheeet.json"))
+        targets = []
+        for fname in [
+            "me_type_factsheeet.json",
+            "e_type_factsheeet.json",
+            "morphology_factsheeet.json",
+        ]:
+            targets.append(luigi.LocalTarget(os.path.join(memodel_dir, fname)))
+        return targets
 
     def run(self):
         """Creates the me-type json file."""
@@ -148,6 +155,8 @@ class CreateMETypeJson(luigi.Task):
         with cwd(memodel_dir):
             config = load_config(filename=self.configfile)
             write_metype_json(config)
+            write_etype_json(config)
+            write_morph_json(config)
 
         # remove extra output
         os.remove(

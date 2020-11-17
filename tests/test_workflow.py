@@ -1,9 +1,13 @@
 """Test file."""
+# pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-order
+# pylint: disable=import-error
 import configparser
 import os
 import re
 import numpy as np
 import pytest
+import sys
 
 import bglibpy
 from tests.decorators import launch_luigi
@@ -11,6 +15,22 @@ from e_model_packages.sscx2020.utils import (
     get_morph_emodel_names,
     get_output_path,
     combine_names,
+    cwd,
+    create_single_step_config,
+)
+
+sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
+from load import load_config
+from write_factsheets import (
+    get_morph_data,
+    get_physiology_data,
+    get_morph_name,
+    get_exp_features_data,
+    get_mechanisms_data,
+    load_raw_exp_features,
+    load_feature_units,
+    load_fitness,
+    get_param_data,
 )
 
 
@@ -66,7 +86,7 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
         "GUI.py",
         "requirements.txt",
         "cell_info.json",
-        "metype_data.py",
+        "write_factsheets.py",
         "README.md",
     ]
 
@@ -319,3 +339,208 @@ def test_metype_factsheet_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=
 
     metype_factsheet = os.path.join(memodel_path, "me_type_factsheeet.json")
     assert os.path.isfile(metype_factsheet)
+
+
+def check_feature_mean_std(source, feat):
+    """Checks that feature mean and std are equal to the original ones.
+
+    Args:
+        source (list): list of dict containing original features.
+        feat (dict): feature to be checked.
+
+    Returns True if mean and std were found in source and were equal to tested ones.
+    """
+    for item in source:
+        if item["feature"] == feat["name"]:
+            assert feat["values"][0]["mean"] == item["val"][0]
+            assert feat["values"][0]["std"] == item["val"][1]
+            return True
+    return False
+
+
+def check_features(config):
+    """Checks factsheet features.
+
+    Checks that there is no empty list or dictionary.
+    Checks that features name, mean, and std are identical to the ones in feature file.
+    Checks that units correspond to the ones in unit file.
+    Checks that model fitnesses correspond to the ones in fitness file."""
+    # original files data
+    original_feat = load_raw_exp_features(config)
+    units = load_feature_units()
+    fitness = load_fitness(config)
+    # tested func
+    feat_dict = get_exp_features_data(config)
+
+    for items in feat_dict["values"]:
+        assert items.items()
+        for stim_name, stim_data in items.items():
+            assert stim_data.items()
+            for loc_name, loc_data in stim_data.items():
+                assert loc_data
+                for feat in loc_data["features"]:
+                    original = original_feat[stim_name][loc_name]
+                    key_fitness = ".".join(("_", stim_name, loc_name, feat["name"]))
+
+                    assert check_feature_mean_std(original, feat)
+                    assert feat["unit"] == units[feat["name"]]
+                    assert feat["model fitness"] == fitness[key_fitness]
+
+
+def check_morph_name(config):
+    """Checks that factsheet morph name corresponds to package morph file."""
+    morph_name_dict = get_morph_name(config)
+    assert os.path.isfile(os.path.join("morphology", morph_name_dict["value"] + ".asc"))
+
+
+def get_locs_list(loc_name):
+    """Return possible location list from a location name."""
+    if loc_name == "dendrite":
+        return ["somadend", "alldend", "allact", "apical", "basal"]
+    elif loc_name == "somatic":
+        return ["somadend", "somatic", "allact", "somaxon"]
+    elif loc_name == "axonal":
+        return ["axonal", "allact", "somaxon"]
+    return None
+
+
+def get_loc_from_params(loc_name, mech_name_for_params, params):
+    """Returns general location name and index of mechanism in the param dict.
+
+    Args:
+        loc_name (str): location name (dendrite, somatic, axonal)
+        mech_name_for_params (str): mechanism name with the form mech_channel
+            ex: "gCa_HVAbar_Ca_HVA2"
+        params (dict): dictionary in which the mech is searched
+
+    Returns:
+        new_loc_name (str): general location name under which the channel can be found
+            (somadend, alldend, somatic, axonal, allact, somaxon, apical, basal)
+        idx (int): index of the channel in the list under location key
+    """
+    locs = get_locs_list(loc_name)
+
+    for loc in locs:
+        for i, param in enumerate(params[loc]):
+            if param["name"] == mech_name_for_params:
+                return loc, i
+
+    return "", 0
+
+
+def check_mechanisms(config):
+    """Checks factsheet mechanisms.
+
+    Checks that there is no empty list or dict.
+    Checks that 'type' is either exponential or uniform.
+    Checks that if type is exponential,
+        there is an according ['dist']='exp' field in parameter file.
+    Checks that all values are identical to files.
+    """
+    # original data
+    release_params, parameters, _ = get_param_data(config)
+    # output to check
+    mech_dict = get_mechanisms_data(config)
+
+    assert mech_dict["values"][0]["location_map"]
+    for loc_name, loc in mech_dict["values"][0]["location_map"].items():
+        assert loc["channels"]
+        for channel_name, channel in loc["channels"].items():
+            assert channel["equations"]
+            for mech_name, mech in channel["equations"].items():
+                mech_name_for_params = "_".join((mech_name, channel_name))
+                new_loc_name, idx = get_loc_from_params(
+                    loc_name, mech_name_for_params, parameters
+                )
+                mech_name_for_final_params = ".".join(
+                    (mech_name_for_params, new_loc_name)
+                )
+                if mech["type"] == "exponential":
+                    assert "dist" in parameters[new_loc_name][idx]
+                    assert parameters[new_loc_name][idx]["dist"] == "exp"
+                    assert (
+                        str(release_params[mech_name_for_final_params]) in mech["plot"]
+                    )
+                    assert (
+                        str(release_params[mech_name_for_final_params]) in mech["latex"]
+                    )
+                else:
+                    assert mech["type"] == "uniform"
+                    assert release_params[mech_name_for_final_params] == mech["latex"]
+                    assert release_params[mech_name_for_final_params] == mech["plot"]
+
+
+def check_anatomy(config):
+    """Checks that all anatomy data is positive and exists.
+
+    Checks that there is no empty list or dict.
+    Checks that data exists and is a float/int and is positive.
+    Checks that there is no anatomy field missing.
+    """
+    ana_dict = get_morph_data(config)
+    left_to_check = [
+        "total axon length",
+        "total axon volume",
+        "axon maximum branch order",
+        "axon maximum section length",
+        "total apical length",
+        "total apical volume",
+        "apical maximum branch order",
+        "apical maximum section length",
+        "total basal length",
+        "total basal volume",
+        "basal maximum branch order",
+        "basal maximum section length",
+        "soma diameter",
+    ]
+
+    assert ana_dict["values"]
+    for item in ana_dict["values"]:
+        assert isinstance(item["value"], (float, int, np.integer))
+        assert item["value"] >= 0
+        left_to_check.remove(item["name"])
+
+    assert len(left_to_check) == 0
+
+
+def check_physiology(config):
+    """Checks that all physiology values exist.
+
+    Checks that there is no empty list or dict.
+    Checks that data exists and is a float and is positive (except for membrane pot.).
+    Checks that there is no physiology field missing.
+    """
+    phys_dict = get_physiology_data(config)
+    left_to_check = [
+        "input resistance",
+        "membrane time constant",
+        "resting membrane potential",
+    ]
+
+    assert phys_dict["values"]
+    for item in phys_dict["values"]:
+        assert isinstance(item["value"], float)
+        if item["name"] in ["input resistance", "membrane time constant"]:
+            assert item["value"] >= 0
+        left_to_check.remove(item["name"])
+
+    assert len(left_to_check) == 0
+
+
+@launch_luigi(module="workflow", task="RunPyScript")
+def test_factsheets_fcts(
+    mtype="L23_BP", etype="bNAC", gid=111728, gidx=150, run_single_step=True
+):
+    """Test dictionary output from functions used for factsheets."""
+    path_ = os.path.join("tests", "output", "memodel_dirs")
+    memodel_path = os.path.join(
+        path_, mtype, etype, "_".join([mtype, etype, str(gidx)])
+    )
+    config = load_config()
+
+    with cwd(memodel_path):
+        check_features(config)
+        check_morph_name(config)
+        check_mechanisms(config)
+        check_physiology(config)
+        check_anatomy(config)

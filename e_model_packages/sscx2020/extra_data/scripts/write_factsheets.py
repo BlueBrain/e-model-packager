@@ -183,12 +183,7 @@ def edit_dist_func(value):
 def get_param_data(config):
     """Returns final params, param data by section, exponential function expression."""
     # get emodel
-    constants_path = os.path.join(
-        config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
-    )
-    with open(constants_path, "r") as f:
-        data = json.load(f)
-    emodel = data["template_name"]
+    emodel = get_emodel(config)
 
     # get params file
     recipes_path = os.path.join(
@@ -216,7 +211,7 @@ def get_channel_and_equations(name, param_config, value, exp_fun):
 
     Args:
         name (str): the name of the ion channel and its parameter.
-            should have the form channel_parameter (ex: "gCa_HVAbar_Ca_HVA2")
+            should have the form parameter_channel (ex: "gCa_HVAbar_Ca_HVA2")
         param_config (dict): parameter dictionary taken from parameter data file.
             should have a "dist" key if the distribution is exponential.
         value (float): parameter value (obtained from optimisation).
@@ -377,13 +372,172 @@ def get_mechanisms_data(config):
     return {"values": values, "name": "Channel mechanisms"}
 
 
+def get_emodel(config):
+    """Returns emodel as a string."""
+    # get emodel
+    constants_path = os.path.join(
+        config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
+    )
+    with open(constants_path, "r") as f:
+        data = json.load(f)
+
+    return data["template_name"]
+
+
+def load_raw_exp_features(config):
+    """Load experimental features from file."""
+    # get emodel
+    emodel = get_emodel(config)
+
+    # get features path
+    recipes_path = os.path.join(
+        config.get("Paths", "recipes_dir"), config.get("Paths", "recipes_file")
+    )
+    with open(recipes_path, "r") as f:
+        recipes = json.load(f)
+    recipe = recipes[emodel]
+
+    features_path = recipe["features"]
+
+    # load features data
+    with open(features_path, "r") as f:
+        features_dict = json.load(f)
+
+    return features_dict
+
+
+def load_feature_units():
+    """Load dict with 'feature_name': 'unit' for all features."""
+    unit_json_path = os.path.join("config", "features", "units.json")
+    with open(unit_json_path, "r") as f:
+        units_dict = json.load(f)
+
+    return units_dict
+
+
+def load_fitness(config):
+    """Load dict containing model fitness value for each feature."""
+    emodel = get_emodel(config)
+
+    params_path = os.path.join(
+        config.get("Paths", "params_dir"), config.get("Paths", "params_file")
+    )
+    with open(params_path, "r") as f:
+        params_file = json.load(f)
+    data = params_file[emodel]
+
+    return data["fitness"]
+
+
+def get_exp_features_data(config):
+    """Returns a dict containing mean and std of experimental features and model fitness."""
+    feat = load_raw_exp_features(config)
+    units = load_feature_units()
+    fitness = load_fitness(config)
+
+    values_dict = {}
+    for stimulus, stim_data in feat.items():
+        stim_dict = {}
+        for location, loc_data in stim_data.items():
+            features_list = []
+            for feature in loc_data:
+                feature_name = feature["feature"]
+                mean = feature["val"][0]
+                std = feature["val"][1]
+
+                try:
+                    unit = units[feature_name]
+                except KeyError:
+                    logger.warning(
+                        "{} was not found in units file. Set unit to ''.".format(
+                            feature_name
+                        )
+                    )
+                    unit = ""
+
+                key_fitness = ".".join(("_", stimulus, location, feature_name))
+                try:
+                    fit = fitness[key_fitness]
+                except KeyError:
+                    logger.warning(
+                        "{} was not found in fitness dict. ".format(key_fitness)
+                        + "Set fitness model fitness value to ''."
+                    )
+                    fit = ""
+
+                features_list.append(
+                    {
+                        "name": feature_name,
+                        "values": [{"mean": mean, "std": std}],
+                        "unit": unit,
+                        "model fitness": fit,
+                        "tooltip": "",
+                    }
+                )
+            loc_dict = {"features": features_list}
+            stim_dict[location] = loc_dict
+        values_dict[stimulus] = stim_dict
+    values = [values_dict]
+
+    return {"values": values, "name": "Experimental features"}
+
+
+def get_morph_name(config):
+    """Returns a dict containing the morphology name."""
+    if config.has_option("Paths", "morph_file"):
+        morph_fname = config.get("Paths", "morph_file")
+    else:
+        constants_path = os.path.join(
+            config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
+        )
+        with open(constants_path, "r") as f:
+            data = json.load(f)
+        morph_fname = data["morph_fname"]
+    morph_name = morph_fname.split(".asc")[0]
+
+    return {"value": morph_name, "name": "Morphology name"}
+
+
+def write_etype_json(config):
+    """Write the e-type factsheet json file."""
+    exp_features = get_exp_features_data(config)
+    channel_mechanisms = get_mechanisms_data(config)
+    morphology_name = get_morph_name(config)
+    # TODO exp_traces = get_exp_traces_data(config)
+
+    output = [
+        exp_features,
+        channel_mechanisms,
+        morphology_name,
+        # TODO exp_traces,
+    ]
+
+    output_fpath = "e_type_factsheeet.json"
+    with open(output_fpath, "w") as out_file:
+        json.dump(output, out_file, indent=4, cls=NpEncoder)
+    print("e-type json file written.")
+
+
+def write_morph_json(config):
+    """Write the morphology factsheet json file."""
+    anatomy = get_morph_data(config)
+    morphology_name = get_morph_name(config)
+
+    output = [anatomy, morphology_name]
+
+    output_fpath = "morphology_factsheeet.json"
+    with open(output_fpath, "w") as out_file:
+        json.dump(output, out_file, indent=4, cls=NpEncoder)
+    print("morph json file written.")
+
+
 def write_metype_json(config):
-    """Write the me-type fact json file."""
+    """Write the me-type factsheet json file."""
     anatomy = get_morph_data(config)
     physiology = get_physiology_data(config)
-    channel_mechanisms = get_mechanisms_data(config)
+    morphology_name = get_morph_name(config)
 
-    output = [anatomy, physiology, channel_mechanisms]
+    output = [anatomy, physiology, morphology_name]
 
     output_fpath = "me_type_factsheeet.json"
     with open(output_fpath, "w") as out_file:
@@ -404,3 +558,5 @@ if __name__ == "__main__":
     config = load_config(filename=config_file)
 
     write_metype_json(config)
+    write_etype_json(config)
+    write_morph_json(config)

@@ -38,7 +38,14 @@ def launch_luigi(module, task, reload_hoc=False):
 
             arguments = ""
             for key, value in bound_args.arguments.items():
-                arguments += "--{}={} ".format(key, value)
+                # to change run_single_step into run-single-step
+                if "_" in key:
+                    key = "-".join(key.split("_"))
+                # add --key=value if not boolean. if bool, add --key if true, add nothing otherwise
+                if value is True:
+                    arguments += "--{} ".format(key)
+                elif value is not False:
+                    arguments += "--{}={} ".format(key, value)
 
             # change PYTHONPATH
             os.system("export PYTHONPATH=${{PYTHONPATH}}:{}".format(path_to_luigi))
