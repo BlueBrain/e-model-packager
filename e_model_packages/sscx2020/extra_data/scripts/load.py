@@ -124,11 +124,11 @@ def multi_locations(sectionlist):
     return seclist_locs
 
 
-def find_param_file(recipes_path, etype):
+def find_param_file(recipes_path, emodel):
     """Find the parameter file for unfrozen params."""
     with open(recipes_path, "r") as f:
         recipes = json.load(f)
-    recipe = recipes[etype]
+    recipe = recipes[emodel]
 
     return recipe["params"]
 
@@ -154,9 +154,9 @@ def load_constants(constants_path):
     return emodel, morph_dir, morph_fname, dt, gid
 
 
-def load_params(emodel, params_filename):
+def load_params(emodel, params_path):
     """Get optimised parameters."""
-    with open(params_filename, "r") as f:
+    with open(params_path, "r") as f:
         params_file = json.load(f)
     data = params_file[emodel]
 
@@ -165,9 +165,9 @@ def load_params(emodel, params_filename):
     return param_dict
 
 
-def load_mechanisms(mechs_filename):
+def load_mechanisms(mechs_filepath):
     """Define mechanisms."""
-    with open(mechs_filename) as mechs_file:
+    with open(mechs_filepath) as mechs_file:
         mech_definitions = json.load(
             mechs_file, object_pairs_hook=collections.OrderedDict
         )["mechanisms"]
@@ -380,11 +380,11 @@ def define_protocols(config, cell=None):
     return ephys.protocols.SequenceProtocol("twostep", protocols=step_protocols)
 
 
-def define_parameters(params_filename):
+def define_parameters(params_filepath):
     """Define parameters."""
     parameters = []
 
-    with open(params_filename) as params_file:
+    with open(params_filepath) as params_file:
         definitions = json.load(params_file, object_pairs_hook=collections.OrderedDict)
 
     # set distributions
@@ -556,8 +556,8 @@ def create_cell(config):
     recipes_path = os.path.join(
         config.get("Paths", "recipes_dir"), config.get("Paths", "recipes_file")
     )
-    params_filename = find_param_file(recipes_path, emodel)
-    mechs = load_mechanisms(params_filename)
+    params_filepath = find_param_file(recipes_path, emodel)
+    mechs = load_mechanisms(params_filepath)
 
     # add synapses mechs
     add_synapses = config.getboolean("Synapses", "add_synapses")
@@ -568,8 +568,8 @@ def create_cell(config):
     params_path = os.path.join(
         config.get("Paths", "params_dir"), config.get("Paths", "params_file")
     )
-    release_params = load_params(params_filename=params_path, emodel=emodel)
-    params = define_parameters(params_filename)
+    release_params = load_params(params_path=params_path, emodel=emodel)
+    params = define_parameters(params_filepath)
 
     # create morphology
     axon_hoc_path = os.path.join(

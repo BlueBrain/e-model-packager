@@ -137,13 +137,6 @@ class NeuronSimulation:
         self.syn_nmb_of_spikes = self.config.getint("Protocol", "syn_nmb_of_spikes")
         self.syn_noise = self.config.getint("Protocol", "syn_noise")
 
-    def reload_config_paths(self, mtype, etype, gidx):
-        """When the cell has changed, re-set config paths."""
-        self.config.set("Cell", "mtype", mtype)
-        self.config.set("Cell", "etype", etype)
-        self.config.set("Cell", "gidx", str(gidx))
-        self.cell_path = self.config.get("Paths", "memodel_dir")
-
     def load_available_pre_mtypes(self):
         """Load the list of pre mtype cells to which are connected the synapses."""
         mtype_path = os.path.join(
@@ -245,8 +238,8 @@ class NeuronSimulation:
             self.config.get("Paths", "recipes_dir"),
             self.config.get("Paths", "recipes_file"),
         )
-        params_filename = find_param_file(recipes_path, emodel)
-        mechs = load_mechanisms(params_filename)
+        params_filepath = find_param_file(recipes_path, emodel)
+        mechs = load_mechanisms(params_filepath)
 
         # add synapses mechs
         # always load synapse data for synapse display.
@@ -258,8 +251,8 @@ class NeuronSimulation:
             self.config.get("Paths", "params_dir"),
             self.config.get("Paths", "params_file"),
         )
-        release_params = load_params(params_filename=params_path, emodel=emodel)
-        params = define_parameters(params_filename)
+        release_params = load_params(params_path=params_path, emodel=emodel)
+        params = define_parameters(params_filepath)
 
         # create morphology
         axon_hoc_path = os.path.join(

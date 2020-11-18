@@ -165,53 +165,20 @@ class GUI:
         self.play = True
         self.run_simul()
 
-    def reload_params(self, reload_simulation=False):
-        """Reload cell, protocol, simulation, figure frame.
-
-        Args : reload_simulation(bool): set to True if the cell has changed
-            and the cell-specific step stimuli and synapses have to be reloaded.
-        """
+    def reload_params(self):
+        """Reload cell, protocol, simulation, figure frame."""
         # destroy before reload
         self.simulation.destroy()  # destroy cell, sim and protocol, not config data
 
         # reload cell & protocol
-        if reload_simulation:  # cell has changed
-            self.frames["FrameMain"].destroy()
-            self.simulation.load_protocol_params()
-            self.simulation.load_synapse_params()
-
         self.simulation.load_cell_sim()
         self.simulation.load_protocol()
         self.simulation.instantiate()
 
-        if reload_simulation:
-            self.simulation.load_synapse_display_data()
-
-            # reload figure frame
-            self.frames["FrameMain"] = FrameMain(self.root, self)
-            self.frames["FrameMain"].grid(row=0, column=1)
-
-            # reload synapse frame
-            self.frames["FrameSynapses"].destroy()
-            title_synapses = ttk.Label(self.root, text="Synapse Stimuli configuration")
-            self.frames["FrameSynapses"] = FrameSynapses(
-                self.root, self, title_synapses
-            )
-            self.frames["FrameSynapses"].grid(
-                row=0, column=2, sticky=(tk.W, tk.E, tk.N, tk.S)
-            )
-
-            # reload protocol frame
-            self.frames["FrameConfig"].destroy()
-            self.frames["FrameConfig"] = FrameConfig(self.root, self)
-            self.frames["FrameConfig"].grid(
-                row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S)
-            )
-        else:
-            # clear voltage data
-            self.clear_voltage_figure()
-            # display figures after simulation has been reset
-            self.frames["FrameMain"].display(self.root, self.simulation)
+        # clear voltage data
+        self.clear_voltage_figure()
+        # display figures after simulation has been reset
+        self.frames["FrameMain"].display(self.root, self.simulation)
 
         self.root.update()
 

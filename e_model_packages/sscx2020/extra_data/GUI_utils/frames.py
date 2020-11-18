@@ -140,7 +140,7 @@ class FrameStepStimulus(ttk.Frame):
 
         self.step1 = ttk.Radiobutton(
             self,
-            text="{0:.3g} mV".format(gui.simulation.steps[0]),
+            text="{0:.3g} nA".format(gui.simulation.steps[0]),
             variable=self.step_stim,
             value=gui.simulation.steps[0],
             command=lambda: self.get_step_stim(gui),
@@ -148,7 +148,7 @@ class FrameStepStimulus(ttk.Frame):
 
         self.step2 = ttk.Radiobutton(
             self,
-            text="{0:.3g} mV".format(gui.simulation.steps[1]),
+            text="{0:.3g} nA".format(gui.simulation.steps[1]),
             variable=self.step_stim,
             value=gui.simulation.steps[1],
             command=lambda: self.get_step_stim(gui),
@@ -156,7 +156,7 @@ class FrameStepStimulus(ttk.Frame):
 
         self.step3 = ttk.Radiobutton(
             self,
-            text="{0:.3g} mV".format(gui.simulation.steps[2]),
+            text="{0:.3g} nA".format(gui.simulation.steps[2]),
             variable=self.step_stim,
             value=gui.simulation.steps[2],
             command=lambda: self.get_step_stim(gui),
@@ -164,7 +164,7 @@ class FrameStepStimulus(ttk.Frame):
 
         self.custom_step = ttk.Radiobutton(
             self,
-            text="Custom stimulus [mV]: ",
+            text="Custom stimulus [nA]: ",
             variable=self.step_stim,
             value=0.0,
             command=lambda: self.get_custom_step_stim(gui),
@@ -256,7 +256,7 @@ class FrameHoldStimulus(ttk.Frame):
 
         self.default_hypamp = ttk.Radiobutton(
             self,
-            text="{0:.3g} mV".format(gui.simulation.default_hypamp),
+            text="{0:.3g} nA".format(gui.simulation.default_hypamp),
             variable=self.hold_stim,
             value=gui.simulation.default_hypamp,
             command=lambda: self.get_hold_stim(gui),
@@ -264,7 +264,7 @@ class FrameHoldStimulus(ttk.Frame):
 
         self.custom_hold = ttk.Radiobutton(
             self,
-            text="Custom stimulus [mV]: ",
+            text="Custom stimulus [nA]: ",
             variable=self.hold_stim,
             value=0.0,
             command=lambda: self.get_custom_hold_stim(gui),
@@ -349,7 +349,7 @@ class FrameStepProtocol(ttk.Frame):
             self, gui, "step_delay", "Step stimulus delay [ms]"
         )
         self.frame_step_duration = FrameSetIntFromEntry(
-            self, gui, "step_duration", "Step stimulus duration [mV]"
+            self, gui, "step_duration", "Step stimulus duration [ms]"
         )
 
         # holding stimulus
@@ -361,7 +361,7 @@ class FrameStepProtocol(ttk.Frame):
             self,
             gui,
             "hold_step_duration",
-            "Holding stimulus duration [mV]",
+            "Holding stimulus duration [ms]",
         )
 
         # display on grid
@@ -376,57 +376,6 @@ class FrameStepProtocol(ttk.Frame):
         self.columnconfigure(0, weight=1)
         for i in range(6):
             self.rowconfigure(i, weight=1)
-
-
-class FrameCellSelection(ttk.Frame):
-    """Frame containing protocol-related inputs."""
-
-    # This class is useful for testing but will ultimately be removed.
-
-    def __init__(self, parent, gui):
-        """Constructor.
-
-        Args:
-            parent (ttk.Frame): parent frame in which to embed this frame
-            gui (GUI): main class containing main frames and simulation
-        """
-        ttk.Frame.__init__(self, parent, style="TFrame")
-
-        self.button = ttk.Button(
-            self,
-            text="To change cell, click here and select a cell directory",
-            command=lambda: self.get_cell_from_dir(gui),
-        )
-
-        self.button.grid(row=0, column=0, sticky=(tk.W))
-
-        self.rowconfigure(0, weight=1)
-        self.columnconfigure(0, weight=1)
-
-    def get_cell_from_dir(self, gui):
-        """Ask directory and get cell mtype, etype, gidx from it."""
-        path = os.path.join(os.getcwd(), gui.simulation.cell_path)
-        dir_ = tk.filedialog.askdirectory(
-            initialdir=path, title="Select a cell directory"
-        )
-        if dir_:  # has not pressed 'cancel'
-            try:
-                # cannot all extract from last folder because mtype might contain '_'.
-                dir_ = os.path.normpath(dir_)
-                folder = os.path.basename(dir_)
-                gidx = folder.split("_")[-1]
-                etype_dir = os.path.normpath(os.path.dirname(dir_))
-                etype = os.path.basename(etype_dir)
-                mtype_dir = os.path.normpath(os.path.dirname(etype_dir))
-                mtype = os.path.basename(mtype_dir)
-
-                gui.simulation.reload_config_paths(mtype, etype, gidx)
-                gui.reload_params(reload_simulation=True)
-            except (FileNotFoundError, IOError):
-                tk.messagebox.showerror(
-                    "Bad directory",
-                    "Could not load cell from directory.",
-                )
 
 
 class FrameProtocols(ttk.LabelFrame):
@@ -467,8 +416,6 @@ class FrameConfig(ttk.Frame):
         """
         ttk.Frame.__init__(self, parent, style="TFrame")
 
-        self.frame_cell_selection = FrameCellSelection(self, gui)
-
         title_config_fig = ttk.Label(self, text="Display configuration")
         self.frame_config_fig = FrameConfigFig(self, gui, title_config_fig)
 
@@ -477,14 +424,12 @@ class FrameConfig(ttk.Frame):
         )
         self.frame_protocols = FrameProtocols(self, gui, title_protocols)
 
-        self.frame_cell_selection.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        self.frame_config_fig.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        self.frame_protocols.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.frame_config_fig.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.frame_protocols.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
-        self.rowconfigure(1, weight=1)
-        self.rowconfigure(2, weight=10)
+        self.rowconfigure(1, weight=10)
 
 
 class FrameButtons(ttk.Frame):

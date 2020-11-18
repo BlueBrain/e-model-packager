@@ -189,14 +189,14 @@ def get_param_data(config):
     recipes_path = os.path.join(
         config.get("Paths", "recipes_dir"), config.get("Paths", "recipes_file")
     )
-    params_filename = find_param_file(recipes_path, emodel)
+    params_filepath = find_param_file(recipes_path, emodel)
 
     params_path = os.path.join(
         config.get("Paths", "params_dir"), config.get("Paths", "params_file")
     )
-    release_params = load_params(params_filename=params_path, emodel=emodel)
+    release_params = load_params(params_path=params_path, emodel=emodel)
 
-    with open(params_filename) as params_file:
+    with open(params_filepath) as params_file:
         definitions = json.load(params_file, object_pairs_hook=collections.OrderedDict)
 
     return (
