@@ -37,6 +37,25 @@ workflow_config = ConfigDecorator(luigi.configuration.get_config())
 # pylint: disable=too-many-locals
 
 
+class MemodelParameters(luigi.Task):
+    """Parameter class to contain common MeModel parameters across various tasks.
+
+    Luigi design pattern to address the parameter explosion problem.
+    Reference https://luigi.readthedocs.io/en/stable/api/luigi.util.html
+
+    Attributes:
+        mtype: morphological type
+        etype: electrophysiological type
+        gid: id of cell in the circuit
+        gidx: index of cell
+    """
+
+    mtype = luigi.Parameter()
+    etype = luigi.Parameter()
+    gid = luigi.IntParameter()
+    gidx = luigi.IntParameter()
+
+
 class ParseCircuit(luigi.Task):
     """Parse the circuit to get the number of mtypes etypes and cells."""
 
@@ -104,20 +123,9 @@ class ParseCircuit(luigi.Task):
             json.dump(self.mtype_etype_gids, out_file, indent=4, cls=NpEncoder)
 
 
-class CreateMETypeJson(luigi.Task):
-    """Task to create a me-type factsheet json file.
+class CreateMETypeJson(MemodelParameters):
+    """Task to create a me-type factsheet json file."""
 
-    Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gid: id of cell in the circuit
-        gidx: index of cell
-    """
-
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gid = luigi.IntParameter()
-    gidx = luigi.IntParameter()
     configfile = None
 
     def requires(self):
@@ -184,20 +192,8 @@ class PrepareOutputDirectory(luigi.Task):
             os.makedirs(output_dir)
 
 
-class PrepareMEModelDirectory(luigi.Task):
-    """Task to prepare the e-model directory.
-
-    Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gid: id of cell in the circuit
-        gidx: index of cell
-    """
-
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gid = luigi.IntParameter()
-    gidx = luigi.IntParameter()
+class PrepareMEModelDirectory(MemodelParameters):
+    """Task to prepare the e-model directory."""
 
     def requires(self):
         """Requires the script to have been copied in the main output directory."""
@@ -523,21 +519,13 @@ class PrepareMEModelDirectory(luigi.Task):
         )
 
 
-class CreateHoc(luigi.Task):
+class CreateHoc(MemodelParameters):
     """Task to create the hoc file of an emodel.
 
     Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gid : cell id
-        gidx: index of cell
         configfile : name of config file in /config to use when creating hoc
     """
 
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gid = luigi.IntParameter()
-    gidx = luigi.IntParameter()
     configfile = luigi.Parameter(default=None)
 
     def requires(self):
@@ -593,21 +581,13 @@ class CreateHoc(luigi.Task):
             )
 
 
-class RunHoc(luigi.Task):
+class RunHoc(MemodelParameters):
     """Task to run the hoc files for an emodel.
 
     Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gid : cell id
-        gidx: index of cell
         configfile : name of config file in /config to use when creating hoc
     """
 
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gid = luigi.IntParameter()
-    gidx = luigi.IntParameter()
     configfile = luigi.Parameter(default=None)
     has_rerun_create_hoc = False
 
@@ -674,22 +654,14 @@ class RunHoc(luigi.Task):
             subprocess.call(["sh", "./run_hoc.sh"])
 
 
-class RunPyScript(luigi.Task):
+class RunPyScript(MemodelParameters):
     """Task to run the python script for an emodel.
 
     Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gid : cell id
-        gidx: index of cell
         configfile : name of config file in /config to use when running script
         run_single_step: set to True to only run one single step protocol
     """
 
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gid = luigi.IntParameter()
-    gidx = luigi.IntParameter()
     configfile = luigi.Parameter(default=None)
     run_single_step = luigi.BoolParameter(default=False)
 
@@ -756,21 +728,13 @@ class RunPyScript(luigi.Task):
                     subprocess.call(["sh", "./run_py.sh"])
 
 
-class RunOldPyScript(luigi.Task):
+class RunOldPyScript(MemodelParameters):
     """Task to run the python script for an emodel.
 
     Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gid: cell id
-        gidx: index of cell
         configfile : name of config file in /config to use when running script
     """
 
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gid = luigi.IntParameter()
-    gidx = luigi.IntParameter()
     configfile = luigi.Parameter(default=None)
 
     def requires(self):
@@ -851,21 +815,13 @@ class CreateSystemLog(luigi.Task):
             outfile.write(f"{modules}\n{python_ver}\n{pip}")
 
 
-class DoRecordings(luigi.WrapperTask):
+class DoRecordings(MemodelParameters):
     """Launch both RunHoc and RunPyScript.
 
     Attributes:
-        mtype: morphological type
-        etype: electrophysiological type
-        gid: cell id
-        gidx: index of cell
         configfile : name of config file in /config to use when running script / creating hoc
     """
 
-    mtype = luigi.Parameter()
-    etype = luigi.Parameter()
-    gid = luigi.IntParameter()
-    gidx = luigi.IntParameter()
     configfile = luigi.Parameter(default=None)
 
     def requires(self):

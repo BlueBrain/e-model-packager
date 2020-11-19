@@ -13,3 +13,4 @@ doc/build
 .vscode
 .notebooks
 .pytest_cache
+output
