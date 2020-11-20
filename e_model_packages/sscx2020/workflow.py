@@ -21,6 +21,7 @@ from e_model_packages.sscx2020.utils import (
     cwd,
     get_output_path,
     create_single_step_config,
+    get_gid_from_circuit,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
@@ -46,12 +47,14 @@ class MemodelParameters(luigi.Task):
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        region: circuit region
         gid: id of cell in the circuit
         gidx: index of cell
     """
 
     mtype = luigi.Parameter()
     etype = luigi.Parameter()
+    region = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
 
@@ -60,11 +63,13 @@ class ParseCircuit(luigi.Task):
     """Parse the circuit to get the number of mtypes etypes and cells."""
 
     gids_per_metype = luigi.IntParameter(default=5)
-    mtype_etype_gids = collections.defaultdict(dict)
 
     mtype = luigi.Parameter(default=None)
     etype = luigi.Parameter(default=None)
+    region = luigi.Parameter(default=None)
     gidx = luigi.IntParameter(default=None)
+
+    mtype_etype_gids = {}
 
     def requires(self):
         """The BuildCircuit task is a dependency of this task."""
@@ -72,42 +77,56 @@ class ParseCircuit(luigi.Task):
         circuit, _ = read_circuit(circuit_config_path)
 
         # if mtype, etype, gidx not set, run required task for all metypes
-        if None in [self.mtype, self.etype, self.gidx]:
+        if None in [self.region, self.mtype, self.etype, self.gidx]:
+            regions = workflow_config.get("circuit", "regions")
             metype_gids = {}
-            metypes_df = circuit.cells.get(
-                properties=[bpcell.MTYPE, bpcell.ETYPE, bpcell.LAYER]
-            ).drop_duplicates()
-            metypes = [(row["mtype"], row["etype"]) for _, row in metypes_df.iterrows()]
 
-            for mtype, etype in metypes:
-                metype_gids[(mtype, etype)] = list(
+            cell_props_df = circuit.cells.get(
+                properties=[bpcell.MTYPE, bpcell.ETYPE, bpcell.REGION]
+            ).drop_duplicates()
+            cell_props_df = cell_props_df.loc[cell_props_df["region"].isin(regions)]
+            cell_props = list(
+                zip(cell_props_df.mtype, cell_props_df.etype, cell_props_df.region)
+            )
+
+            for mtype, etype, region in cell_props:
+                metype_gids[(mtype, etype, region)] = list(
                     circuit.cells.ids(
-                        {bpcell.MTYPE: mtype, bpcell.ETYPE: etype},
+                        {
+                            bpcell.MTYPE: mtype,
+                            bpcell.ETYPE: etype,
+                            bpcell.REGION: region,
+                        },
                         limit=self.gids_per_metype,
                     )
                 )
 
             tasks = []
-            for (mtype, etype), gids in metype_gids.items():
-                self.mtype_etype_gids[mtype][etype] = gids
+            for (mtype, etype, region), gids in metype_gids.items():
+                self.mtype_etype_gids[mtype] = {etype: {region: gids}}
                 for gidx, gid in enumerate(gids):
                     gidx = gidx + 1  # 1 indexed for users
-                    tasks.append(PrepareMEModelDirectory(mtype, etype, gid, gidx))
-                    tasks.append(CreateHoc(mtype, etype, gid, gidx))
-                    tasks.append(CreateMETypeJson(mtype, etype, gid, gidx))
+                    tasks.append(
+                        PrepareMEModelDirectory(mtype, etype, region, gid, gidx)
+                    )
+                    tasks.append(CreateHoc(mtype, etype, region, gid, gidx))
+                    tasks.append(CreateMETypeJson(mtype, etype, region, gid, gidx))
         else:
-            gids = list(
-                circuit.cells.ids({bpcell.MTYPE: self.mtype, bpcell.ETYPE: self.etype})
+            gid = get_gid_from_circuit(
+                mtype=self.mtype,
+                etype=self.etype,
+                region=self.region,
+                gidx=self.gidx,
+                circuit=circuit,
             )
-            gid = gids[self.gidx - 1]
-            self.mtype_etype_gids[self.mtype][self.etype] = [
-                gids[self.gidx - 1],
-            ]
+            self.mtype_etype_gids[self.mtype] = {self.etype: {self.region: [gid]}}
 
             tasks = [
-                PrepareMEModelDirectory(self.mtype, self.etype, gid, self.gidx),
-                CreateHoc(self.mtype, self.etype, gid, self.gidx),
-                CreateMETypeJson(self.mtype, self.etype, gid, self.gidx),
+                PrepareMEModelDirectory(
+                    self.mtype, self.etype, self.region, gid, self.gidx
+                ),
+                CreateHoc(self.mtype, self.etype, self.region, gid, self.gidx),
+                CreateMETypeJson(self.mtype, self.etype, self.region, gid, self.gidx),
             ]
 
         return tasks
@@ -134,6 +153,7 @@ class CreateMETypeJson(MemodelParameters):
             RunPyScript(
                 self.mtype,
                 self.etype,
+                self.region,
                 self.gid,
                 self.gidx,
                 self.configfile,
@@ -145,7 +165,9 @@ class CreateMETypeJson(MemodelParameters):
     def output(self):
         """The JSON output."""
         output_dir = workflow_config.get("paths", "output")
-        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+        memodel_dir = get_output_path(
+            self.mtype, self.etype, self.region, self.gidx, output_dir
+        )
         targets = []
         for fname in [
             "me_type_factsheeet.json",
@@ -160,7 +182,9 @@ class CreateMETypeJson(MemodelParameters):
     def run(self):
         """Creates the me-type json file."""
         output_dir = workflow_config.get("paths", "output")
-        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+        memodel_dir = get_output_path(
+            self.mtype, self.etype, self.region, self.gidx, output_dir
+        )
 
         factsheets_dir = "factsheets"
         with cwd(memodel_dir):
@@ -207,7 +231,9 @@ class PrepareMEModelDirectory(MemodelParameters):
     def output(self):
         """Does not produce output."""
         output_dir = workflow_config.get("paths", "output")
-        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+        memodel_dir = get_output_path(
+            self.mtype, self.etype, self.region, self.gidx, output_dir
+        )
 
         return luigi.LocalTarget(memodel_dir)
 
@@ -236,6 +262,7 @@ class PrepareMEModelDirectory(MemodelParameters):
         cell_info = {
             "cell name": name,
             "e-type": self.etype,
+            "region": self.region,
             "gid": self.gid,
             "layer": layer,
             "m-type": self.mtype,
@@ -535,14 +562,20 @@ class CreateHoc(MemodelParameters):
         """Requires the output paths to be made."""
         return [
             PrepareMEModelDirectory(
-                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+                mtype=self.mtype,
+                etype=self.etype,
+                region=self.region,
+                gid=self.gid,
+                gidx=self.gidx,
             )
         ]
 
     def get_output_path(self):
         """Returns the path to the outputs directory."""
         workflow_output_dir = workflow_config.get("paths", "output")
-        return get_output_path(self.mtype, self.etype, self.gidx, workflow_output_dir)
+        return get_output_path(
+            self.mtype, self.etype, self.region, self.gidx, workflow_output_dir
+        )
 
     def output(self):
         """Produces the hoc file."""
@@ -604,6 +637,7 @@ class RunHoc(MemodelParameters):
             targets = CreateHoc(
                 mtype=self.mtype,
                 etype=self.etype,
+                region=self.region,
                 gid=self.gid,
                 gidx=self.gidx,
                 configfile=self.configfile,
@@ -617,6 +651,7 @@ class RunHoc(MemodelParameters):
         return CreateHoc(
             mtype=self.mtype,
             etype=self.etype,
+            region=self.region,
             gid=self.gid,
             gidx=self.gidx,
             configfile=self.configfile,
@@ -628,7 +663,7 @@ class RunHoc(MemodelParameters):
 
         workflow_output_dir = workflow_config.get("paths", "output")
         script_path = get_output_path(
-            self.mtype, self.etype, self.gidx, workflow_output_dir
+            self.mtype, self.etype, self.region, self.gidx, workflow_output_dir
         )
         output_path = os.path.join(script_path, "hoc_recordings")
 
@@ -651,7 +686,7 @@ class RunHoc(MemodelParameters):
         """Executes the hoc script."""
         workflow_output_dir = workflow_config.get("paths", "output")
         hoc_path = get_output_path(
-            self.mtype, self.etype, self.gidx, workflow_output_dir
+            self.mtype, self.etype, self.region, self.gidx, workflow_output_dir
         )
         with cwd(hoc_path):
             subprocess.call(["sh", "./run_hoc.sh"])
@@ -672,7 +707,11 @@ class RunPyScript(MemodelParameters):
         """Requires the output paths to be made."""
         return [
             PrepareMEModelDirectory(
-                mtype=self.mtype, etype=self.etype, gid=self.gid, gidx=self.gidx
+                mtype=self.mtype,
+                etype=self.etype,
+                region=self.region,
+                gid=self.gid,
+                gidx=self.gidx,
             )
         ]
 
@@ -682,7 +721,7 @@ class RunPyScript(MemodelParameters):
 
         workflow_output_dir = workflow_config.get("paths", "output")
         script_path = get_output_path(
-            self.mtype, self.etype, self.gidx, workflow_output_dir
+            self.mtype, self.etype, self.region, self.gidx, workflow_output_dir
         )
         output_path = os.path.join(script_path, "python_recordings")
 
@@ -713,7 +752,9 @@ class RunPyScript(MemodelParameters):
     def run(self):
         """Executes the python script."""
         output_dir = workflow_config.get("paths", "output")
-        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+        memodel_dir = get_output_path(
+            self.mtype, self.etype, self.region, self.gidx, output_dir
+        )
         if self.run_single_step:
             new_config = "config_single_step.ini"
             config_dir = os.path.join(memodel_dir, "config")
@@ -745,6 +786,7 @@ class RunOldPyScript(MemodelParameters):
         return CreateHoc(
             mtype=self.mtype,
             etype=self.etype,
+            region=self.region,
             gid=self.gid,
             gidx=self.gidx,
             configfile=self.configfile,
@@ -756,7 +798,7 @@ class RunOldPyScript(MemodelParameters):
 
         workflow_output_dir = workflow_config.get("paths", "output")
         script_path = get_output_path(
-            self.mtype, self.etype, self.gidx, workflow_output_dir
+            self.mtype, self.etype, self.region, self.gidx, workflow_output_dir
         )
         output_path = os.path.join(script_path, "old_python_recordings")
 
@@ -778,7 +820,9 @@ class RunOldPyScript(MemodelParameters):
     def run(self):
         """Executes the python script."""
         output_dir = workflow_config.get("paths", "output")
-        memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
+        memodel_dir = get_output_path(
+            self.mtype, self.etype, self.region, self.gidx, output_dir
+        )
         with cwd(memodel_dir):
             # compile mechanisms if needed
             if os.path.exists(os.path.join("x86_64", "special")):
@@ -830,10 +874,29 @@ class DoRecordings(MemodelParameters):
     def requires(self):
         """Launch both RunHoc and RunPyScript."""
         tasks = [
-            RunHoc(self.mtype, self.etype, self.gid, self.gidx, self.configfile),
-            RunPyScript(self.mtype, self.etype, self.gid, self.gidx, self.configfile),
+            RunHoc(
+                self.mtype,
+                self.etype,
+                self.region,
+                self.gid,
+                self.gidx,
+                self.configfile,
+            ),
+            RunPyScript(
+                self.mtype,
+                self.etype,
+                self.region,
+                self.gid,
+                self.gidx,
+                self.configfile,
+            ),
             RunOldPyScript(
-                self.mtype, self.etype, self.gid, self.gidx, self.configfile
+                self.mtype,
+                self.etype,
+                self.region,
+                self.gid,
+                self.gidx,
+                self.configfile,
             ),
         ]
         return tasks

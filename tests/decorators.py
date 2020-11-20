@@ -29,8 +29,9 @@ def launch_luigi(module, task, reload_hoc=False):
             if reload_hoc:
                 mtype = bound_args.arguments["mtype"]
                 etype = bound_args.arguments["etype"]
+                region = bound_args.arguments["region"]
                 gidx = bound_args.arguments["gidx"]
-                hoc_path = get_output_path(mtype, etype, gidx, "tests/output")
+                hoc_path = get_output_path(mtype, etype, region, gidx, "tests/output")
                 for fname in ["run.hoc", "createsimulation.hoc"]:
                     file_path = os.path.join(hoc_path, fname)
                     if os.path.exists(file_path):

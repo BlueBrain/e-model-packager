@@ -1,4 +1,4 @@
-"""Test file."""
+"""Contains tests for the workflow."""
 # pylint: disable=wrong-import-position
 # pylint: disable=wrong-import-order
 # pylint: disable=import-error
@@ -16,7 +16,6 @@ from e_model_packages.sscx2020.utils import (
     get_output_path,
     combine_names,
     cwd,
-    create_single_step_config,
 )
 
 sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
@@ -25,6 +24,9 @@ from write_factsheets import (
     get_morph_data,
     get_physiology_data,
     get_morph_name,
+    get_emodel,
+    get_recipe,
+    get_prefix,
     get_exp_features_data,
     get_mechanisms_data,
     load_raw_exp_features,
@@ -37,13 +39,14 @@ from write_factsheets import (
 @pytest.fixture(scope="session")
 def prepare_test_synapses_config():
     """Prepares a test config with synapses that uses neuron's rng."""
-    mtype = "L23_BP"
-    etype = "bNAC"
-    gidx = 150
+    mtype = "L5_TPC:A"
+    etype = "cADpyr"
+    region = "S1ULp"
+    gidx = 79598
     configfile = "config_synapses.ini"
 
     output_path = os.path.join("tests", "output")
-    memodel_path = get_output_path(mtype, etype, gidx, output_path)
+    memodel_path = get_output_path(mtype, etype, region, gidx, output_path)
 
     # re-write config file to have consistent randomness accross simulations
     config_path = os.path.join(memodel_path, "config", configfile)
@@ -55,12 +58,15 @@ def prepare_test_synapses_config():
 
 
 @launch_luigi(module="workflow", task="PrepareMEModelDirectory")
-def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
+def test_directory_exists(
+    mtype="L5_TPC:A", etype="cADpyr", region="S1ULp", gid=4138379, gidx=79598
+):
     """Check that e-model directories have been created, given the attributes of a given test cell
 
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        region: circuit region
         gid: id of cell in the circuit
         gidx: index of cell
     """
@@ -166,7 +172,7 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
 
     path_ = os.path.join("tests", "output", "memodel_dirs")
     memodel_path = os.path.join(
-        path_, mtype, etype, "_".join([mtype, etype, str(gidx)])
+        path_, mtype, etype, region, "_".join([mtype, etype, str(gidx)])
     )
 
     for item in memodel_files_to_be_checked:
@@ -182,12 +188,15 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
 
 
 @launch_luigi(module="workflow", task="DoRecordings")
-def test_voltages(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
+def test_voltages(
+    mtype="L5_TPC:A", etype="cADpyr", region="S1ULp", gid=4138379, gidx=79598
+):
     """Test to compare the voltages produced via python and hoc.
 
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        region: circuit region
         gid: cell id
         gidx: index of cell
     """
@@ -195,7 +204,7 @@ def test_voltages(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     threshold_py_recs = 1e-8
 
     inner_folder_name = combine_names(mtype, etype, gidx)
-    recording_path = os.path.join(mtype, etype, inner_folder_name)
+    recording_path = os.path.join(mtype, etype, region, inner_folder_name)
     script_path = os.path.join("tests", "output", "memodel_dirs", recording_path)
 
     for idx in range(3):
@@ -243,13 +252,19 @@ def run_bglibpy_cell(blueconfig_path, gid, sim_time, dt=0.025):
 @pytest.mark.usefixtures("prepare_test_synapses_config")
 @launch_luigi(module="workflow", task="RunPyScript")
 def test_synapses(
-    mtype="L23_BP", etype="bNAC", gid=111728, gidx=150, configfile="config_synapses.ini"
+    mtype="L5_TPC:A",
+    etype="cADpyr",
+    region="S1ULp",
+    gid=4138379,
+    gidx=79598,
+    configfile="config_synapses.ini",
 ):
     """Test to compare the output of cell with synapses between our run.py and bglibpy.
 
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        region: circuit region
         gid: cell id
         gidx: index of cell
         configfile: the configuration file of the emodel.
@@ -266,7 +281,9 @@ def test_synapses(
     sim_time = 3000
     _, bg_v = run_bglibpy_cell(circuit_config_path, gid, sim_time)
 
-    base_path = f"memodel_dirs/{mtype}/{etype}/{mtype}_{etype}_{gidx}"
+    base_path = f"memodel_dirs/{mtype}/{etype}/{region}/{mtype}_{etype}_{gidx}"
+
+    np.savetxt(os.path.join("tests", "output", base_path, "bglibpy_voltage.dat"), bg_v)
 
     # load run.py output
     py_path = os.path.join(
@@ -283,13 +300,19 @@ def test_synapses(
 @pytest.mark.usefixtures("prepare_test_synapses_config")
 @launch_luigi(module="workflow", task="DoRecordings", reload_hoc=True)
 def test_synapses_hoc_vs_py_script(
-    mtype="L23_BP", etype="bNAC", gid=111728, gidx=150, configfile="config_synapses.ini"
+    mtype="L5_TPC:A",
+    etype="cADpyr",
+    region="S1ULp",
+    gid=4138379,
+    gidx=79598,
+    configfile="config_synapses.ini",
 ):
     """Test to compare the voltages produced via python and hoc.
 
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        region: circuit region
         gid: cell id
         gidx: index of cell
         configfile : name of config file in /config to use when running script / creating hoc
@@ -298,7 +321,7 @@ def test_synapses_hoc_vs_py_script(
     threshold_py_recs = 0.1
 
     output_path = os.path.join("tests", "output")
-    memodel_path = get_output_path(mtype, etype, gidx, output_path)
+    memodel_path = get_output_path(mtype, etype, region, gidx, output_path)
 
     # load output
     hoc_path = os.path.join(memodel_path, "hoc_recordings", "soma_voltage_vecstim.dat")
@@ -321,25 +344,34 @@ def test_synapses_hoc_vs_py_script(
 
 
 @launch_luigi(module="workflow", task="CreateMETypeJson")
-def test_metype_factsheet_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
+def test_metype_factsheet_exists(
+    mtype="L5_TPC:A", etype="cADpyr", region="S1ULp", gid=4138379, gidx=79598
+):
     """Check that the me-type factsheet json file has been created.
 
     Attributes:
         mtype: morphological type
         etype: electrophysiological type
+        region: circuit region
         gid: id of cell in the circuit
         gidx: index of cell
     """
 
     path_ = os.path.join("tests", "output", "memodel_dirs")
     memodel_path = os.path.join(
-        path_, mtype, etype, "_".join([mtype, etype, str(gidx)])
+        path_, mtype, etype, region, "_".join([mtype, etype, str(gidx)])
     )
 
     metype_factsheet = os.path.join(
         memodel_path, "factsheets", "me_type_factsheeet.json"
     )
+    etype_factsheet = os.path.join(memodel_path, "factsheets", "e_type_factsheeet.json")
+    mtype_factsheet = os.path.join(
+        memodel_path, "factsheets", "morphology_factsheeet.json"
+    )
     assert os.path.isfile(metype_factsheet)
+    assert os.path.isfile(etype_factsheet)
+    assert os.path.isfile(mtype_factsheet)
 
 
 def check_feature_mean_std(source, feat):
@@ -367,9 +399,12 @@ def check_features(config):
     Checks that units correspond to the ones in unit file.
     Checks that model fitnesses correspond to the ones in fitness file."""
     # original files data
-    original_feat = load_raw_exp_features(config)
+    emodel = get_emodel(config)
+    recipe = get_recipe(config, emodel)
+    original_feat = load_raw_exp_features(recipe)
     units = load_feature_units()
-    fitness = load_fitness(config)
+    fitness = load_fitness(config, emodel)
+    prefix = get_prefix(config, recipe)
     # tested func
     feat_dict = get_exp_features_data(config)
 
@@ -381,7 +416,7 @@ def check_features(config):
                 assert loc_data
                 for feat in loc_data["features"]:
                     original = original_feat[stim_name][loc_name]
-                    key_fitness = ".".join(("_", stim_name, loc_name, feat["name"]))
+                    key_fitness = ".".join((prefix, stim_name, loc_name, feat["name"]))
 
                     assert check_feature_mean_std(original, feat)
                     assert feat["unit"] == units[feat["name"]]
@@ -396,12 +431,16 @@ def check_morph_name(config):
 
 def get_locs_list(loc_name):
     """Return possible location list from a location name."""
-    if loc_name == "dendrite":
-        return ["somadend", "alldend", "allact", "apical", "basal"]
+    if loc_name == "all dendrites":
+        return ["somadend", "alldend", "allact"]
     elif loc_name == "somatic":
         return ["somadend", "somatic", "allact", "somaxon"]
     elif loc_name == "axonal":
         return ["axonal", "allact", "somaxon"]
+    elif loc_name == "apical":
+        return ["apical", "allact"]
+    elif loc_name == "basal":
+        return ["basal", "allact"]
     return None
 
 
@@ -422,9 +461,10 @@ def get_loc_from_params(loc_name, mech_name_for_params, params):
     locs = get_locs_list(loc_name)
 
     for loc in locs:
-        for i, param in enumerate(params[loc]):
-            if param["name"] == mech_name_for_params:
-                return loc, i
+        if loc in params.keys():
+            for i, param in enumerate(params[loc]):
+                if param["name"] == mech_name_for_params:
+                    return loc, i
 
     return "", 0
 
@@ -433,13 +473,14 @@ def check_mechanisms(config):
     """Checks factsheet mechanisms.
 
     Checks that there is no empty list or dict.
-    Checks that 'type' is either exponential or uniform.
+    Checks that 'type' is either exponential or decay or uniform.
     Checks that if type is exponential,
         there is an according ['dist']='exp' field in parameter file.
+    Idem if type is decay
     Checks that all values are identical to files.
     """
     # original data
-    release_params, parameters, _ = get_param_data(config)
+    release_params, parameters, _, _ = get_param_data(config)
     # output to check
     mech_dict = get_mechanisms_data(config)
 
@@ -464,6 +505,23 @@ def check_mechanisms(config):
                     )
                     assert (
                         str(release_params[mech_name_for_final_params]) in mech["latex"]
+                    )
+                elif mech["type"] == "decay":
+                    assert "dist" in parameters[new_loc_name][idx]
+                    assert parameters[new_loc_name][idx]["dist"] == "decay"
+                    assert (
+                        str(release_params[mech_name_for_final_params]) in mech["plot"]
+                    )
+                    assert (
+                        str(release_params[mech_name_for_final_params]) in mech["latex"]
+                    )
+                    assert (
+                        str(release_params["constant.distribution_decay"])
+                        in mech["plot"]
+                    )
+                    assert (
+                        str(release_params["constant.distribution_decay"])
+                        in mech["latex"]
                     )
                 else:
                     assert mech["type"] == "uniform"
@@ -548,12 +606,17 @@ def check_physiology(config):
 
 @launch_luigi(module="workflow", task="RunPyScript")
 def test_factsheets_fcts(
-    mtype="L23_BP", etype="bNAC", gid=111728, gidx=150, run_single_step=True
+    mtype="L5_TPC:A",
+    etype="cADpyr",
+    region="S1ULp",
+    gid=4138379,
+    gidx=79598,
+    run_single_step=True,
 ):
     """Test dictionary output from functions used for factsheets."""
     path_ = os.path.join("tests", "output", "memodel_dirs")
     memodel_path = os.path.join(
-        path_, mtype, etype, "_".join([mtype, etype, str(gidx)])
+        path_, mtype, etype, region, "_".join([mtype, etype, str(gidx)])
     )
     config = load_config()
 

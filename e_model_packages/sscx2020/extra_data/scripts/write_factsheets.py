@@ -197,7 +197,7 @@ def edit_dist_func(value):
         value = value.replace("math.", "")
     if "(x)" in value:
         value = value.replace("(x)", "x")
-    latex = re.sub(r"exp*\(([0-9x*.]*)\)", "e^{\\1}", value)
+    latex = re.sub(r"exp*\(([0-9x*-.]*)\)", "e^{\\1}", value)
     return latex, value
 
 
@@ -220,14 +220,19 @@ def get_param_data(config):
     with open(params_filepath) as params_file:
         definitions = json.load(params_file, object_pairs_hook=collections.OrderedDict)
 
+    decay_func = None
+    if "decay" in definitions["distributions"].keys():
+        decay_func = definitions["distributions"]["decay"]["fun"]
+
     return (
         release_params,
         definitions["parameters"],
         definitions["distributions"]["exp"]["fun"],
+        decay_func,
     )
 
 
-def get_channel_and_equations(name, param_config, value, exp_fun):
+def get_channel_and_equations(name, param_config, value, exp_fun, decay_fun, decay_cst):
     """Returns the channel and a dictionary containing equation type (uniform or exp) and value.
 
     Args:
@@ -259,14 +264,19 @@ def get_channel_and_equations(name, param_config, value, exp_fun):
 
     # type
     if "dist" in param_config:
-        type_ = "exponential"
-        if param_config["dist"] != "exp":
+        if param_config["dist"] == "exp":
+            type_ = "exponential"
+            value = exp_fun.format(distance="x", value=value)
+            latex, plot = edit_dist_func(value)
+        elif param_config["dist"] == "decay":
+            type_ = "decay"
+            value = decay_fun.format(distance="x", value=value, constant=decay_cst)
+            latex, plot = edit_dist_func(value)
+        else:
             logger.warning(
                 "dist is set to {}.".format(param_config["dist"])
-                + " Expected 'exp'. Set type to exponential anyway."
+                + " Expected 'exp' or 'decay'. Set type to exponential anyway."
             )
-        value = exp_fun.format(distance="x", value=value)
-        latex, plot = edit_dist_func(value)
     else:
         type_ = "uniform"
         latex = value
@@ -277,9 +287,14 @@ def get_channel_and_equations(name, param_config, value, exp_fun):
 
 def get_mechanisms_data(config):
     """Return a dictionary containing channel mechanisms for each section."""
-    release_params, parameters, exp_fun = get_param_data(config)
+    release_params, parameters, exp_fun, decay_fun = get_param_data(config)
+    decay_cst = None
+    if decay_fun:
+        decay_cst = release_params["constant.distribution_decay"]
 
     dendrite = {"channels": {}}
+    apical = {"channels": {}}
+    basal = {"channels": {}}
     axonal = {"channels": {}}
     somatic = {"channels": {}}
 
@@ -291,10 +306,13 @@ def get_mechanisms_data(config):
                 full_name = ".".join((name, section))
 
                 # only take into account parameters present in finals.json
-                if full_name in release_params:
+                if (
+                    full_name in release_params
+                    and full_name != "constant.distribution_decay"
+                ):
                     value = release_params[full_name]
                     channel, biophys, equation_dict = get_channel_and_equations(
-                        name, param_config, value, exp_fun
+                        name, param_config, value, exp_fun, decay_fun, decay_cst
                     )
 
                     # do not take into account "all" section
@@ -353,19 +371,17 @@ def get_mechanisms_data(config):
                             biophys
                         ] = equation_dict
                     elif section == "apical":
-                        dendrite["channels"].setdefault(
+                        apical["channels"].setdefault(
                             channel, {"equations": {biophys: equation_dict}}
                         )
-                        dendrite["channels"][channel]["equations"][
+                        apical["channels"][channel]["equations"][
                             biophys
                         ] = equation_dict
                     elif section == "basal":
-                        dendrite["channels"].setdefault(
+                        basal["channels"].setdefault(
                             channel, {"equations": {biophys: equation_dict}}
                         )
-                        dendrite["channels"][channel]["equations"][
-                            biophys
-                        ] = equation_dict
+                        basal["channels"][channel]["equations"][biophys] = equation_dict
                     elif section == "axonal":
                         axonal["channels"].setdefault(
                             channel, {"equations": {biophys: equation_dict}}
@@ -381,7 +397,13 @@ def get_mechanisms_data(config):
                             biophys
                         ] = equation_dict
 
-    location_map = {"dendrite": dendrite, "somatic": somatic, "axonal": axonal}
+    location_map = {}
+    locs = [dendrite, apical, basal, somatic, axonal]
+    loc_names = ["all dendrites", "apical", "basal", "somatic", "axonal"]
+    for loc_name, loc in zip(loc_names, locs):
+        if loc["channels"]:
+            location_map[loc_name] = loc
+
     values = [
         {
             "tooltip": "",
@@ -405,19 +427,19 @@ def get_emodel(config):
     return data["template_name"]
 
 
-def load_raw_exp_features(config):
-    """Load experimental features from file."""
-    # get emodel
-    emodel = get_emodel(config)
-
+def get_recipe(config, emodel):
+    """Get recipe dict."""
     # get features path
     recipes_path = os.path.join(
         config.get("Paths", "recipes_dir"), config.get("Paths", "recipes_file")
     )
     with open(recipes_path, "r") as f:
         recipes = json.load(f)
-    recipe = recipes[emodel]
+    return recipes[emodel]
 
+
+def load_raw_exp_features(recipe):
+    """Load experimental features from file."""
     features_path = recipe["features"]
 
     # load features data
@@ -436,10 +458,8 @@ def load_feature_units():
     return units_dict
 
 
-def load_fitness(config):
+def load_fitness(config, emodel):
     """Load dict containing model fitness value for each feature."""
-    emodel = get_emodel(config)
-
     params_path = os.path.join(
         config.get("Paths", "params_dir"), config.get("Paths", "params_file")
     )
@@ -450,11 +470,19 @@ def load_fitness(config):
     return data["fitness"]
 
 
+def get_prefix(config, recipe):
+    """Get the prefix used in the fitness keys (e.g. '_' or 'L5TPCa')."""
+    return recipe["morphology"][0][0]
+
+
 def get_exp_features_data(config):
     """Returns a dict containing mean and std of experimental features and model fitness."""
-    feat = load_raw_exp_features(config)
+    emodel = get_emodel(config)
+    recipe = get_recipe(config, emodel)
+    feat = load_raw_exp_features(recipe)
     units = load_feature_units()
-    fitness = load_fitness(config)
+    fitness = load_fitness(config, emodel)
+    prefix = get_prefix(config, recipe)
 
     values_dict = {}
     for stimulus, stim_data in feat.items():
@@ -476,7 +504,7 @@ def get_exp_features_data(config):
                     )
                     unit = ""
 
-                key_fitness = ".".join(("_", stimulus, location, feature_name))
+                key_fitness = ".".join((prefix, stimulus, location, feature_name))
                 try:
                     fit = fitness[key_fitness]
                 except KeyError:

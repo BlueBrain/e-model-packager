@@ -50,7 +50,7 @@ def load_config(config_dir="config", filename=None):
         "cvcode_active": "False",
         # synapse
         "add_synapses": "False",
-        "seed": "932156",
+        "seed": "846515",
         "rng_settings_mode": "Random123",  # can be "Random123" or "Compatibility"
         # paths
         "memodel_dir": ".",

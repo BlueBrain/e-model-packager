@@ -6,6 +6,7 @@ from contextlib import contextmanager
 import numpy as np
 import pandas as pd
 import bluepy
+from bluepy.v2 import Cell as bpcell
 from bluepy_configfile.configfile import BlueConfig
 
 # pylint: disable=super-with-arguments
@@ -67,10 +68,10 @@ def get_morph_emodel_names(gid, config):
     return morph_fname, emodel_fname
 
 
-def get_output_path(mtype, etype, gidx, workflow_output_dir):
+def get_output_path(mtype, etype, region, gidx, workflow_output_dir):
     """Returns the path to the outputs directory of one cell model."""
     inner_folder_name = combine_names(mtype, etype, gidx)
-    recording_path = os.path.join(mtype, etype, inner_folder_name)
+    recording_path = os.path.join(mtype, etype, region, inner_folder_name)
 
     return os.path.join(workflow_output_dir, "memodel_dirs", recording_path)
 
@@ -141,3 +142,28 @@ def create_single_step_config(original_config, new_config, config_dir):
                     if not one_step_written:
                         last_lines += "run_step_number=1\n"
                     out_file.write(last_lines)
+
+
+def get_gid_from_circuit(mtype, etype, region, gidx, circuit):
+    """Returns the circuit gid given the index of  cell properties dataframe.
+
+    Args:
+        mtype (str): morphological type
+        etype (str): electrophysiological type
+        region (str): circuit region
+        gidx (int): index of the bluepy circuit cell ids dataframe
+        circuit (bluepy.v2.circuit.Circuit): the circuit object
+    Returns:
+        int: The gid from the circuit.
+    """
+    gids = list(
+        circuit.cells.ids(
+            {
+                bpcell.MTYPE: mtype,
+                bpcell.ETYPE: etype,
+                bpcell.REGION: region,
+            }
+        )
+    )
+    gid = gids[gidx - 1]
+    return gid
