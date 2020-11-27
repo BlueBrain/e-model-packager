@@ -473,12 +473,15 @@ def check_mechanisms(config):
 def check_anatomy(config):
     """Checks that all anatomy data is positive and exists.
 
+    Fields include axon and soma.
+    Fields can either include basal and apical, or just dendrite.
+
     Checks that there is no empty list or dict.
     Checks that data exists and is a float/int and is positive.
     Checks that there is no anatomy field missing.
     """
     ana_dict = get_morph_data(config)
-    left_to_check = [
+    left_to_check_1 = [
         "total axon length",
         "total axon volume",
         "axon maximum branch order",
@@ -493,14 +496,29 @@ def check_anatomy(config):
         "basal maximum section length",
         "soma diameter",
     ]
+    left_to_check_2 = [
+        "total axon length",
+        "total axon volume",
+        "axon maximum branch order",
+        "axon maximum section length",
+        "total dendrite length",
+        "total dendrite volume",
+        "dendrite maximum branch order",
+        "dendrite maximum section length",
+        "soma diameter",
+    ]
+    lists_to_check = [left_to_check_1, left_to_check_2]
 
     assert ana_dict["values"]
     for item in ana_dict["values"]:
         assert isinstance(item["value"], (float, int, np.integer))
-        assert item["value"] >= 0
-        left_to_check.remove(item["name"])
+        assert item["value"] > 0
 
-    assert len(left_to_check) == 0
+        for l in lists_to_check:
+            if item["name"] in l:
+                l.remove(item["name"])
+
+    assert len(lists_to_check[0]) == 0 or len(lists_to_check[1]) == 0
 
 
 def check_physiology(config):

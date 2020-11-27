@@ -53,6 +53,27 @@ def get_morph_path(config):
     return os.path.join(morph_dir, morph_fname)
 
 
+def get_neurite_list(nrn):
+    """Return neurite names (str) and types (neurom type).
+
+    If basal or apical are not present, name them 'dendrite'.
+    """
+    api = nm.get("total_length", nrn, neurite_type=nm.APICAL_DENDRITE)
+    bas = nm.get("total_length", nrn, neurite_type=nm.BASAL_DENDRITE)
+    if api and bas:
+        return ["axon", "apical", "basal"], [
+            nm.AXON,
+            nm.APICAL_DENDRITE,
+            nm.BASAL_DENDRITE,
+        ]
+    elif api and not bas:
+        return ["axon", "dendrite"], [nm.AXON, nm.APICAL_DENDRITE]
+    elif bas and not api:
+        return ["axon", "dendrite"], [nm.AXON, nm.BASAL_DENDRITE]
+    logger.warning("No dendrite found!")
+    return ["axon"], [nm.AXON]
+
+
 def get_morph_data(config):
     """Return the morphological data in a dictionary."""
     # get morph path
@@ -61,8 +82,8 @@ def get_morph_data(config):
     # extract data
     values = []
     nrn = nm.load_neuron(morph_path)
-    neurite_names = ["axon", "apical", "basal"]
-    neurite_types = [nm.AXON, nm.APICAL_DENDRITE, nm.BASAL_DENDRITE]
+    neurite_names, neurite_types = get_neurite_list(nrn)
+
     for n_name, n_type in zip(neurite_names, neurite_types):
         leng = nm.get("total_length", nrn, neurite_type=n_type)
         # to avoid error when there is no neurite
