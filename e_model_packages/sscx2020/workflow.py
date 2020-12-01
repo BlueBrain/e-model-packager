@@ -173,6 +173,7 @@ class CreateMETypeJson(MemodelParameters):
         os.remove(
             os.path.join(memodel_dir, "python_recordings", "soma_voltage_step1.dat")
         )
+        shutil.rmtree(os.path.join(memodel_dir, "x86_64"))
 
 
 class PrepareOutputDirectory(luigi.Task):
