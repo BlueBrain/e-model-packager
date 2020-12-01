@@ -152,7 +152,9 @@ class CreateMETypeJson(MemodelParameters):
             "e_type_factsheeet.json",
             "morphology_factsheeet.json",
         ]:
-            targets.append(luigi.LocalTarget(os.path.join(memodel_dir, fname)))
+            targets.append(
+                luigi.LocalTarget(os.path.join(memodel_dir, "factsheets", fname))
+            )
         return targets
 
     def run(self):
@@ -160,11 +162,12 @@ class CreateMETypeJson(MemodelParameters):
         output_dir = workflow_config.get("paths", "output")
         memodel_dir = get_output_path(self.mtype, self.etype, self.gidx, output_dir)
 
+        factsheets_dir = "factsheets"
         with cwd(memodel_dir):
             config = load_config(filename=self.configfile)
-            write_metype_json(config)
-            write_etype_json(config)
-            write_morph_json(config)
+            write_metype_json(config, factsheets_dir)
+            write_etype_json(config, factsheets_dir)
+            write_morph_json(config, factsheets_dir)
 
         # remove extra output
         os.remove(
@@ -216,7 +219,6 @@ class PrepareMEModelDirectory(MemodelParameters):
         os.makedirs(memodel_morph_dir)
         os.makedirs(os.path.join(memodel_dir, "hoc_recordings"))
         os.makedirs(os.path.join(memodel_dir, "python_recordings"))
-        os.makedirs(os.path.join(memodel_dir, "old_python_recordings"))
 
     def get_cell_data_from_circuit(self, circuit):
         """Get cell data from bluepy circuit."""

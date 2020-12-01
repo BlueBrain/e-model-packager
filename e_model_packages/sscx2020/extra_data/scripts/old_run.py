@@ -216,7 +216,7 @@ def init_simulation(recordings_dir, constants_file):
     neuron.h('morph_fname="{}"'.format(data["morph_fname"]))
 
     if not os.path.exists(recordings_dir):
-        os.mkdir(recordings_dir)
+        os.makedirs(recordings_dir)
 
 
 def main(config_file):

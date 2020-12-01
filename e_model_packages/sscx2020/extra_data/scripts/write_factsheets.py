@@ -519,7 +519,7 @@ def get_morph_name(config):
     return {"value": morph_name, "name": "Morphology name"}
 
 
-def write_etype_json(config):
+def write_etype_json(config, output_dir="."):
     """Write the e-type factsheet json file."""
     exp_features = get_exp_features_data(config)
     channel_mechanisms = get_mechanisms_data(config)
@@ -533,26 +533,30 @@ def write_etype_json(config):
         # TODO exp_traces,
     ]
 
-    output_fpath = "e_type_factsheeet.json"
-    with open(output_fpath, "w") as out_file:
+    output_fname = "e_type_factsheeet.json"
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+    with open(os.path.join(output_dir, output_fname), "w") as out_file:
         json.dump(output, out_file, indent=4, cls=NpEncoder)
     print("e-type json file written.")
 
 
-def write_morph_json(config):
+def write_morph_json(config, output_dir="."):
     """Write the morphology factsheet json file."""
     anatomy = get_morph_data(config)
     morphology_name = get_morph_name(config)
 
     output = [anatomy, morphology_name]
 
-    output_fpath = "morphology_factsheeet.json"
-    with open(output_fpath, "w") as out_file:
+    output_fname = "morphology_factsheeet.json"
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+    with open(os.path.join(output_dir, output_fname), "w") as out_file:
         json.dump(output, out_file, indent=4, cls=NpEncoder)
     print("morph json file written.")
 
 
-def write_metype_json(config):
+def write_metype_json(config, output_dir="."):
     """Write the me-type factsheet json file."""
     anatomy = get_morph_data(config)
     physiology = get_physiology_data(config)
@@ -560,8 +564,10 @@ def write_metype_json(config):
 
     output = [anatomy, physiology, morphology_name]
 
-    output_fpath = "me_type_factsheeet.json"
-    with open(output_fpath, "w") as out_file:
+    output_fname = "me_type_factsheeet.json"
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+    with open(os.path.join(output_dir, output_fname), "w") as out_file:
         json.dump(output, out_file, indent=4, cls=NpEncoder)
     print("me-type json file written.")
 
@@ -578,6 +584,7 @@ if __name__ == "__main__":
     config_file = args.c
     config = load_config(filename=config_file)
 
-    write_metype_json(config)
-    write_etype_json(config)
-    write_morph_json(config)
+    output_dir = "factsheets"
+    write_metype_json(config, output_dir)
+    write_etype_json(config, output_dir)
+    write_morph_json(config, output_dir)

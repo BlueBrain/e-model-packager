@@ -68,7 +68,6 @@ def test_directory_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=150):
     directories_to_be_checked = [
         "hoc_recordings",
         "python_recordings",
-        "old_python_recordings",
     ]
 
     memodel_files_to_be_checked = [
@@ -337,7 +336,9 @@ def test_metype_factsheet_exists(mtype="L23_BP", etype="bNAC", gid=111728, gidx=
         path_, mtype, etype, "_".join([mtype, etype, str(gidx)])
     )
 
-    metype_factsheet = os.path.join(memodel_path, "me_type_factsheeet.json")
+    metype_factsheet = os.path.join(
+        memodel_path, "factsheets", "me_type_factsheeet.json"
+    )
     assert os.path.isfile(metype_factsheet)
 
 
