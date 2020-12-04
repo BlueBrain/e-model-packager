@@ -8,6 +8,7 @@ import re
 import numpy as np
 import pytest
 import sys
+from functools import partial
 
 import bglibpy
 from tests.decorators import launch_luigi
@@ -35,14 +36,18 @@ from write_factsheets import (
     get_param_data,
 )
 
+test_config = configparser.ConfigParser()
+test_config.read(os.path.join("tests", "luigi_test.cfg"))
+get_param = partial(test_config.get, "params")
+
 
 @pytest.fixture(scope="session")
 def prepare_test_synapses_config():
     """Prepares a test config with synapses that uses neuron's rng."""
-    mtype = "L5_TPC:A"
-    etype = "cADpyr"
-    region = "S1ULp"
-    gidx = 79598
+    mtype = get_param("mtype")
+    etype = get_param("etype")
+    region = get_param("region")
+    gidx = int(get_param("gidx"))
     configfile = "config_synapses.ini"
 
     output_path = os.path.join("tests", "output")
@@ -59,7 +64,11 @@ def prepare_test_synapses_config():
 
 @launch_luigi(module="workflow", task="PrepareMEModelDirectory")
 def test_directory_exists(
-    mtype="L5_TPC:A", etype="cADpyr", region="S1ULp", gid=4138379, gidx=79598
+    mtype=get_param("mtype"),
+    etype=get_param("etype"),
+    region=get_param("region"),
+    gid=int(get_param("gid")),
+    gidx=int(get_param("gidx")),
 ):
     """Check that e-model directories have been created, given the attributes of a given test cell
 
@@ -165,9 +174,7 @@ def test_directory_exists(
     for item in GUI_files:
         memodel_files_to_be_checked.append(os.path.join("GUI_utils", item))
 
-    config = configparser.ConfigParser()
-    config.read(os.path.join("tests", "luigi_test.cfg"))
-    morph_fname, _ = get_morph_emodel_names(gid, config)
+    morph_fname, _ = get_morph_emodel_names(gid, test_config)
     memodel_files_to_be_checked.append(os.path.join("morphology", morph_fname))
 
     path_ = os.path.join("tests", "output", "memodel_dirs")
@@ -189,7 +196,11 @@ def test_directory_exists(
 
 @launch_luigi(module="workflow", task="DoRecordings")
 def test_voltages(
-    mtype="L5_TPC:A", etype="cADpyr", region="S1ULp", gid=4138379, gidx=79598
+    mtype=get_param("mtype"),
+    etype=get_param("etype"),
+    region=get_param("region"),
+    gid=int(get_param("gid")),
+    gidx=int(get_param("gidx")),
 ):
     """Test to compare the voltages produced via python and hoc.
 
@@ -252,11 +263,11 @@ def run_bglibpy_cell(blueconfig_path, gid, sim_time, dt=0.025):
 @pytest.mark.usefixtures("prepare_test_synapses_config")
 @launch_luigi(module="workflow", task="RunPyScript")
 def test_synapses(
-    mtype="L5_TPC:A",
-    etype="cADpyr",
-    region="S1ULp",
-    gid=4138379,
-    gidx=79598,
+    mtype=get_param("mtype"),
+    etype=get_param("etype"),
+    region=get_param("region"),
+    gid=int(get_param("gid")),
+    gidx=int(get_param("gidx")),
     configfile="config_synapses.ini",
 ):
     """Test to compare the output of cell with synapses between our run.py and bglibpy.
@@ -273,9 +284,7 @@ def test_synapses(
     threshold = 0.05
 
     # get circuit path for bglibpy
-    config_circuit = configparser.ConfigParser()
-    config_circuit.read(os.path.join("tests", "luigi_test.cfg"))
-    circuit_config_path = config_circuit.get("paths", "circuit")
+    circuit_config_path = test_config.get("paths", "circuit")
 
     # run cells from bglibpy
     sim_time = 3000
@@ -300,11 +309,11 @@ def test_synapses(
 @pytest.mark.usefixtures("prepare_test_synapses_config")
 @launch_luigi(module="workflow", task="DoRecordings", reload_hoc=True)
 def test_synapses_hoc_vs_py_script(
-    mtype="L5_TPC:A",
-    etype="cADpyr",
-    region="S1ULp",
-    gid=4138379,
-    gidx=79598,
+    mtype=get_param("mtype"),
+    etype=get_param("etype"),
+    region=get_param("region"),
+    gid=int(get_param("gid")),
+    gidx=int(get_param("gidx")),
     configfile="config_synapses.ini",
 ):
     """Test to compare the voltages produced via python and hoc.
@@ -345,7 +354,11 @@ def test_synapses_hoc_vs_py_script(
 
 @launch_luigi(module="workflow", task="CreateMETypeJson")
 def test_metype_factsheet_exists(
-    mtype="L5_TPC:A", etype="cADpyr", region="S1ULp", gid=4138379, gidx=79598
+    mtype=get_param("mtype"),
+    etype=get_param("etype"),
+    region=get_param("region"),
+    gid=int(get_param("gid")),
+    gidx=int(get_param("gidx")),
 ):
     """Check that the me-type factsheet json file has been created.
 
@@ -606,11 +619,11 @@ def check_physiology(config):
 
 @launch_luigi(module="workflow", task="RunPyScript")
 def test_factsheets_fcts(
-    mtype="L5_TPC:A",
-    etype="cADpyr",
-    region="S1ULp",
-    gid=4138379,
-    gidx=79598,
+    mtype=get_param("mtype"),
+    etype=get_param("etype"),
+    region=get_param("region"),
+    gid=int(get_param("gid")),
+    gidx=int(get_param("gidx")),
     run_single_step=True,
 ):
     """Test dictionary output from functions used for factsheets."""
