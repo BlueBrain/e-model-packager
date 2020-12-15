@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import luigi
 from bluepy.v2 import Cell as bpcell
@@ -228,18 +229,23 @@ class PrepareMEModelDirectory(MemodelParameters):
         tasks = [PrepareOutputDirectory()]
         return tasks
 
-    def output(self):
-        """Does not produce output."""
+    @property
+    def output_folder(self):
+        """The directory containing the output files."""
         output_dir = workflow_config.get("paths", "output")
         memodel_dir = get_output_path(
             self.mtype, self.etype, self.region, self.gidx, output_dir
         )
+        return memodel_dir
 
-        return luigi.LocalTarget(memodel_dir)
+    def output(self):
+        """Produces a .completed.txt file after all steps are done."""
+        completed_file = os.path.join(self.output_folder, ".completed.txt")
+        return luigi.LocalTarget(completed_file)
 
     def makedirs(self, memodel_morph_dir, synapses_dir):
         """Make directories."""
-        memodel_dir = self.output().path
+        memodel_dir = self.output_folder
         os.makedirs(memodel_dir)
         os.makedirs(synapses_dir)
 
@@ -307,7 +313,7 @@ class PrepareMEModelDirectory(MemodelParameters):
 
     def copy_mechanisms(self):
         """Copy mechanisms into output directory."""
-        memodel_mechanisms_dir = os.path.join(self.output().path, "mechanisms")
+        memodel_mechanisms_dir = os.path.join(self.output_folder, "mechanisms")
         shutil.copytree(
             workflow_config.get("paths", "mechanisms_dir"), memodel_mechanisms_dir
         )
@@ -321,11 +327,11 @@ class PrepareMEModelDirectory(MemodelParameters):
         if isinstance(script_files, list):
             for script_file in script_files:
                 script_path = os.path.join(scripts_dir, script_file)
-                shutil.copy(script_path, self.output().path)
+                shutil.copy(script_path, self.output_folder)
         # or only one file -> str
         else:
             script_path = os.path.join(scripts_dir, script_files)
-            shutil.copy(script_path, self.output().path)
+            shutil.copy(script_path, self.output_folder)
 
     @staticmethod
     def convert_sec_name(sec_name):
@@ -475,7 +481,7 @@ class PrepareMEModelDirectory(MemodelParameters):
         }
 
         currents_amp_path = os.path.join(
-            self.output().path, output_dir, "current_amps.json"
+            self.output_folder, output_dir, "current_amps.json"
         )
         with open(currents_amp_path, "w") as out_file:
             json.dump(current_amps, out_file, indent=4, cls=NpEncoder)
@@ -492,7 +498,7 @@ class PrepareMEModelDirectory(MemodelParameters):
             "morph_fname": morph_fname,
         }
 
-        constants_path = os.path.join(self.output().path, output_dir, "constants.json")
+        constants_path = os.path.join(self.output_folder, output_dir, "constants.json")
         with open(constants_path, "w") as out_file:
             json.dump(constants, out_file, indent=4, cls=NpEncoder)
 
@@ -501,7 +507,7 @@ class PrepareMEModelDirectory(MemodelParameters):
         circuit_config_path = workflow_config.get("paths", "circuit")
         circuit, blueconfig = read_circuit(circuit_config_path)
 
-        memodel_dir = self.output().path
+        memodel_dir = self.output_folder
         memodel_morph_dir = os.path.join(memodel_dir, "morphology")
         synapses_dir = os.path.join(memodel_dir, "synapses")
 
@@ -547,6 +553,8 @@ class PrepareMEModelDirectory(MemodelParameters):
             emodel,
             morph_fname,
         )
+
+        Path(self.output().path).touch()
 
 
 class CreateHoc(MemodelParameters):
