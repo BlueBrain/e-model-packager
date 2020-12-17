@@ -33,6 +33,11 @@ def section_coordinate_3d(sec, seg_pos, syn_type):
         syn_type (int): synaptic type. excitatory if >100,
             inhibitory if <100
     """
+    if syn_type > 100:
+        syn_type_ = 1
+    else:
+        syn_type_ = 0
+
     n3d = sec.n3d()
 
     arc3d = [sec.arc3d(i) for i in range(n3d)]
@@ -40,25 +45,26 @@ def section_coordinate_3d(sec, seg_pos, syn_type):
     y3d = [sec.y3d(i) for i in range(n3d)]
     z3d = [sec.z3d(i) for i in range(n3d)]
 
+    if not arc3d or seg_pos < 0 or seg_pos > 1:
+        return None
+
+    seg_pos = seg_pos * arc3d[-1]
+
     if seg_pos in arc3d:
         idx = arc3d.index(seg_pos)
         local_x = x3d[idx]
         local_y = y3d[idx]
         local_z = z3d[idx]
     else:
-        for i, arc in enumerate(arc3d):
-            if arc > seg_pos:
+        for i, arc in enumerate(arc3d[1:]):
+            if arc > seg_pos > arc3d[i - 1] and arc - arc3d[i - 1] != 0:
                 proportion = (seg_pos - arc3d[i - 1]) / (arc - arc3d[i - 1])
                 local_x = x3d[i - 1] + proportion * (x3d[i] - x3d[i - 1])
                 local_y = y3d[i - 1] + proportion * (y3d[i] - y3d[i - 1])
                 local_z = z3d[i - 1] + proportion * (z3d[i] - z3d[i - 1])
+                return [local_x, local_y, local_z, syn_type_]
 
-    if syn_type > 100:
-        syn_type_ = 1
-    else:
-        syn_type_ = 0
-
-    return [local_x, local_y, local_z, syn_type_]
+    return None
 
 
 class NeuronSimulation:
@@ -308,7 +314,10 @@ class NeuronSimulation:
                     syn_display_data = section_coordinate_3d(
                         syn_section, seg_pos, syn["synapse_type"]
                     )
-                    if syn_display_data not in self.syn_display_data[pre_mtype]:
+                    if (
+                        syn_display_data is not None
+                        and syn_display_data not in self.syn_display_data[pre_mtype]
+                    ):
                         self.syn_display_data[pre_mtype].append(syn_display_data)
 
     def instantiate(self):

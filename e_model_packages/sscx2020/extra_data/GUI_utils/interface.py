@@ -95,6 +95,13 @@ class GUI:
         """Update the figures."""
         self.frames["FrameMain"].display(self.root, self.simulation)
 
+    def check_v_change(self):
+        """Checks the voltage change in the cell sections.
+
+        Update display if change is significant.
+        """
+        return self.frames["FrameMain"].check_change(self.root, self.simulation)
+
     def clear_voltage_figure(self):
         """Clear the voltage figure."""
         self.frames["FrameMain"].restart_volt()
@@ -104,14 +111,14 @@ class GUI:
         self.reload = True
         self.end_simul()  # stop simul and disable continue button
 
-    def run_simul(self, v_threshold=-65, peak_refresh_dt=1.5):
+    def run_simul(self, v_threshold=-65, check_dt=1.5):
         """Main loop for running simulation.
 
         Args:
             v_threshold (int): if voltage is larger than this value,
                 increase fps to have a more detailed display of spikes
-            peak_refresh_dt (float): timestep (ms) between two
-                display actualisations in a detailed display (around a spike)
+            check_dt (float): check for significant voltage change every check_dt (ms)
+                (simulation time)
         """
         # for refreshing rate
         t1 = time.time()
@@ -124,10 +131,13 @@ class GUI:
             < self.simulation.sim.neuron.h.tstop - self.simulation.sim.neuron.h.dt / 2
         ):
             self.simulation.sim.neuron.h.fadvance()
-            if time.time() - t1 > self.refresh_display_dt or (
-                self.simulation.cell.icell.soma[0](0.5).v > v_threshold
-                and self.simulation.sim.neuron.h.t > last_t + peak_refresh_dt
-            ):
+            if self.simulation.sim.neuron.h.t > last_t + check_dt:
+                last_t = self.simulation.sim.neuron.h.t
+                # check for big change in voltage. Update display if bif change found.
+                updated = self.check_v_change()
+                if updated:
+                    t1 = time.time()
+            if time.time() - t1 > self.refresh_display_dt:
                 self.update_figures()
                 last_t = self.simulation.sim.neuron.h.t
                 t1 = time.time()

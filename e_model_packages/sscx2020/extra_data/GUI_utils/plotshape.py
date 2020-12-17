@@ -24,15 +24,17 @@ def get_morph_lines(
     val_max=30,
     sections=None,
     variable="v",
-    cmap=cm.cool,
+    cmap=cm.plasma,
     do_plot=False,
     plot_3d=False,
     threshold_volt=4,
+    threshold_volt_fine=25,
     old_vals=None,
+    vals_last_draw=None,
     xaxis=2,
     yaxis=0,
     zaxis=1,
-    linewidth=0.5,
+    linewidth=0.9,
 ):
     """Plots a 3D shapeplot.
 
@@ -48,7 +50,12 @@ def get_morph_lines(
         plot_3d (bool): set to True to plot the shape in 3D
         threshold_volt(int): voltage difference from which
             color should be changed on the cell shape.
+        threshold_volt_fine(int): voltage difference from which
+            display should be updated after a small simulation time
+            to fine display rapid changes.
         old_vals(list): variable values at the last display
+        vals_last_drawn(list): variable values the last time
+            the morphology has been drawn (and not blitted).
         xaxis, yaxis, zaxis(int): 0 for x, 1 for y, 2 for z
         linewidth(float): width of line in shape plot
 
@@ -130,13 +137,24 @@ def get_morph_lines(
     if old_vals is None:
         old_vals = [100] * len(vals)
 
+    force_draw = False
     if val_range and old_vals and cmap:
-        for i, (line, val, old_val) in enumerate(zip(lines_list, vals, old_vals)):
+        for i, (val, old_val) in enumerate(zip(vals, old_vals)):
             if val is not None and abs(val - old_val) > threshold_volt:
                 col = cmap((min(max(val, val_min), val_max) - val_min) / (val_range))
-                line.set_color(col)
-                lines_to_update.append(line)
+
+                lines_list[i].set_color(col)
+                lines_to_update.append(lines_list[i])
 
                 old_vals[i] = val
 
-    return lines_to_update, old_vals
+                if (
+                    vals_last_draw is not None
+                    and abs(val - vals_last_draw[i]) > threshold_volt_fine
+                ):
+                    force_draw = True
+
+    if force_draw:
+        lines_to_update = lines_list
+
+    return lines_to_update, old_vals, force_draw

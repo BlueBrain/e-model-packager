@@ -495,7 +495,7 @@ class FrameFigures(ttk.Frame):
         toolbar_on=False,
         figsize="medium",
         val_min=-80,
-        val_max=0,
+        val_max=30,
     ):
         """Constructor.
 
@@ -517,6 +517,9 @@ class FrameFigures(ttk.Frame):
         self.plot_3d = plot_3d
         self.figsize = figsize
 
+        self.val_min = val_min
+        self.val_max = val_max
+
         # ---
         # figure for neuron visualisation
         # ---
@@ -528,17 +531,18 @@ class FrameFigures(ttk.Frame):
             self.ax_morph.set_aspect(aspect=1)
 
         # get data and axis lims for left morph figure
-        _, self.old_vals = get_morph_lines(
+        _, self.old_vals, _ = get_morph_lines(
             ax=self.ax_morph,
             sim=simulation.sim,
-            val_min=val_min,
-            val_max=val_max,
+            val_min=self.val_min,
+            val_max=self.val_max,
             do_plot=True,
             plot_3d=self.plot_3d,
             xaxis=self.xaxis,
             yaxis=self.yaxis,
             zaxis=self.zaxis,
         )
+        self.vals_last_draw = self.old_vals.copy()
 
         # resize & adjust figure for not cutting axis
         self.set_fig_morph_display(fig_morph)
@@ -669,21 +673,42 @@ class FrameFigures(ttk.Frame):
         canva.mpl_connect("button_release_event", ax._button_release)
         canva.mpl_connect("motion_notify_event", ax._on_move)
 
-    def set_axis(self, x_min=0, x_max=3000, y_min=-90, y_max=30):
+    def set_axis(self, x_min=0, x_max=3000, y_min=-90, y_max=40):
         """Set the voltage figure's axis."""
         self.ax_volt.set_xlim([x_min, x_max])
         self.ax_volt.set_ylim([y_min, y_max])
         self.ax_volt.set_xlabel("t [ms]")
         self.ax_volt.set_ylabel("v [mV]")
 
-    def display(self, root, simulation, val_min=-70, val_max=-30):
+    def check_change(self, root, simulation):
+        """Checks the voltage change in the cell sections.
+
+        Update display if change is significant.
+        """
+        # here, update is True if any of the morph lines has a significant change of voltage.
+        morph_lines, old_vals, update = get_morph_lines(
+            ax=self.ax_morph,
+            sim=simulation.sim,
+            val_min=self.val_min,
+            val_max=self.val_max,
+            do_plot=False,
+            old_vals=self.old_vals,
+            vals_last_draw=self.vals_last_draw,
+        )
+        if update:
+            self.old_vals = old_vals
+            self.display(root, simulation, morph_lines)
+            return True
+        return False
+
+    def display(self, root, simulation, morph_lines=None):
         """Update both figures display.
 
         Args:
             root (tk.Tk): root of the GUI
             simulation (NeuronSimulation): contains simulation (and cell) data
-            val_min (int): minimum voltage for colormap
-            val_max (int): maximum voltage for colormap
+            morph_lines (list of matplotlib.Line2D): list of lines to be actualized
+                if they already have been computed, else None
         """
         # get voltage data
         t, v = simulation.get_voltage()
@@ -696,24 +721,38 @@ class FrameFigures(ttk.Frame):
         else:
             (line,) = self.ax_volt.plot(t, v)
 
-        # reload morph lines colors
-        morph_lines, self.old_vals = get_morph_lines(
-            ax=self.ax_morph,
-            sim=simulation.sim,
-            val_min=val_min,
-            val_max=val_max,
-            do_plot=False,
-            old_vals=self.old_vals,
-        )
-
         # draw voltage plot to canva
         self.ax_volt.draw_artist(line)
         self.canva_volt.blit(self.ax_volt.bbox)
 
-        # draw cell morphology with updated colors
-        for line in morph_lines:
-            self.ax_morph.draw_artist(line)
-        self.canva_morph.blit(self.ax_morph.bbox)
+        # do not blit too much on top of figure, or else
+        # 'older' lines tend to stack in the background
+        # and bias the perceived color of the line.
+        # so redraw everything when there is a big change in color
+        if morph_lines is not None:
+            for line in morph_lines:
+                self.ax_morph.draw_artist(line)
+
+            self.vals_last_draw = self.old_vals.copy()
+            self.canva_morph.draw()
+        else:
+            morph_lines, self.old_vals, force_draw = get_morph_lines(
+                ax=self.ax_morph,
+                sim=simulation.sim,
+                val_min=self.val_min,
+                val_max=self.val_max,
+                do_plot=False,
+                old_vals=self.old_vals,
+                vals_last_draw=self.vals_last_draw,
+            )
+
+            for line in morph_lines:
+                self.ax_morph.draw_artist(line)
+            if force_draw:
+                self.canva_morph.draw()
+                self.vals_last_draw = self.old_vals.copy()
+            else:
+                self.canva_morph.blit(self.ax_morph.bbox)
 
         # update tkinter display
         root.update()
@@ -741,27 +780,35 @@ class FrameFigures(ttk.Frame):
         # create synapse scatterplot
         syn_scatterplot = {}
         for mtype, data in simulation.syn_display_data.items():
-            data = np.array(data)
-            syn_x = data[:, self.xaxis]
-            syn_y = data[:, self.yaxis]
-            syn_cols = data[:, 3]
-            syn_colors = ["red" if x == 1 else "orange" for x in syn_cols]
-            if self.plot_3d:
-                syn_z = data[:, self.zaxis]
-                syn_scatterplot[mtype] = self.ax_morph_syn.scatter(
-                    xs=syn_x, ys=syn_y, zs=syn_z, s=size_scatter, c=syn_colors, alpha=1
-                )
+            if data:
+                data = np.array(data)
+                syn_x = data[:, self.xaxis]
+                syn_y = data[:, self.yaxis]
+                syn_cols = data[:, 3]
+                syn_colors = ["red" if x == 1 else "orange" for x in syn_cols]
+                if self.plot_3d:
+                    syn_z = data[:, self.zaxis]
+                    syn_scatterplot[mtype] = self.ax_morph_syn.scatter(
+                        xs=syn_x,
+                        ys=syn_y,
+                        zs=syn_z,
+                        s=size_scatter,
+                        c=syn_colors,
+                        alpha=1,
+                    )
+                else:
+                    syn_scatterplot[mtype] = self.ax_morph_syn.scatter(
+                        x=syn_x, y=syn_y, s=size_scatter, c=syn_colors, alpha=1
+                    )
             else:
-                syn_scatterplot[mtype] = self.ax_morph_syn.scatter(
-                    x=syn_x, y=syn_y, s=size_scatter, c=syn_colors, alpha=1
-                )
+                syn_scatterplot[mtype] = None
 
         # draw selected synapses
         for mtype in simulation.available_pre_mtypes:
-            if mtype in simulation.pre_mtypes:
+            if mtype in simulation.pre_mtypes and syn_scatterplot[mtype]:
                 syn_scatterplot[mtype].set_visible(True)
                 self.ax_morph_syn.draw_artist(syn_scatterplot[mtype])
-            else:
+            elif syn_scatterplot[mtype]:
                 syn_scatterplot[mtype].set_visible(False)
 
         # 3d does not support blitting
@@ -803,6 +850,13 @@ class FrameMain(ttk.Frame):
     def display(self, root, simulation):
         """Update figures display."""
         self.frame_figures.display(root, simulation)
+
+    def check_change(self, root, simulation):
+        """Checks the voltage change in the cell sections.
+
+        Update display if change is significant.
+        """
+        return self.frame_figures.check_change(root, simulation)
 
     def update_syn_display(self, root, simulation):
         """Update the display of the synapses on the right figure."""
