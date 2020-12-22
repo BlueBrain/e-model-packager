@@ -10,7 +10,9 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+import logging
 
+from tqdm import tqdm
 import luigi
 from bluepy.v2 import Cell as bpcell
 import bglibpy
@@ -37,6 +39,7 @@ from write_factsheets import write_metype_json, write_etype_json, write_morph_js
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
 # pylint: disable=too-many-locals
+logging.basicConfig(level=logging.INFO)
 
 
 class MemodelParameters(luigi.Task):
@@ -75,6 +78,7 @@ class ParseCircuit(luigi.Task):
     def requires(self):
         """The BuildCircuit task is a dependency of this task."""
         circuit_config_path = workflow_config.get("paths", "circuit")
+        logging.info("Loading the circuit...")
         circuit, _ = read_circuit(circuit_config_path)
 
         # if mtype, etype, gidx not set, run required task for all metypes
@@ -90,7 +94,8 @@ class ParseCircuit(luigi.Task):
                 zip(cell_props_df.mtype, cell_props_df.etype, cell_props_df.region)
             )
 
-            for mtype, etype, region in cell_props:
+            logging.info("Getting gids from the circuit...")
+            for mtype, etype, region in tqdm(cell_props):
                 metype_gids[(mtype, etype, region)] = list(
                     circuit.cells.ids(
                         {
@@ -844,6 +849,7 @@ class CreateSystemLog(luigi.Task):
 
     def requires(self):
         """Requires the main output directory to be present."""
+        logging.info("CreateSystemLog: requires method is called")
         return PrepareOutputDirectory()
 
     def output(self):
