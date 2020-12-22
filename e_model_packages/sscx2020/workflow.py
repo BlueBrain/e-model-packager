@@ -12,9 +12,7 @@ import sys
 from pathlib import Path
 import logging
 
-from tqdm import tqdm
 import luigi
-from bluepy.v2 import Cell as bpcell
 import bglibpy
 
 from e_model_packages.sscx2020.utils import (
@@ -25,6 +23,7 @@ from e_model_packages.sscx2020.utils import (
     get_output_path,
     create_single_step_config,
     get_gid_from_circuit,
+    extract_circuit_metype_region_gids,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
@@ -78,34 +77,14 @@ class ParseCircuit(luigi.Task):
     def requires(self):
         """The BuildCircuit task is a dependency of this task."""
         circuit_config_path = workflow_config.get("paths", "circuit")
-        logging.info("Loading the circuit...")
-        circuit, _ = read_circuit(circuit_config_path)
 
         # if mtype, etype, gidx not set, run required task for all metypes
         if None in [self.region, self.mtype, self.etype, self.gidx]:
             regions = workflow_config.get("circuit", "regions")
-            metype_gids = {}
-
-            cell_props_df = circuit.cells.get(
-                properties=[bpcell.MTYPE, bpcell.ETYPE, bpcell.REGION]
-            ).drop_duplicates()
-            cell_props_df = cell_props_df.loc[cell_props_df["region"].isin(regions)]
-            cell_props = list(
-                zip(cell_props_df.mtype, cell_props_df.etype, cell_props_df.region)
+            regions = tuple(regions)  # to be hashable
+            metype_gids = extract_circuit_metype_region_gids(
+                circuit_config_path, self.gids_per_metype, regions
             )
-
-            logging.info("Getting gids from the circuit...")
-            for mtype, etype, region in tqdm(cell_props):
-                metype_gids[(mtype, etype, region)] = list(
-                    circuit.cells.ids(
-                        {
-                            bpcell.MTYPE: mtype,
-                            bpcell.ETYPE: etype,
-                            bpcell.REGION: region,
-                        },
-                        limit=self.gids_per_metype,
-                    )
-                )
 
             tasks = []
             for (mtype, etype, region), gids in metype_gids.items():
@@ -118,6 +97,8 @@ class ParseCircuit(luigi.Task):
                     tasks.append(CreateHoc(mtype, etype, region, gid, gidx))
                     tasks.append(CreateMETypeJson(mtype, etype, region, gid, gidx))
         else:
+            logging.info("Loading the circuit...")
+            circuit, _ = read_circuit(circuit_config_path)
             gid = get_gid_from_circuit(
                 mtype=self.mtype,
                 etype=self.etype,

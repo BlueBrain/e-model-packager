@@ -3,13 +3,53 @@
 import json
 import os
 from contextlib import contextmanager
+from functools import lru_cache
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+
 import bluepy
 from bluepy.v2 import Cell as bpcell
 from bluepy_configfile.configfile import BlueConfig
 
 # pylint: disable=super-with-arguments
+
+
+@lru_cache(maxsize=1)
+def extract_circuit_metype_region_gids(circuit_config_path, gids_per_metype, regions):
+    """Extracts the metype region and gids from the circuit.
+
+    Args:
+        circuit_config_path (str): the path to circuit config
+        gids_per_metype (int): number of gids to be extracted for each combo
+        regions (tuple of str): the regions of interest to be extracted
+    Returns:
+        Dictionary contaning the metype, region and gids.
+    """
+    circuit, _ = read_circuit(circuit_config_path)
+    metype_gids = {}
+
+    cell_props_df = circuit.cells.get(
+        properties=[bpcell.MTYPE, bpcell.ETYPE, bpcell.REGION]
+    ).drop_duplicates()
+    cell_props_df = cell_props_df.loc[cell_props_df["region"].isin(regions)]
+    cell_props = list(
+        zip(cell_props_df.mtype, cell_props_df.etype, cell_props_df.region)
+    )
+
+    print("Extracting mtype, etype, region and gids from circuit.")
+    for mtype, etype, region in tqdm(cell_props):
+        metype_gids[(mtype, etype, region)] = list(
+            circuit.cells.ids(
+                {
+                    bpcell.MTYPE: mtype,
+                    bpcell.ETYPE: etype,
+                    bpcell.REGION: region,
+                },
+                limit=gids_per_metype,
+            )
+        )
+    return metype_gids
 
 
 def read_circuit(config_path):
