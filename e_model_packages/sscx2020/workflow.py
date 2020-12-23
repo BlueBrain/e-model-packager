@@ -99,7 +99,7 @@ class ExtractCircuitInfo(luigi.Task):
             json.dump(metype_region_gids_dict, out_file, indent=4, cls=NpEncoder)
 
 
-class ParseCircuit(luigi.Task):
+class CollectMEModels(luigi.Task):
     """Yield the model preparation tasks."""
 
     ngids = luigi.IntParameter(default=5)
@@ -109,6 +109,7 @@ class ParseCircuit(luigi.Task):
     region = luigi.Parameter(default=None)
     gidx = luigi.IntParameter(default=None)
 
+    batch_size = luigi.IntParameter(default=250)
     task_complete = False
 
     def requires(self):
@@ -126,9 +127,12 @@ class ParseCircuit(luigi.Task):
         for (mtype, etype, region), gids in tqdm(metype_region_gids.items()):
             for gidx, gid in enumerate(gids):
                 gidx = gidx + 1  # 1 indexed for users
-                tasks.append(PrepareMEModelDirectory(mtype, etype, region, gid, gidx))
                 tasks.append(CreateHoc(mtype, etype, region, gid, gidx))
                 tasks.append(CreateMETypeJson(mtype, etype, region, gid, gidx))
+
+                if len(tasks) >= self.batch_size:
+                    yield tasks
+                    tasks = []
 
         self.task_complete = True
         yield tasks
@@ -145,17 +149,16 @@ class CreateMETypeJson(MemodelParameters):
 
     def requires(self):
         """Requires the script to have been copied in the main output directory."""
-        tasks = [
-            RunPyScript(
-                self.mtype,
-                self.etype,
-                self.region,
-                self.gid,
-                self.gidx,
-                self.configfile,
-                run_single_step=True,
-            )
-        ]
+        tasks = RunPyScript(
+            self.mtype,
+            self.etype,
+            self.region,
+            self.gid,
+            self.gidx,
+            self.configfile,
+            run_single_step=True,
+        )
+
         return tasks
 
     def output(self):
@@ -196,38 +199,17 @@ class CreateMETypeJson(MemodelParameters):
         shutil.rmtree(os.path.join(memodel_dir, "x86_64"))
 
 
-class PrepareOutputDirectory(luigi.Task):
-    """Task to prepare the output directory.
-
-    Create the main output directory.
-    """
-
-    def output(self):
-        """Copy files."""
-        output_dir = workflow_config.get("paths", "output")
-
-        return luigi.LocalTarget(output_dir)
-
-    def run(self):
-        """Create the output folder."""
-        output_dir = self.output().path
-
-        if not os.path.isdir(output_dir):
-            os.makedirs(output_dir)
-
-
 class PrepareMEModelDirectory(MemodelParameters):
     """Task to prepare the e-model directory."""
-
-    def requires(self):
-        """Requires the script to have been copied in the main output directory."""
-        tasks = [PrepareOutputDirectory()]
-        return tasks
 
     @property
     def output_folder(self):
         """The directory containing the output files."""
         output_dir = workflow_config.get("paths", "output")
+
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir)
+
         memodel_dir = get_output_path(
             self.mtype, self.etype, self.region, self.gidx, output_dir
         )
@@ -563,15 +545,13 @@ class CreateHoc(MemodelParameters):
 
     def requires(self):
         """Requires the output paths to be made."""
-        return [
-            PrepareMEModelDirectory(
-                mtype=self.mtype,
-                etype=self.etype,
-                region=self.region,
-                gid=self.gid,
-                gidx=self.gidx,
-            )
-        ]
+        return PrepareMEModelDirectory(
+            mtype=self.mtype,
+            etype=self.etype,
+            region=self.region,
+            gid=self.gid,
+            gidx=self.gidx,
+        )
 
     def get_output_path(self):
         """Returns the path to the outputs directory."""
@@ -708,15 +688,13 @@ class RunPyScript(MemodelParameters):
 
     def requires(self):
         """Requires the output paths to be made."""
-        return [
-            PrepareMEModelDirectory(
-                mtype=self.mtype,
-                etype=self.etype,
-                region=self.region,
-                gid=self.gid,
-                gidx=self.gidx,
-            )
-        ]
+        return PrepareMEModelDirectory(
+            mtype=self.mtype,
+            etype=self.etype,
+            region=self.region,
+            gid=self.gid,
+            gidx=self.gidx,
+        )
 
     def output(self):
         """Produces the python recordings."""
@@ -837,11 +815,6 @@ class RunOldPyScript(MemodelParameters):
 class CreateSystemLog(luigi.Task):
     """Task to log the modules and python packages used in the execution."""
 
-    def requires(self):
-        """Requires the main output directory to be present."""
-        logging.info("CreateSystemLog: requires method is called")
-        return PrepareOutputDirectory()
-
     def output(self):
         """A log file to be written."""
         workflow_output_dir = workflow_config.get("paths", "output")
@@ -849,6 +822,10 @@ class CreateSystemLog(luigi.Task):
 
     def run(self):
         """Writes down the loaded modules, pip packages and python version."""
+        output_dir = workflow_config.get("paths", "output")
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir)
+
         module_list = subprocess.run(
             ["modulecmd", "bash", "list"], capture_output=True, check=True
         )
@@ -910,5 +887,5 @@ class SSCX2020(luigi.WrapperTask):
     """The skeleton task to perform the workflow."""
 
     def requires(self):
-        """The ParseCircuit method is required."""
-        return [CreateSystemLog(), ParseCircuit()]
+        """The required Tasks."""
+        return [CreateSystemLog(), CollectMEModels()]
