@@ -16,4 +16,5 @@ doc/build
 output
 run_recordings_output
 release_output
+_release_output
 .debug

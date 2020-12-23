@@ -27,7 +27,7 @@ def extract_circuit_metype_region_gids(circuit_config_path, gids_per_metype, reg
         Dictionary contaning the metype, region and gids.
     """
     circuit, _ = read_circuit(circuit_config_path)
-    metype_gids = {}
+    metype_region_gids = {}
 
     cell_props_df = circuit.cells.get(
         properties=[bpcell.MTYPE, bpcell.ETYPE, bpcell.REGION]
@@ -37,9 +37,9 @@ def extract_circuit_metype_region_gids(circuit_config_path, gids_per_metype, reg
         zip(cell_props_df.mtype, cell_props_df.etype, cell_props_df.region)
     )
 
-    print("Extracting mtype, etype, region and gids from circuit.")
+    print("Extracting mtype, etype, region and gids from circuit.", flush=True)
     for mtype, etype, region in tqdm(cell_props):
-        metype_gids[(mtype, etype, region)] = list(
+        metype_region_gids[(mtype, etype, region)] = list(
             circuit.cells.ids(
                 {
                     bpcell.MTYPE: mtype,
@@ -49,9 +49,10 @@ def extract_circuit_metype_region_gids(circuit_config_path, gids_per_metype, reg
                 limit=gids_per_metype,
             )
         )
-    return metype_gids
+    return metype_region_gids
 
 
+@lru_cache(maxsize=1)
 def read_circuit(config_path):
     """Read circuit info."""
     circuit_config = bluepy.Circuit(config_path).v2

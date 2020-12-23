@@ -11,6 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 import logging
+import pickle
+from tqdm import tqdm
 
 import luigi
 import bglibpy
@@ -22,7 +24,6 @@ from e_model_packages.sscx2020.utils import (
     cwd,
     get_output_path,
     create_single_step_config,
-    get_gid_from_circuit,
     extract_circuit_metype_region_gids,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
@@ -62,71 +63,79 @@ class MemodelParameters(luigi.Task):
     gidx = luigi.IntParameter()
 
 
-class ParseCircuit(luigi.Task):
-    """Parse the circuit to get the number of mtypes etypes and cells."""
+class ExtractCircuitInfo(luigi.Task):
+    """Extracts the metype, region and gids from the circuit.
 
-    gids_per_metype = luigi.IntParameter(default=5)
+    Args:
+        ngids (int): Number of gids to retrieve
+    """
+
+    ngids = luigi.IntParameter()
+
+    def output(self):
+        """The JSON output."""
+        output_dir = Path(workflow_config.get("paths", "output"))
+        return {
+            "json": luigi.LocalTarget(output_dir / "metype_region_gids.json"),
+            "pickle": luigi.LocalTarget(output_dir / "metype_region_gids.pickle"),
+        }
+
+    def run(self):
+        """Write the JSON."""
+        metype_region_gids_dict = {}
+        circuit_config_path = workflow_config.get("paths", "circuit")
+        regions = workflow_config.get("circuit", "regions")
+        regions = tuple(regions)  # to be hashable
+        metype_region_gids = extract_circuit_metype_region_gids(
+            circuit_config_path, self.ngids, regions
+        )
+        with open(self.output()["pickle"].path, "wb") as pickle_handle:
+            pickle.dump(metype_region_gids, pickle_handle)
+
+        for (mtype, etype, region), gids in metype_region_gids.items():
+            metype_region_gids_dict[mtype] = {etype: {region: gids}}
+
+        with self.output()["json"].open("w") as out_file:
+            json.dump(metype_region_gids_dict, out_file, indent=4, cls=NpEncoder)
+
+
+class ParseCircuit(luigi.Task):
+    """Yield the model preparation tasks."""
+
+    ngids = luigi.IntParameter(default=5)
 
     mtype = luigi.Parameter(default=None)
     etype = luigi.Parameter(default=None)
     region = luigi.Parameter(default=None)
     gidx = luigi.IntParameter(default=None)
 
-    mtype_etype_gids = {}
+    task_complete = False
 
     def requires(self):
-        """The BuildCircuit task is a dependency of this task."""
-        circuit_config_path = workflow_config.get("paths", "circuit")
-
-        # if mtype, etype, gidx not set, run required task for all metypes
-        if None in [self.region, self.mtype, self.etype, self.gidx]:
-            regions = workflow_config.get("circuit", "regions")
-            regions = tuple(regions)  # to be hashable
-            metype_gids = extract_circuit_metype_region_gids(
-                circuit_config_path, self.gids_per_metype, regions
-            )
-
-            tasks = []
-            for (mtype, etype, region), gids in metype_gids.items():
-                self.mtype_etype_gids[mtype] = {etype: {region: gids}}
-                for gidx, gid in enumerate(gids):
-                    gidx = gidx + 1  # 1 indexed for users
-                    tasks.append(
-                        PrepareMEModelDirectory(mtype, etype, region, gid, gidx)
-                    )
-                    tasks.append(CreateHoc(mtype, etype, region, gid, gidx))
-                    tasks.append(CreateMETypeJson(mtype, etype, region, gid, gidx))
-        else:
-            logging.info("Loading the circuit...")
-            circuit, _ = read_circuit(circuit_config_path)
-            gid = get_gid_from_circuit(
-                mtype=self.mtype,
-                etype=self.etype,
-                region=self.region,
-                gidx=self.gidx,
-                circuit=circuit,
-            )
-            self.mtype_etype_gids[self.mtype] = {self.etype: {self.region: [gid]}}
-
-            tasks = [
-                PrepareMEModelDirectory(
-                    self.mtype, self.etype, self.region, gid, self.gidx
-                ),
-                CreateHoc(self.mtype, self.etype, self.region, gid, self.gidx),
-                CreateMETypeJson(self.mtype, self.etype, self.region, gid, self.gidx),
-            ]
-
-        return tasks
-
-    def output(self):
-        """The JSON output."""
-        output_dir = workflow_config.get("paths", "output")
-        return luigi.LocalTarget(os.path.join(output_dir, "metype_gids.json"))
+        """Metype, region and gids info should be extracted."""
+        return ExtractCircuitInfo(self.ngids)
 
     def run(self):
-        """Write the JSON."""
-        with self.output().open("w") as out_file:
-            json.dump(self.mtype_etype_gids, out_file, indent=4, cls=NpEncoder)
+        """Spawn the memodel jobs."""
+        output_dir = Path(workflow_config.get("paths", "output"))
+        with open(output_dir / "metype_region_gids.pickle", "rb") as pickle_file:
+            metype_region_gids = pickle.load(pickle_file)
+
+        tasks = []
+        logging.info("Generating the model preparation tasks...")
+        for (mtype, etype, region), gids in tqdm(metype_region_gids.items()):
+            for gidx, gid in enumerate(gids):
+                gidx = gidx + 1  # 1 indexed for users
+                tasks.append(PrepareMEModelDirectory(mtype, etype, region, gid, gidx))
+                tasks.append(CreateHoc(mtype, etype, region, gid, gidx))
+                tasks.append(CreateMETypeJson(mtype, etype, region, gid, gidx))
+
+        self.task_complete = True
+        yield tasks
+
+    def complete(self):
+        """Override the complete method."""
+        return self.task_complete
 
 
 class CreateMETypeJson(MemodelParameters):
