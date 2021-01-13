@@ -17,14 +17,12 @@ def write_hoc(hoc_dir, hoc_file_name, hoc):
         hoc_file.write(hoc)
 
 
-def write_hocs(
-    config, hoc, template_name, simul_hoc, run_hoc, run_hoc_filename, syn_hoc=None
-):
+def write_hocs(config, hoc, simul_hoc, run_hoc, run_hoc_filename, syn_hoc=None):
     """Write hoc files."""
     hoc_dir = config.get("Paths", "memodel_dir")
 
     # cell hoc
-    hoc_file_name = "{}.hoc".format(template_name)
+    hoc_file_name = config.get("Paths", "hoc_file")
     write_hoc(hoc_dir, hoc_file_name, hoc)
 
     # createsimulation.hoc
@@ -46,12 +44,6 @@ def get_hoc(config, syn_temp_name="hoc_synapses"):
     # get directories and filenames from config
     template_dir = config.get("Paths", "templates_dir")
     template = config.get("Paths", "create_hoc_template_file")
-
-    # get emodel
-    constants_path = os.path.join(
-        config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
-    )
-    emodel, _, _, _, _ = load_constants(constants_path)
 
     # get cell
     cell, release_params, _ = create_cell(config)
@@ -88,7 +80,7 @@ def get_hoc(config, syn_temp_name="hoc_synapses"):
     else:
         syn_hoc = None
 
-    return cell_hoc, emodel, syn_hoc, simul_hoc, run_hoc
+    return cell_hoc, syn_hoc, simul_hoc, run_hoc
 
 
 if __name__ == "__main__":
@@ -104,14 +96,13 @@ if __name__ == "__main__":
     run_hoc_filename = "run.hoc"
     config = load_config(filename=config_file)
 
-    cell_hoc, emodel, syn_hoc, simul_hoc, run_hoc = get_hoc(
+    cell_hoc, syn_hoc, simul_hoc, run_hoc = get_hoc(
         config=config, syn_temp_name="hoc_synapses"
     )
 
     write_hocs(
         config,
         cell_hoc,
-        emodel,
         simul_hoc,
         run_hoc,
         run_hoc_filename,

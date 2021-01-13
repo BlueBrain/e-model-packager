@@ -19,10 +19,10 @@ import neuron
 from load import load_config
 
 
-def create_cell(path):
+def create_cell(path, config):
     """Create the cell model."""
     # Load main cell template
-    neuron.h.load_file(os.path.join(path, "%s.hoc" % neuron.h.template_name))
+    neuron.h.load_file(os.path.join(path, config.get("Paths", "hoc_file")))
 
     # Instantiate the cell from the template
     print("Loading cell")
@@ -239,7 +239,7 @@ def main(config_file):
     init_simulation(recordings_dir, constants_path)
 
     # create cell
-    cell = create_cell(path)
+    cell = create_cell(path, config)
 
     # create recordings
     recordings = create_recordings(cell)

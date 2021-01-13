@@ -171,6 +171,7 @@ def create_simul_hoc(template_dir, template_filename, config):
     syn_stim_mode = config.get("Protocol", "syn_stim_mode")
     syn_dir = config.get("Paths", "syn_dir_for_hoc")
     syn_hoc_file = config.get("Paths", "syn_hoc_file")
+    hoc_file = config.get("Paths", "hoc_file")
 
     # load data from constants.json
     constants_path = os.path.join(
@@ -217,6 +218,7 @@ def create_simul_hoc(template_dir, template_filename, config):
         syn_stim_mode=syn_stim_mode,
         syn_dir=syn_dir,
         syn_hoc_file=syn_hoc_file,
+        hoc_file=hoc_file,
         template_name=hoc_name,
         morph_dir=morph_dir,
         morph_fname=morph_fname,

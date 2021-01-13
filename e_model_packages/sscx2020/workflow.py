@@ -563,21 +563,11 @@ class CreateHoc(MemodelParameters):
     def output(self):
         """Produces the hoc file."""
         output_path = self.get_output_path()
+        filenames = ["cell.hoc", "run.hoc", "createsimulation.hoc"]
 
-        circuit_config_path = workflow_config.get("paths", "circuit")
-        circuit_, blueconfig_ = read_circuit(circuit_config_path)
-        cell_ = circuit_.cells.get(self.gid)
-        mecombo_ = cell_.me_combo
-        emodel, _, _ = get_mecombo_emodel(blueconfig_, mecombo_)
-
-        filename = emodel + ".hoc"
-        filenames = [filename, "run.hoc", "createsimulation.hoc"]
-
-        targets = []
-        for fname in filenames:
-            targets.append(luigi.LocalTarget(os.path.join(output_path, fname)))
-
-        return targets
+        return [
+            luigi.LocalTarget(os.path.join(output_path, fname)) for fname in filenames
+        ]
 
     def run(self):
         """Creates the hoc script."""
@@ -585,14 +575,13 @@ class CreateHoc(MemodelParameters):
         with cwd(workflow_output_dir):
             run_hoc_filename = "run.hoc"
             config = load_config(filename=self.configfile)
-            cell_hoc, emodel, syn_hoc, simul_hoc, run_hoc = get_hoc(
+            cell_hoc, syn_hoc, simul_hoc, run_hoc = get_hoc(
                 config=config, syn_temp_name="hoc_synapses"
             )
 
             write_hocs(
                 config,
                 cell_hoc,
-                emodel,
                 simul_hoc,
                 run_hoc,
                 run_hoc_filename,

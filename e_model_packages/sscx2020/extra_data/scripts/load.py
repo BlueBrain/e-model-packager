@@ -65,6 +65,7 @@ def load_config(config_dir="config", filename=None):
         "protocol_amplitudes_dir": "config",
         "protocol_amplitudes_file": "current_amps.json",
         "templates_dir": "templates",
+        "hoc_file": "cell.hoc",
         "create_hoc_template_file": "cell_template_neurodamus.jinja2",
         "replace_axon_hoc_dir": "%(templates_dir)s",
         "replace_axon_hoc_file": "replace_axon_hoc.hoc",
