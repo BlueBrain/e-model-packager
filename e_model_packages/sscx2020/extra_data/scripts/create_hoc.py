@@ -4,9 +4,9 @@ import os
 
 from load import (
     load_config,
-    create_cell,
     load_constants,
 )
+from create_cells import create_cell
 from create_hoc_tools import create_synapse_hoc, create_simul_hoc, create_run_hoc
 
 

@@ -12,15 +12,15 @@ from cell import CellModelCustom
 from synapse import NrnNetStimStimulusCustom
 from load import (
     load_config,
-    load_syn_locs,
     load_syn_mechs,
-    get_axon_hoc,
     define_parameters,
     load_params,
     load_mechanisms,
     find_param_file,
     load_constants,
 )
+from create_cells import get_axon_hoc
+from protocols import get_syn_locs
 
 
 def section_coordinate_3d(sec, seg_pos, syn_type):
@@ -178,7 +178,7 @@ class NeuronSimulation:
     def get_syn_stim(self):
         """Create syanpse stimuli."""
         if self.pre_mtypes:
-            syn_locs = load_syn_locs(self.cell)
+            syn_locs = get_syn_locs(self.cell)
             syn_total_duration = self.total_duration
             return NrnNetStimStimulusCustom(syn_locs, syn_total_duration)
         return None

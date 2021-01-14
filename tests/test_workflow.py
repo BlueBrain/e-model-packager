@@ -102,6 +102,9 @@ def test_directory_exists(
         "cell_info.json",
         "write_factsheets.py",
         "README.md",
+        "create_cells.py",
+        "protocols.py",
+        "locations.py",
     ]
 
     templates = [

@@ -6,11 +6,9 @@ import numpy as np
 
 import bluepyopt.ephys as ephys
 
-from load import (
-    load_config,
-    define_protocols,
-    create_cell,
-)
+from load import load_config
+from protocols import define_protocols
+from create_cells import create_cell
 
 
 def main(config_file):
