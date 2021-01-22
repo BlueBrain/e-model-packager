@@ -45,6 +45,7 @@ setup(
         "bglibpy",
         "bluepysnap",
         "pandas",
+        "EModelRunner",
     ],
     packages=find_packages(),
     python_requires=">=2.7",

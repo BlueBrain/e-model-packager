@@ -8,7 +8,7 @@ fi
 
 if [ $# -eq 0 ]
 then
-    python run.py
+    python -m emodelrunner.run
 else
-    python run.py --c $1
+    python -m emodelrunner.run --c $1
 fi

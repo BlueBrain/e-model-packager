@@ -19,9 +19,8 @@ from e_model_packages.sscx2020.utils import (
     cwd,
 )
 
-sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
-from load import load_config
-from write_factsheets import (
+from emodelrunner.load import load_config
+from emodelrunner.write_factsheets import (
     get_morph_data,
     get_physiology_data,
     get_morph_name,
@@ -89,36 +88,17 @@ def test_directory_exists(
         "run_hoc.sh",
         "LICENSE.txt",
         "run_py.sh",
-        "run.py",
-        "load.py",
-        "recordings.py",
-        "morphology.py",
-        "synapse.py",
-        "cell.py",
-        "create_hoc.py",
-        "create_hoc_tools.py",
-        "GUI.py",
         "requirements.txt",
         "cell_info.json",
-        "write_factsheets.py",
         "README.md",
-        "create_cells.py",
-        "protocols.py",
-        "locations.py",
     ]
 
     templates = [
         "cell_template_neurodamus.jinja2",
         "replace_axon_hoc.hoc",
-    ]
-
-    py_rec_config = [
-        "final.json",
-        "int_delayed.json",
-        "int_delayed_noise.json",
-        "int.json",
-        "int_noise.json",
-        "pyr.json",
+        "createsimulation.jinja2",
+        "run_hoc.jinja2",
+        "synapses.jinja2",
     ]
 
     mechanisms = [
@@ -148,34 +128,17 @@ def test_directory_exists(
 
     synapses = ["synapses.tsv", "synconf.txt"]
 
-    GUI_files = [
-        "interface.py",
-        "style.py",
-        "frames.py",
-        "plotshape.py",
-        "simulator.py",
-    ]
-
-    memodel_files_to_be_checked.append(
-        os.path.join("config", "recipes", "recipes.json")
-    )
     for item in config_files:
         memodel_files_to_be_checked.append(os.path.join("config", item))
 
     for item in templates:
         memodel_files_to_be_checked.append(os.path.join("templates", item))
 
-    for item in py_rec_config:
-        memodel_files_to_be_checked.append(os.path.join("config", "params", item))
-
     for item in mechanisms:
         memodel_files_to_be_checked.append(os.path.join("mechanisms", item))
 
     for item in synapses:
         memodel_files_to_be_checked.append(os.path.join("synapses", item))
-
-    for item in GUI_files:
-        memodel_files_to_be_checked.append(os.path.join("GUI_utils", item))
 
     morph_fname, _ = get_morph_emodel_names(gid, test_config)
     memodel_files_to_be_checked.append(os.path.join("morphology", morph_fname))
@@ -420,7 +383,7 @@ def check_features(config):
     original_feat = load_raw_exp_features(recipe)
     units = load_feature_units()
     fitness = load_fitness(config, emodel)
-    prefix = get_prefix(config, recipe)
+    prefix = get_prefix(recipe)
     # tested func
     feat_dict = get_exp_features_data(config)
 

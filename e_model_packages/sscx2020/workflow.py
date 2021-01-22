@@ -28,13 +28,17 @@ from e_model_packages.sscx2020.utils import (
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 
-# for loading create_hoc, old_run & factsheets modules
-# that are supposed to be loaded from the memodel directory.
+from emodelrunner.load import load_config
+from emodelrunner.create_hoc import get_hoc, write_hocs
+from emodelrunner.write_factsheets import (
+    write_metype_json,
+    write_etype_json,
+    write_morph_json,
+)
+
+
 sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
-from load import load_config
-from create_hoc import get_hoc, write_hocs
 from old_run import main as old_python_main
-from write_factsheets import write_metype_json, write_etype_json, write_morph_json
 
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
@@ -282,12 +286,6 @@ class PrepareMEModelDirectory(MemodelParameters):
             workflow_config.get("paths", "templates_to_copy_dir"), output_templates_dir
         )
 
-    @staticmethod
-    def copy_GUI_utils(output_dir):
-        """Copy mechanisms into output directory."""
-        output_GUI_dir = os.path.join(output_dir, "GUI_utils")
-        shutil.copytree(workflow_config.get("paths", "GUI_dir"), output_GUI_dir)
-
     def copy_mechanisms(self):
         """Copy mechanisms into output directory."""
         memodel_mechanisms_dir = os.path.join(self.output_folder, "mechanisms")
@@ -515,9 +513,6 @@ class PrepareMEModelDirectory(MemodelParameters):
 
         # templates to be copied
         self.copy_templates(memodel_dir)
-
-        # GUI scripts
-        self.copy_GUI_utils(memodel_dir)
 
         emodel, threshold_current, holding_current = get_mecombo_emodel(
             blueconfig, mecombo

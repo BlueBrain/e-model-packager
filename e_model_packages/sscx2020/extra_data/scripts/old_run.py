@@ -16,7 +16,7 @@ import random
 import numpy
 import neuron
 
-from load import load_config
+from emodelrunner.load import load_config
 
 
 def create_cell(path, config):
