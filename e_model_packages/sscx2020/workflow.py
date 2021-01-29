@@ -5,6 +5,9 @@
 import collections
 import json
 import os
+
+if "PMI_RANK" in os.environ:
+    del os.environ["PMI_RANK"]
 import re
 import shutil
 import subprocess
@@ -79,6 +82,9 @@ class ExtractCircuitInfo(luigi.Task):
     def output(self):
         """The JSON output."""
         output_dir = Path(workflow_config.get("paths", "output"))
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir)
+
         return {
             "json": luigi.LocalTarget(output_dir / "metype_region_gids.json"),
             "pickle": luigi.LocalTarget(output_dir / "metype_region_gids.pickle"),
@@ -113,7 +119,6 @@ class CollectMEModels(luigi.Task):
     region = luigi.Parameter(default=None)
     gidx = luigi.IntParameter(default=None)
 
-    batch_size = luigi.IntParameter(default=250)
     task_complete = False
 
     def requires(self):
@@ -133,10 +138,6 @@ class CollectMEModels(luigi.Task):
                 gidx = gidx + 1  # 1 indexed for users
                 tasks.append(CreateHoc(mtype, etype, region, gid, gidx))
                 tasks.append(CreateMETypeJson(mtype, etype, region, gid, gidx))
-
-                if len(tasks) >= self.batch_size:
-                    yield tasks
-                    tasks = []
 
         self.task_complete = True
         yield tasks
