@@ -39,6 +39,7 @@ from emodelrunner.write_factsheets import (
     write_morph_json,
 )
 
+from luigi_tools.task import RemoveCorruptedOutputMixin
 
 sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
 from old_run import main as old_python_main
@@ -49,7 +50,23 @@ workflow_config = ConfigDecorator(luigi.configuration.get_config())
 logging.basicConfig(level=logging.INFO)
 
 
-class MemodelParameters(luigi.Task):
+class SmartTask(RemoveCorruptedOutputMixin, luigi.Task):
+    """A smarter task that automatically removes output of failed tasks.
+
+    This is to ensure that no corrupted or incomplete output
+    gets generated if the Task fails unexpectedly.
+    This is the default behaviour in other wfms such as snakemake.
+    """
+
+    RemoveCorruptedOutputMixin.clean_failed = luigi.BoolParameter(
+        significant=False,
+        default=True,
+        description="Trigger to remove the outputs of the failed tasks.",
+        parsing=luigi.BoolParameter.EXPLICIT_PARSING,
+    )
+
+
+class MemodelParameters(SmartTask):
     """Parameter class to contain common MeModel parameters across various tasks.
 
     Luigi design pattern to address the parameter explosion problem.
@@ -70,7 +87,7 @@ class MemodelParameters(luigi.Task):
     gidx = luigi.IntParameter()
 
 
-class ExtractCircuitInfo(luigi.Task):
+class ExtractCircuitInfo(SmartTask):
     """Extracts the metype, region and gids from the circuit.
 
     Args:
@@ -109,21 +126,15 @@ class ExtractCircuitInfo(luigi.Task):
             json.dump(metype_region_gids_dict, out_file, indent=4, cls=NpEncoder)
 
 
-class CollectMEModels(luigi.Task):
+class CollectMEModels(SmartTask):
     """Yield the model preparation tasks."""
 
     ngids = luigi.IntParameter(default=5)
-
-    mtype = luigi.Parameter(default=None)
-    etype = luigi.Parameter(default=None)
-    region = luigi.Parameter(default=None)
-    gidx = luigi.IntParameter(default=None)
-
     task_complete = False
 
     def requires(self):
         """Metype, region and gids info should be extracted."""
-        return ExtractCircuitInfo(self.ngids)
+        return ExtractCircuitInfo(ngids=self.ngids)
 
     def run(self):
         """Spawn the memodel jobs."""
@@ -136,8 +147,16 @@ class CollectMEModels(luigi.Task):
         for (mtype, etype, region), gids in tqdm(metype_region_gids.items()):
             for gidx, gid in enumerate(gids):
                 gidx = gidx + 1  # 1 indexed for users
-                tasks.append(CreateHoc(mtype, etype, region, gid, gidx))
-                tasks.append(CreateMETypeJson(mtype, etype, region, gid, gidx))
+                tasks.append(
+                    CreateHoc(
+                        mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
+                    )
+                )
+                tasks.append(
+                    CreateMETypeJson(
+                        mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
+                    )
+                )
 
         self.task_complete = True
         yield tasks
@@ -155,12 +174,12 @@ class CreateMETypeJson(MemodelParameters):
     def requires(self):
         """Requires the script to have been copied in the main output directory."""
         tasks = RunPyScript(
-            self.mtype,
-            self.etype,
-            self.region,
-            self.gid,
-            self.gidx,
-            self.configfile,
+            mtype=self.mtype,
+            etype=self.etype,
+            region=self.region,
+            gid=self.gid,
+            gidx=self.gidx,
+            configfile=self.configfile,
             run_single_step=True,
         )
 
@@ -797,7 +816,7 @@ class RunOldPyScript(MemodelParameters):
             old_python_main(self.configfile)
 
 
-class CreateSystemLog(luigi.Task):
+class CreateSystemLog(SmartTask):
     """Task to log the modules and python packages used in the execution."""
 
     def output(self):
@@ -841,28 +860,28 @@ class DoRecordings(MemodelParameters):
         """Launch both RunHoc and RunPyScript."""
         tasks = [
             RunHoc(
-                self.mtype,
-                self.etype,
-                self.region,
-                self.gid,
-                self.gidx,
-                self.configfile,
+                mtype=self.mtype,
+                etype=self.etype,
+                region=self.region,
+                gid=self.gid,
+                gidx=self.gidx,
+                configfile=self.configfile,
             ),
             RunPyScript(
-                self.mtype,
-                self.etype,
-                self.region,
-                self.gid,
-                self.gidx,
-                self.configfile,
+                mtype=self.mtype,
+                etype=self.etype,
+                region=self.region,
+                gid=self.gid,
+                gidx=self.gidx,
+                configfile=self.configfile,
             ),
             RunOldPyScript(
-                self.mtype,
-                self.etype,
-                self.region,
-                self.gid,
-                self.gidx,
-                self.configfile,
+                mtype=self.mtype,
+                etype=self.etype,
+                region=self.region,
+                gid=self.gid,
+                gidx=self.gidx,
+                configfile=self.configfile,
             ),
         ]
         return tasks

@@ -46,6 +46,7 @@ setup(
         "bluepysnap",
         "pandas",
         "EModelRunner",
+        "luigi-tools>=0.0.6.dev0",
     ],
     packages=find_packages(),
     python_requires=">=2.7",
