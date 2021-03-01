@@ -2,13 +2,12 @@
 # pylint: disable=wrong-import-position
 # pylint: disable=wrong-import-order
 # pylint: disable=import-error
-import collections
+
 import json
 import os
 
 if "PMI_RANK" in os.environ:
     del os.environ["PMI_RANK"]
-import re
 import shutil
 import subprocess
 import sys
@@ -18,18 +17,15 @@ import pickle
 from tqdm import tqdm
 
 import luigi
-import bglibpy
 
 from e_model_packages.sscx2020.utils import (
-    read_circuit,
     NpEncoder,
-    get_mecombo_emodel,
     cwd,
     get_output_path,
     create_single_step_config,
-    extract_circuit_metype_region_gids,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
+from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
 
 from emodelrunner.load import load_config
 from emodelrunner.create_hoc import get_hoc, write_hocs
@@ -111,10 +107,12 @@ class ExtractCircuitInfo(SmartTask):
         """Write the JSON."""
         metype_region_gids_dict = {}
         circuit_config_path = workflow_config.get("paths", "circuit")
+        circuit = BluepyCircuit(circuit_config_path)
+
         regions = workflow_config.get("circuit", "regions")
-        regions = tuple(regions)  # to be hashable
-        metype_region_gids = extract_circuit_metype_region_gids(
-            circuit_config_path, self.ngids, regions
+
+        metype_region_gids = circuit.extract_circuit_metype_region_gids(
+            self.ngids, regions
         )
         with open(self.output()["pickle"].path, "wb") as pickle_handle:
             pickle.dump(metype_region_gids, pickle_handle)
@@ -254,11 +252,6 @@ class PrepareMEModelDirectory(MemodelParameters):
         os.makedirs(os.path.join(memodel_dir, "hoc_recordings"))
         os.makedirs(os.path.join(memodel_dir, "python_recordings"))
 
-    def get_cell_data_from_circuit(self, circuit):
-        """Get cell data from bluepy circuit."""
-        cell = circuit.cells.get(self.gid)
-        return cell.me_combo, cell.morphology, "L{}".format(cell.layer)
-
     def write_cell_info(self, morphology, layer, output_dir):
         """Create cell_info.json file and write it."""
         cell_info_path = os.path.join(output_dir, "cell_info.json")
@@ -281,9 +274,8 @@ class PrepareMEModelDirectory(MemodelParameters):
             json.dump(cell_info, out_file, indent=4, cls=NpEncoder)
 
     @staticmethod
-    def copy_morph(morph_fname, blueconfig, memodel_morph_dir):
+    def copy_morph(morph_fname, circ_morph_dir, memodel_morph_dir):
         """Copy morphology."""
-        circ_morph_dir = os.path.join(blueconfig.Run["MorphologyPath"], "ascii")
         morph_path = os.path.join(circ_morph_dir, morph_fname)
 
         shutil.copy(morph_path, memodel_morph_dir)
@@ -327,130 +319,6 @@ class PrepareMEModelDirectory(MemodelParameters):
         else:
             script_path = os.path.join(scripts_dir, script_files)
             shutil.copy(script_path, self.output_folder)
-
-    @staticmethod
-    def convert_sec_name(sec_name):
-        """Convert section name into sectionlist_id and section_list_index."""
-        match = re.match(r"(.*)\[(.*)\]", sec_name)
-        if match is None:
-            raise Exception("Couldnt match section name %s" % sec_name)
-
-        sectionlist_name = match.groups()[0]
-        sectionlist_index = int(match.groups()[1])
-
-        sectionlist_names = ["soma", "dend", "apic", "axon"]
-
-        return sectionlist_names.index(sectionlist_name), sectionlist_index
-
-    @staticmethod
-    def generate_synconf_content(synconf_dict, synconf_ordering):
-        """Generate content for synconf.txt."""
-        synconf_content = ""
-        for command in synconf_ordering:
-            gids = synconf_dict[command]
-            synconf_content += "%s\n%s\n" % (
-                command,
-                " ".join([str(x) for x in gids] + [str(-1e15)]),
-            )
-
-        return synconf_content
-
-    def write_synapses(self, blueconfig, synapse_dir):
-        """Save the synapses from the circuit to a tsv."""
-        ssim = bglibpy.SSim(blueconfig, record_dt=0.1)
-        circuit = ssim.bc_simulation.circuit
-        ssim.instantiate_gids([self.gid], synapse_detail=2, add_replay=True)
-
-        cell_info_dict = ssim.cells[self.gid].info_dict
-        cell = ssim.cells[self.gid]
-
-        n_of_synapses = len(cell_info_dict["synapses"].items())
-
-        # n_of_cols is actually not related to nmb of keys
-        n_of_cols = 14
-
-        synapse_tsv_content = "%d %d\n" % (n_of_synapses, n_of_cols)
-
-        synconf_dict = collections.defaultdict(list)
-        synconf_ordering = []
-        mtype_map = []
-
-        for (synapse_id, synapse_dict), (_, synapse) in zip(
-            cell_info_dict["synapses"].items(), cell.synapses.items()
-        ):
-            if synapse_dict["syn_type"] > 100:
-                # 119 or synapse_dict['syn_type'] == 113:
-                tau_d = synapse_dict["synapse_parameters"]["tau_d_AMPA"]
-            elif synapse_dict["syn_type"] < 100:
-                # or synapse_dict['syn_type'] == 9:
-                tau_d = synapse_dict["synapse_parameters"]["tau_d_GABAA"]
-            else:
-                raise Exception("Unknown synapse type %d" % synapse_dict["syn_type"])
-
-            delay = cell_info_dict["connections"][synapse_id]["post_netcon"]["delay"]
-            weight = cell_info_dict["connections"][synapse_id]["post_netcon"]["weight"]
-
-            pre_gid = synapse_dict["pre_cell_id"]
-            post_sec_sectionlist_id, post_sec_sectionlist_index = self.convert_sec_name(
-                synapse_dict["post_sec_name"]
-            )
-
-            # assign pre-cell mtype to an id
-            pre_mtype = circuit.cells.get(pre_gid).mtype
-            if pre_mtype in mtype_map:
-                # can use index. one occurence of pre_mtype & list is not long
-                pre_mtype_id = mtype_map.index(pre_mtype)
-            else:
-                pre_mtype_id = len(mtype_map)
-                mtype_map.append(pre_mtype)
-
-            # get synapse id without the ('', ) part.
-            _, sid = synapse_id
-
-            # do not save in scientific notation : hoc files can't read it.
-            synapse_tsv_content += "%s\n" % "\t".join(
-                [
-                    str(x)
-                    for x in [
-                        sid,
-                        pre_gid,
-                        post_sec_sectionlist_id,
-                        post_sec_sectionlist_index,
-                        "%.3f" % synapse_dict["post_segx"],
-                        synapse_dict["syn_type"],
-                        synapse_dict["synapse_parameters"]["Dep"],
-                        synapse_dict["synapse_parameters"]["Fac"],
-                        synapse_dict["synapse_parameters"]["Use"],
-                        tau_d,
-                        delay,
-                        weight,
-                        synapse.hsynapse.Nrrp,
-                        pre_mtype_id,
-                    ]
-                ]
-            )
-            for command in synapse_dict["synapseconfigure_cmds"]:
-                if command not in synconf_ordering:
-                    synconf_ordering.append(command)
-                synconf_dict[command].append(sid)
-
-        synapse_tsv_filename = os.path.join(synapse_dir, "synapses.tsv")
-        with open(synapse_tsv_filename, "w") as synapse_tsv_file:
-            synapse_tsv_file.write(synapse_tsv_content)
-
-        synconf_filename = os.path.join(synapse_dir, "synconf.txt")
-        with open(synconf_filename, "w") as synconf_file:
-            synconf_file.write(
-                self.generate_synconf_content(synconf_dict, synconf_ordering)
-            )
-
-        mtype_map_content = ""
-        for idx, pre_mtype in enumerate(mtype_map):
-            mtype_map_content += f"{idx} {pre_mtype}\n"
-
-        mtype_filename = os.path.join(synapse_dir, "mtype_map.tsv")
-        with open(mtype_filename, "w") as mtype_file:
-            mtype_file.write(mtype_map_content)
 
     def fill_in_templates(
         self,
@@ -500,7 +368,7 @@ class PrepareMEModelDirectory(MemodelParameters):
     def run(self):
         """Create me-model directories."""
         circuit_config_path = workflow_config.get("paths", "circuit")
-        circuit, blueconfig = read_circuit(circuit_config_path)
+        circuit = BluepyCircuit(circuit_config_path)
 
         memodel_dir = self.output_folder
         memodel_morph_dir = os.path.join(memodel_dir, "morphology")
@@ -510,17 +378,30 @@ class PrepareMEModelDirectory(MemodelParameters):
         self.makedirs(memodel_morph_dir, synapses_dir)
 
         # get cell data
-        mecombo, morphology, layer = self.get_cell_data_from_circuit(circuit)
+        cell = circuit.get_cell_attributes(self.gid)
 
         # create cell_info.json
-        self.write_cell_info(morphology, layer, memodel_dir)
+        self.write_cell_info(cell.morphology, cell.layer, memodel_dir)
 
+        simulation = BluepySimulation(circuit_config_path)
         # copy morphology
-        morph_fname = "{}.asc".format(morphology)
-        self.copy_morph(morph_fname, blueconfig, memodel_morph_dir)
+        self.copy_morph(cell.morphology_fname, simulation.morph_dir, memodel_morph_dir)
 
         # synapses
-        self.write_synapses(circuit_config_path, synapses_dir)
+        syn_extractor = SynapseExtractor(circuit_config_path, self.gid)
+        syn_extractor.load_synapses()
+
+        synapse_tsv_filename = os.path.join(synapses_dir, "synapses.tsv")
+        with open(synapse_tsv_filename, "w") as synapse_tsv_file:
+            synapse_tsv_file.write(syn_extractor.synapse_tsv_content)
+
+        mtype_filename = os.path.join(synapses_dir, "mtype_map.tsv")
+        with open(mtype_filename, "w") as mtype_file:
+            mtype_file.write(syn_extractor.mtype_map_content)
+
+        synconf_filename = os.path.join(synapses_dir, "synconf.txt")
+        with open(synconf_filename, "w") as synconf_file:
+            synconf_file.write(syn_extractor.synconf)
 
         # copy mechanisms
         self.copy_mechanisms()
@@ -534,8 +415,8 @@ class PrepareMEModelDirectory(MemodelParameters):
         # templates to be copied
         self.copy_templates(memodel_dir)
 
-        emodel, threshold_current, holding_current = get_mecombo_emodel(
-            blueconfig, mecombo
+        emodel, threshold_current, holding_current = simulation.get_mecombo_emodel(
+            cell.me_combo
         )
 
         # templates to be filled
@@ -543,7 +424,7 @@ class PrepareMEModelDirectory(MemodelParameters):
             threshold_current,
             holding_current,
             emodel,
-            morph_fname,
+            cell.morphology_fname,
         )
 
         Path(self.output().path).touch()
@@ -568,7 +449,8 @@ class CreateHoc(MemodelParameters):
             gidx=self.gidx,
         )
 
-    def get_output_path(self):
+    @property
+    def output_folder(self):
         """Returns the path to the outputs directory."""
         workflow_output_dir = workflow_config.get("paths", "output")
         return get_output_path(
@@ -577,7 +459,7 @@ class CreateHoc(MemodelParameters):
 
     def output(self):
         """Produces the hoc file."""
-        output_path = self.get_output_path()
+        output_path = self.output_folder
         filenames = ["cell.hoc", "run.hoc", "createsimulation.hoc"]
 
         return [
@@ -586,8 +468,7 @@ class CreateHoc(MemodelParameters):
 
     def run(self):
         """Creates the hoc script."""
-        workflow_output_dir = self.get_output_path()
-        with cwd(workflow_output_dir):
+        with cwd(self.output_folder):
             run_hoc_filename = "run.hoc"
             config = load_config(filename=self.configfile)
             cell_hoc, syn_hoc, simul_hoc, run_hoc = get_hoc(

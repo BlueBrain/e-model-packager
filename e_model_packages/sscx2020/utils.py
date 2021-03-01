@@ -3,62 +3,9 @@
 import json
 import os
 from contextlib import contextmanager
-from functools import lru_cache
 import numpy as np
-import pandas as pd
-from tqdm import tqdm
-
-import bluepy
-from bluepy.v2 import Cell as bpcell
-from bluepy_configfile.configfile import BlueConfig
 
 # pylint: disable=super-with-arguments
-
-
-@lru_cache(maxsize=1)
-def extract_circuit_metype_region_gids(circuit_config_path, gids_per_metype, regions):
-    """Extracts the metype region and gids from the circuit.
-
-    Args:
-        circuit_config_path (str): the path to circuit config
-        gids_per_metype (int): number of gids to be extracted for each combo
-        regions (tuple of str): the regions of interest to be extracted
-    Returns:
-        Dictionary contaning the metype, region and gids.
-    """
-    circuit, _ = read_circuit(circuit_config_path)
-    metype_region_gids = {}
-
-    cell_props_df = circuit.cells.get(
-        properties=[bpcell.MTYPE, bpcell.ETYPE, bpcell.REGION]
-    ).drop_duplicates()
-    cell_props_df = cell_props_df.loc[cell_props_df["region"].isin(regions)]
-    cell_props = list(
-        zip(cell_props_df.mtype, cell_props_df.etype, cell_props_df.region)
-    )
-
-    print("Extracting mtype, etype, region and gids from circuit.", flush=True)
-    for mtype, etype, region in tqdm(cell_props):
-        metype_region_gids[(mtype, etype, region)] = list(
-            circuit.cells.ids(
-                {
-                    bpcell.MTYPE: mtype,
-                    bpcell.ETYPE: etype,
-                    bpcell.REGION: region,
-                },
-                limit=gids_per_metype,
-            )
-        )
-    return metype_region_gids
-
-
-@lru_cache(maxsize=1)
-def read_circuit(config_path):
-    """Read circuit info."""
-    circuit_config = bluepy.Circuit(config_path).v2
-    blue_config = BlueConfig(open(config_path))
-
-    return circuit_config, blue_config
 
 
 class NpEncoder(json.JSONEncoder):
@@ -72,41 +19,9 @@ class NpEncoder(json.JSONEncoder):
             return super(NpEncoder, self).default(o)
 
 
-def get_mecombo_emodel(blueconfig, mecombo):
-    """Returns the emodel name as well as it's threshold and holding currents.
-
-    Args:
-        blueconfig(object): Blueconfig object.
-        mecombo(str): Name of mecombo.
-    """
-    mecombo_filename = blueconfig.Run["MEComboInfoFile"]
-
-    df = pd.read_csv(mecombo_filename, sep="\t")
-    mecombo_row = df[df["combo_name"] == mecombo]
-
-    emodel = mecombo_row["emodel"].values[0]
-    threshold_curr = mecombo_row["threshold_current"].values[0]
-    holding_curr = mecombo_row["holding_current"].values[0]
-
-    return emodel, threshold_curr, holding_curr
-
-
 def combine_names(mtype, etype, gidx):
     """Returns the combined metype and cell index."""
     return "_".join([mtype, etype, str(gidx)])
-
-
-def get_morph_emodel_names(gid, config):
-    """Get morphology and emodel filenames."""
-    circuit, blueconfig = read_circuit(config["paths"]["circuit"])
-
-    cell = circuit.cells.get(gid)
-    morph_fname = "%s.asc" % cell.morphology
-
-    emodel, _, _ = get_mecombo_emodel(blueconfig, cell.me_combo)
-    emodel_fname = "%s.hoc" % emodel
-
-    return morph_fname, emodel_fname
 
 
 def get_output_path(mtype, etype, region, gidx, workflow_output_dir):
@@ -183,28 +98,3 @@ def create_single_step_config(original_config, new_config, config_dir):
                     if not one_step_written:
                         last_lines += "run_step_number=1\n"
                     out_file.write(last_lines)
-
-
-def get_gid_from_circuit(mtype, etype, region, gidx, circuit):
-    """Returns the circuit gid given the index of  cell properties dataframe.
-
-    Args:
-        mtype (str): morphological type
-        etype (str): electrophysiological type
-        region (str): circuit region
-        gidx (int): index of the bluepy circuit cell ids dataframe
-        circuit (bluepy.v2.circuit.Circuit): the circuit object
-    Returns:
-        int: The gid from the circuit.
-    """
-    gids = list(
-        circuit.cells.ids(
-            {
-                bpcell.MTYPE: mtype,
-                bpcell.ETYPE: etype,
-                bpcell.REGION: region,
-            }
-        )
-    )
-    gid = gids[gidx - 1]
-    return gid

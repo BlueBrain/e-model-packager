@@ -7,17 +7,16 @@ import os
 import re
 import numpy as np
 import pytest
-import sys
 from functools import partial
 
 import bglibpy
 from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
-    get_morph_emodel_names,
     get_output_path,
     combine_names,
     cwd,
 )
+from e_model_packages.circuit import BluepyCircuit
 
 from emodelrunner.load import load_config
 from emodelrunner.write_factsheets import (
@@ -140,8 +139,12 @@ def test_directory_exists(
     for item in synapses:
         memodel_files_to_be_checked.append(os.path.join("synapses", item))
 
-    morph_fname, _ = get_morph_emodel_names(gid, test_config)
-    memodel_files_to_be_checked.append(os.path.join("morphology", morph_fname))
+    circuit_config_path = test_config["paths"]["circuit"]
+    circuit = BluepyCircuit(circuit_config_path)
+    cell = circuit.get_cell_attributes(gid)
+    memodel_files_to_be_checked.append(
+        os.path.join("morphology", f"{cell.morphology}.asc")
+    )
 
     path_ = os.path.join("tests", "output", "memodel_dirs")
     memodel_path = os.path.join(
