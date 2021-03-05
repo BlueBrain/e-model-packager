@@ -415,15 +415,13 @@ class PrepareMEModelDirectory(MemodelParameters):
         # templates to be copied
         self.copy_templates(memodel_dir)
 
-        emodel, threshold_current, holding_current = simulation.get_mecombo_emodel(
-            cell.me_combo
-        )
+        cell_emodel = circuit.get_emodel_attributes(self.gid)
 
         # templates to be filled
         self.fill_in_templates(
-            threshold_current,
-            holding_current,
-            emodel,
+            cell_emodel.threshold_current,
+            cell_emodel.holding_current,
+            cell_emodel.name,
             cell.morphology_fname,
         )
 

@@ -92,13 +92,34 @@ class BluepyCircuit:
         cell = self.circuit.cells.get(gid)
         return CellAttributes(cell)
 
+    def get_emodel_attributes(self, gid):
+        """Retrieve the emodel attributes of a gid.
+
+        Args:
+            gid (int): cell identifier.
+        """
+        # pylint: disable=protected-access
+        emodel = self.circuit.emodels._get_mecombo(gid)
+        return EmodelAttributes(emodel)
+
 
 class CellAttributes:
     """Cell attributes access class."""
 
     def __init__(self, cell):
-        """Retrieve the cell & set store the attributes."""
+        """Store only attributes of interest."""
         self.me_combo = cell.me_combo
         self.morphology = cell.morphology
         self.morphology_fname = f"{self.morphology}.asc"
         self.layer = f"L{cell.layer}"
+
+
+class EmodelAttributes:
+    """Emodel attributes of a cell."""
+
+    def __init__(self, emodel):
+        """Attributes of a gid's emodel."""
+        emodel = emodel[1]  # 0 is idx (me_combo name), 1 is value dict
+        self.name = emodel["emodel"]
+        self.holding_current = emodel["holding_current"]
+        self.threshold_current = emodel["threshold_current"]
