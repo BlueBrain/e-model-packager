@@ -14,9 +14,14 @@ import sys
 from pathlib import Path
 import logging
 import pickle
+
 from tqdm import tqdm
 
 import luigi
+
+from bluepyemodel.api import get_db
+from bluepyemodel.tools.misc_evaluators import trace_evaluation
+
 
 from e_model_packages.sscx2020.utils import (
     NpEncoder,
@@ -151,7 +156,7 @@ class CollectMEModels(SmartTask):
                     )
                 )
                 tasks.append(
-                    CreateMETypeJson(
+                    CreateFactsheets(
                         mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
                     )
                 )
@@ -164,7 +169,97 @@ class CollectMEModels(SmartTask):
         return self.task_complete
 
 
-class CreateMETypeJson(MemodelParameters):
+class ApplyProtocols(MemodelParameters):
+    """Applies the protocols and saves the results in an NWB."""
+
+    @property
+    def emodel_name(self):
+        """Emodel name in cells standard."""
+        circuit = BluepyCircuit(workflow_config.get("paths", "circuit"))
+        emodel = circuit.get_emodel_attributes(self.gid)
+        return emodel.name
+
+    @property
+    def morph_filepath(self):
+        """Extract morph_filepath from the circuit."""
+        sim = BluepySimulation(workflow_config.get("paths", "circuit"))
+        morph_dir = sim.morph_dir
+        circuit = BluepyCircuit(workflow_config.get("paths", "circuit"))
+        cell = circuit.get_cell_attributes(self.gid)
+        morph_name = cell.morphology_fname
+        return os.path.join(morph_dir, morph_name)
+
+    def requires(self):
+        """Requires the output paths to be made."""
+        return PrepareMEModelDirectory(
+            mtype=self.mtype,
+            etype=self.etype,
+            region=self.region,
+            gid=self.gid,
+            gidx=self.gidx,
+        )
+
+    def output(self):
+        """Protocols & recordings output."""
+        output_dir = workflow_config.get("paths", "output")
+        memodel_dir = get_output_path(
+            self.mtype, self.etype, self.region, self.gidx, output_dir
+        )
+        nwb_recordings = luigi.LocalTarget(Path(memodel_dir) / "recordings.nwb")
+        protocols = luigi.LocalTarget(Path(memodel_dir) / "protocols.json")
+        pickle_recordings = luigi.LocalTarget(Path(memodel_dir) / "recordings.pickle")
+        return {
+            "nwb_recordings": nwb_recordings,
+            "protocols_json": protocols,
+            "pickle_recordings": pickle_recordings,
+        }
+
+    def run(self):
+        """Creates and saves the nwb containing protocol responses."""
+        protocols, stimuli, responses = self.run_protocols()
+        pickle_output = self.output()["pickle_recordings"].path
+        with open(pickle_output, "wb") as pickle_handle:
+            pickle.dump(
+                {"protocols": protocols, "stimuli": stimuli, "responses": responses},
+                pickle_handle,
+            )
+
+        with self.output()["protocols_json"].open("w") as out_file:
+            json.dump(protocols, out_file, indent=4, cls=NpEncoder)
+
+        nwb_env = workflow_config.get("nwb", "env")
+        nwb_script = workflow_config.get("nwb", "script")
+        nwb_output = self.output()["nwb_recordings"].path
+        cmd = (
+            f"{nwb_env} {nwb_script} --emodel_name={self.emodel_name}"
+            f" --pickle_recordings={pickle_output} --output_file={nwb_output}"
+        )
+        cmd = cmd.split(" ")
+        subprocess.run(cmd, check=True)
+
+    def run_protocols(self):
+        """Applies the protocols.
+
+        Returns:
+            protocols (dict): the dictionary containing protocol params
+            stimuli (dict): stimulus objects indexed by protocol name
+            responses (dict): response objects indexed by protocol name
+        """
+        emodel_dir = workflow_config.get("paths", "emodel_dir")
+        emodel_db = get_db(
+            "singlecell", emodel_dir=emodel_dir, legacy_dir_structure=True
+        )
+
+        combo_dict = {
+            "emodel": self.emodel_name,
+            "morphology_path": self.morph_filepath,
+        }
+
+        protocols, stimuli, responses = trace_evaluation(combo_dict, emodel_db)
+        return (protocols, stimuli, responses)
+
+
+class CreateFactsheets(MemodelParameters):
     """Task to create a me-type factsheet json file."""
 
     configfile = None
@@ -238,8 +333,10 @@ class PrepareMEModelDirectory(MemodelParameters):
         return memodel_dir
 
     def output(self):
-        """Produces a .completed.txt file after all steps are done."""
-        completed_file = os.path.join(self.output_folder, ".completed.txt")
+        """Produces an empty file after all steps are done."""
+        completed_file = os.path.join(
+            self.output_folder, ".prep-memodel-dir-completed.txt"
+        )
         return luigi.LocalTarget(completed_file)
 
     def makedirs(self, memodel_morph_dir, synapses_dir):

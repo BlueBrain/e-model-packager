@@ -321,7 +321,7 @@ def test_synapses_hoc_vs_py_script(
     assert rms_py_recs < threshold_py_recs
 
 
-@launch_luigi(module="workflow", task="CreateMETypeJson")
+@launch_luigi(module="workflow", task="CreateFactsheets")
 def test_metype_factsheet_exists(
     mtype=get_param("mtype"),
     etype=get_param("etype"),
