@@ -40,6 +40,7 @@ setup(
     install_requires=[
         "luigi",
         "numpy",
+        "NEURON",
         "bluepy>=0.16.0",
         "bluepyopt",
         "bglibpy",
