@@ -16,6 +16,7 @@ import logging
 import pickle
 
 from tqdm import tqdm
+import pandas as pd
 
 import luigi
 
@@ -88,68 +89,22 @@ class MemodelParameters(SmartTask):
     gidx = luigi.IntParameter()
 
 
-class ExtractCircuitInfo(SmartTask):
-    """Extracts the metype, region and gids from the circuit.
-
-    Args:
-        ngids (int): Number of gids to retrieve
-    """
-
-    ngids = luigi.IntParameter()
-
-    def output(self):
-        """The JSON output."""
-        output_dir = Path(workflow_config.get("paths", "output"))
-        if not os.path.isdir(output_dir):
-            os.makedirs(output_dir)
-
-        return {
-            "json": luigi.LocalTarget(output_dir / "metype_region_gids.json"),
-            "pickle": luigi.LocalTarget(output_dir / "metype_region_gids.pickle"),
-        }
-
-    def run(self):
-        """Write the JSON."""
-        metype_region_gids_dict = {}
-        circuit_config_path = workflow_config.get("paths", "circuit")
-        circuit = BluepyCircuit(circuit_config_path)
-
-        regions = workflow_config.get("circuit", "regions")
-
-        metype_region_gids = circuit.extract_circuit_metype_region_gids(
-            self.ngids, regions
-        )
-        with open(self.output()["pickle"].path, "wb") as pickle_handle:
-            pickle.dump(metype_region_gids, pickle_handle)
-
-        for (mtype, etype, region), gids in metype_region_gids.items():
-            metype_region_gids_dict[mtype] = {etype: {region: gids}}
-
-        with self.output()["json"].open("w") as out_file:
-            json.dump(metype_region_gids_dict, out_file, indent=4, cls=NpEncoder)
-
-
-class CollectMEModels(SmartTask):
+class CollectMEModels(luigi.WrapperTask):
     """Yield the model preparation tasks."""
 
-    ngids = luigi.IntParameter(default=5)
-    task_complete = False
-
     def requires(self):
-        """Metype, region and gids info should be extracted."""
-        return ExtractCircuitInfo(ngids=self.ngids)
+        """The required Tasks."""
+        metype_gids_path = workflow_config.get("paths", "metype_gids")
+        df = pd.read_csv(metype_gids_path)
 
-    def run(self):
-        """Spawn the memodel jobs."""
-        output_dir = Path(workflow_config.get("paths", "output"))
-        with open(output_dir / "metype_region_gids.pickle", "rb") as pickle_file:
-            metype_region_gids = pickle.load(pickle_file)
+        df = df[["gid", "mtype", "etype", "region"]]
+        grouped_df = df.groupby(["mtype", "etype", "region"])["gid"].apply(list)
 
         tasks = []
-        logging.info("Generating the model preparation tasks...")
-        for (mtype, etype, region), gids in tqdm(metype_region_gids.items()):
-            for gidx, gid in enumerate(gids):
-                gidx = gidx + 1  # 1 indexed for users
+        for metype_region in tqdm(grouped_df.index):
+            mtype, etype, region = metype_region
+            for idx, gid in enumerate(grouped_df.loc[metype_region]):
+                gidx = idx + 1
                 tasks.append(
                     CreateHoc(
                         mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
@@ -160,13 +115,7 @@ class CollectMEModels(SmartTask):
                         mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
                     )
                 )
-
-        self.task_complete = True
-        yield tasks
-
-    def complete(self):
-        """Override the complete method."""
-        return self.task_complete
+        return tasks
 
 
 class ApplyProtocols(MemodelParameters):
@@ -246,8 +195,11 @@ class ApplyProtocols(MemodelParameters):
             responses (dict): response objects indexed by protocol name
         """
         emodel_dir = workflow_config.get("paths", "emodel_dir")
+        # pylint: disable = no-value-for-parameter
         emodel_db = get_db(
-            "singlecell", emodel_dir=emodel_dir, legacy_dir_structure=True
+            "singlecell",
+            emodel_dir=emodel_dir,
+            legacy_dir_structure=True,
         )
 
         combo_dict = {
@@ -272,8 +224,6 @@ class CreateFactsheets(MemodelParameters):
             region=self.region,
             gid=self.gid,
             gidx=self.gidx,
-            configfile=self.configfile,
-            run_single_step=True,
         )
 
         return tasks
@@ -310,9 +260,6 @@ class CreateFactsheets(MemodelParameters):
             write_morph_json(config, factsheets_dir)
 
         # remove extra output
-        os.remove(
-            os.path.join(memodel_dir, "python_recordings", "soma_voltage_step1.dat")
-        )
         shutil.rmtree(os.path.join(memodel_dir, "x86_64"))
 
 

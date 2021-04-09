@@ -98,8 +98,8 @@ class BluepyCircuit:
         Args:
             gid (int): cell identifier.
         """
-        # pylint: disable=protected-access
-        emodel = self.circuit.emodels._get_mecombo(gid)
+        # pylint: disable=no-member
+        emodel = self.circuit.emodels.get_mecombo_info(gid)
         return EmodelAttributes(emodel)
 
 
@@ -119,7 +119,6 @@ class EmodelAttributes:
 
     def __init__(self, emodel):
         """Attributes of a gid's emodel."""
-        emodel = emodel[1]  # 0 is idx (me_combo name), 1 is value dict
         self.name = emodel["emodel"]
         self.holding_current = emodel["holding_current"]
         self.threshold_current = emodel["threshold_current"]
