@@ -35,22 +35,26 @@ setup(
     },
     license="BBP-internal-confidential",
     dependency_links=[
-        "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/"
+        "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/",
     ],
     install_requires=[
         "luigi",
         "numpy",
-        "bluepy>=v2.2.0.dev1",
-        "bluepyopt",
+        "bluepy>=v2.3.0",
+        # force bluepyopt to be the same as in BPEM.
+        # Can revert to regular BPO when we switch to proj38 code.
+        "bluepyopt @ git+http://github.com/BlueBrain/BluePyOpt@CMA_clean#egg=bluepyopt",
         "bglibpy",
         "bluepyemodel==0.0.1.dev1",
         "BluePyParallel",
         "bluepysnap",
         "pandas",
         "pynwb",
-        "ndx-icephys-meta @ git+ssh://git@github.com/oruebel/ndx-icephys-meta.git@2bd06bd152901ae5853253358d7efc66714f9a22",
+        "ndx-icephys-meta @ git+https://git@github.com/oruebel/ndx-icephys-meta.git@2bd06bd152901ae5853253358d7efc66714f9a22",
         "EModelRunner",
-        "luigi-tools>=0.0.6.dev0",
+        "luigi-tools>=0.0.6",
+        "h5py",
+        "glusynapseutils @ file://localhost//gpfs/bbp.cscs.ch/project/proj32/ajaquier/GluSynapseUtils/dist/glusynapseutils-0.0.1.dev0-py3-none-any.whl",
     ],
     packages=find_packages(),
     python_requires=">=2.7",

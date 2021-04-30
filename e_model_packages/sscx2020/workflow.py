@@ -33,12 +33,12 @@ from e_model_packages.sscx2020.utils import (
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
 
-from emodelrunner.load import load_config
+from emodelrunner.load import load_config, get_hoc_paths_args
 from emodelrunner.create_hoc import get_hoc, write_hocs
 from emodelrunner.write_factsheets import (
-    write_metype_json,
-    write_etype_json,
-    write_morph_json,
+    write_metype_json_from_config,
+    write_etype_json_from_config,
+    write_morph_json_from_config,
 )
 
 from luigi_tools.task import RemoveCorruptedOutputMixin
@@ -255,9 +255,9 @@ class CreateFactsheets(MemodelParameters):
         factsheets_dir = "factsheets"
         with cwd(memodel_dir):
             config = load_config(filename=self.configfile)
-            write_metype_json(config, factsheets_dir)
-            write_etype_json(config, factsheets_dir)
-            write_morph_json(config, factsheets_dir)
+            write_metype_json_from_config(config, factsheets_dir)
+            write_etype_json_from_config(config, factsheets_dir)
+            write_morph_json_from_config(config, factsheets_dir)
 
         # remove extra output
         shutil.rmtree(os.path.join(memodel_dir, "x86_64"))
@@ -517,8 +517,9 @@ class CreateHoc(MemodelParameters):
                 config=config, syn_temp_name="hoc_synapses"
             )
 
+            hoc_paths = get_hoc_paths_args(config)
             write_hocs(
-                config,
+                hoc_paths,
                 cell_hoc,
                 simul_hoc,
                 run_hoc,

@@ -49,10 +49,46 @@ class SynapseExtractor:
 
         return synconf_content
 
-    def load_synapses(self):
+    @staticmethod
+    def get_tau_d(synapse_dict):
+        """Return tau_d given synapse type."""
+        if synapse_dict["syn_type"] > 100:
+            # 119 or synapse_dict['syn_type'] == 113:
+            return synapse_dict["synapse_parameters"]["tau_d_AMPA"]
+        if synapse_dict["syn_type"] < 100:
+            # or synapse_dict['syn_type'] == 9:
+            return synapse_dict["synapse_parameters"]["tau_d_GABAA"]
+        raise Exception("Unknown synapse type %d" % synapse_dict["syn_type"])
+
+    def get_pre_mtype_id(self, mtype_map, pre_gid):
+        """Assign pre-cell mtype to an id."""
+        pre_mtype = self.circuit.cells.get(pre_gid).mtype
+        if pre_mtype in mtype_map:
+            # can use index. one occurence of pre_mtype & list is not long
+            return mtype_map.index(pre_mtype)
+        else:
+            pre_mtype_id = len(mtype_map)
+            mtype_map.append(pre_mtype)
+            return pre_mtype_id
+
+    @staticmethod
+    def get_Nrrp(hsynapse):
+        """Get Nrrp from hsynapse."""
+        return hsynapse.Nrrp
+
+    def load_synapses(
+        self, add_stimuli=False, add_synapses=None, intersect_pre_gids=None
+    ):
         """Loads synapses information."""
         # pylint: disable=too-many-locals
-        self.ssim.instantiate_gids([self.gid], synapse_detail=2, add_replay=True)
+        self.ssim.instantiate_gids(
+            [self.gid],
+            synapse_detail=2,
+            add_replay=True,
+            add_stimuli=add_stimuli,
+            add_synapses=add_synapses,
+            intersect_pre_gids=intersect_pre_gids,
+        )
 
         cell_info_dict = self.ssim.cells[self.gid].info_dict
         cell = self.ssim.cells[self.gid]
@@ -71,14 +107,7 @@ class SynapseExtractor:
         for (synapse_id, synapse_dict), (_, synapse) in zip(
             cell_info_dict["synapses"].items(), cell.synapses.items()
         ):
-            if synapse_dict["syn_type"] > 100:
-                # 119 or synapse_dict['syn_type'] == 113:
-                tau_d = synapse_dict["synapse_parameters"]["tau_d_AMPA"]
-            elif synapse_dict["syn_type"] < 100:
-                # or synapse_dict['syn_type'] == 9:
-                tau_d = synapse_dict["synapse_parameters"]["tau_d_GABAA"]
-            else:
-                raise Exception("Unknown synapse type %d" % synapse_dict["syn_type"])
+            tau_d = self.get_tau_d(synapse_dict)
 
             delay = cell_info_dict["connections"][synapse_id]["post_netcon"]["delay"]
             weight = cell_info_dict["connections"][synapse_id]["post_netcon"]["weight"]
@@ -89,13 +118,7 @@ class SynapseExtractor:
             )
 
             # assign pre-cell mtype to an id
-            pre_mtype = self.circuit.cells.get(pre_gid).mtype
-            if pre_mtype in mtype_map:
-                # can use index. one occurence of pre_mtype & list is not long
-                pre_mtype_id = mtype_map.index(pre_mtype)
-            else:
-                pre_mtype_id = len(mtype_map)
-                mtype_map.append(pre_mtype)
+            pre_mtype_id = self.get_pre_mtype_id(mtype_map, pre_gid)
 
             # get synapse id without the ('', ) part.
             _, sid = synapse_id
@@ -117,7 +140,7 @@ class SynapseExtractor:
                         tau_d,
                         delay,
                         weight,
-                        synapse.hsynapse.Nrrp,
+                        self.get_Nrrp(synapse.hsynapse),
                         pre_mtype_id,
                     ]
                 ]

@@ -18,11 +18,18 @@ from e_model_packages.sscx2020.utils import (
 )
 from e_model_packages.circuit import BluepyCircuit
 
-from emodelrunner.load import load_config
+from emodelrunner.json_loader import json_load
+from emodelrunner.load import (
+    load_config,
+    find_param_file,
+    get_release_params,
+    load_amps,
+)
 from emodelrunner.write_factsheets import (
+    get_morph_path,
     get_morph_data,
     get_physiology_data,
-    get_morph_name,
+    get_morph_name_dict,
     get_emodel,
     get_recipe,
     get_prefix,
@@ -31,7 +38,6 @@ from emodelrunner.write_factsheets import (
     load_raw_exp_features,
     load_feature_units,
     load_fitness,
-    get_param_data,
 )
 
 test_config = configparser.ConfigParser()
@@ -381,14 +387,23 @@ def check_features(config):
     Checks that units correspond to the ones in unit file.
     Checks that model fitnesses correspond to the ones in fitness file."""
     # original files data
-    emodel = get_emodel(config)
-    recipe = get_recipe(config, emodel)
+    constants_path = os.path.join(
+        config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
+    )
+    recipes_path = "/".join(
+        (config.get("Paths", "recipes_dir"), config.get("Paths", "recipes_file"))
+    )
+    params_path = "/".join(
+        (config.get("Paths", "params_dir"), config.get("Paths", "params_file"))
+    )
+    emodel = get_emodel(constants_path)
+    recipe = get_recipe(recipes_path, emodel)
     original_feat = load_raw_exp_features(recipe)
     units = load_feature_units()
-    fitness = load_fitness(config, emodel)
+    fitness = load_fitness(params_path, emodel)
     prefix = get_prefix(recipe)
     # tested func
-    feat_dict = get_exp_features_data(config)
+    feat_dict = get_exp_features_data(emodel, recipes_path, params_path)
 
     for items in feat_dict["values"]:
         assert items.items()
@@ -407,7 +422,8 @@ def check_features(config):
 
 def check_morph_name(config):
     """Checks that factsheet morph name corresponds to package morph file."""
-    morph_name_dict = get_morph_name(config)
+    _, morph_fname = get_morph_path(config)
+    morph_name_dict = get_morph_name_dict(morph_fname)
     assert os.path.isfile(os.path.join("morphology", morph_name_dict["value"] + ".asc"))
 
 
@@ -461,10 +477,25 @@ def check_mechanisms(config):
     Idem if type is decay
     Checks that all values are identical to files.
     """
+    # pylint: disable=too-many-locals
     # original data
-    release_params, parameters, _, _ = get_param_data(config)
+    constants_path = os.path.join(
+        config.get("Paths", "constants_dir"), config.get("Paths", "constants_file")
+    )
+    params_path = "/".join(
+        (config.get("Paths", "params_dir"), config.get("Paths", "params_file"))
+    )
+    emodel = get_emodel(constants_path)
+    recipes_path = "/".join(
+        (config.get("Paths", "recipes_dir"), config.get("Paths", "recipes_file"))
+    )
+    params_filepath = find_param_file(recipes_path, emodel)
+    definitions = json_load(params_filepath)
+    parameters = definitions["parameters"]
+    release_params = get_release_params(emodel)
+
     # output to check
-    mech_dict = get_mechanisms_data(config)
+    mech_dict = get_mechanisms_data(emodel, params_path, params_filepath)
 
     assert mech_dict["values"][0]["location_map"]
     for loc_name, loc in mech_dict["values"][0]["location_map"].items():
@@ -521,7 +552,8 @@ def check_anatomy(config):
     Checks that data exists and is a float/int and is positive.
     Checks that there is no anatomy field missing.
     """
-    ana_dict = get_morph_data(config)
+    morph_dir, morph_fname = get_morph_path(config)
+    ana_dict = get_morph_data(os.path.join(morph_dir, morph_fname))
     left_to_check_1 = [
         "total axon length",
         "total axon volume",
@@ -552,7 +584,7 @@ def check_anatomy(config):
 
     assert ana_dict["values"]
     for item in ana_dict["values"]:
-        assert isinstance(item["value"], (float, int, np.integer))
+        assert isinstance(item["value"], (float, np.floating, int, np.integer))
         assert item["value"] > 0
 
         for l in lists_to_check:
@@ -569,7 +601,33 @@ def check_physiology(config):
     Checks that data exists and is a float and is positive (except for membrane pot.).
     Checks that there is no physiology field missing.
     """
-    phys_dict = get_physiology_data(config)
+    # get current amplitude
+    amps_path = os.path.join(
+        config.get("Paths", "protocol_amplitudes_dir"),
+        config.get("Paths", "protocol_amplitudes_file"),
+    )
+    step_number = config.getint("Protocol", "run_step_number")
+    amps, _ = load_amps(amps_path)
+    current_amplitude = amps[step_number - 1]
+
+    # get parameters from config
+    stim_start = config.getint("Protocol", "stimulus_delay")
+    stim_duration = config.getint("Protocol", "stimulus_duration")
+
+    # get data path from run.py output
+    fname = "soma_voltage_step{}.dat".format(step_number)
+    data_path = os.path.join("python_recordings", fname)
+
+    # load time, voltage
+    data = np.loadtxt(data_path)
+
+    phys_dict = get_physiology_data(
+        time=data[:, 0],
+        voltage=data[:, 1],
+        current_amplitude=current_amplitude,
+        stim_start=stim_start,
+        stim_duration=stim_duration,
+    )
     left_to_check = [
         "input resistance",
         "membrane time constant",
