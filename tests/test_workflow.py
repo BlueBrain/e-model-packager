@@ -200,18 +200,12 @@ def test_voltages(
         py_path = os.path.join(
             script_path, "python_recordings", "soma_voltage_step%d.dat" % (idx + 1)
         )
-        old_py_path = os.path.join(
-            script_path, "old_python_recordings", "soma_voltage_step%d.dat" % (idx + 1)
-        )
 
         hoc_voltage = np.loadtxt(hoc_path)
         py_voltage = np.loadtxt(py_path)
-        old_py_voltage = np.loadtxt(old_py_path)
 
         rms = np.sqrt(np.mean((hoc_voltage[:, 1] - py_voltage[:, 1]) ** 2))
-        rms_py_recs = np.sqrt(np.mean((old_py_voltage[:, 1] - py_voltage[:, 1]) ** 2))
         assert rms < threshold
-        assert rms_py_recs < threshold_py_recs
 
 
 def run_bglibpy_cell(blueconfig_path, gid, sim_time, dt=0.025):
@@ -312,19 +306,13 @@ def test_synapses_hoc_vs_py_script(
     py_path = os.path.join(
         memodel_path, "python_recordings", "soma_voltage_vecstim.dat"
     )
-    old_py_path = os.path.join(
-        memodel_path, "old_python_recordings", "soma_voltage_vecstim.dat"
-    )
 
     hoc_voltage = np.loadtxt(hoc_path)
     py_voltage = np.loadtxt(py_path)
-    old_py_voltage = np.loadtxt(old_py_path)
 
     # check rms
     rms = np.sqrt(np.mean((hoc_voltage[:, 1] - py_voltage[:, 1]) ** 2))
-    rms_py_recs = np.sqrt(np.mean((old_py_voltage[:, 1] - py_voltage[:, 1]) ** 2))
     assert rms < threshold
-    assert rms_py_recs < threshold_py_recs
 
 
 @launch_luigi(module="workflow", task="CreateFactsheets")

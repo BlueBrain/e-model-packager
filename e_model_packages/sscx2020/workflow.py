@@ -44,7 +44,6 @@ from emodelrunner.write_factsheets import (
 from luigi_tools.task import RemoveCorruptedOutputMixin
 
 sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
-from old_run import main as old_python_main
 
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
@@ -681,65 +680,6 @@ class RunPyScript(MemodelParameters):
                     subprocess.call(["sh", "./run_py.sh"])
 
 
-class RunOldPyScript(MemodelParameters):
-    """Task to run the python script for an emodel.
-
-    Attributes:
-        configfile : name of config file in /config to use when running script
-    """
-
-    configfile = luigi.Parameter(default=None)
-
-    def requires(self):
-        """Requires the hoc file to have been created."""
-        return CreateHoc(
-            mtype=self.mtype,
-            etype=self.etype,
-            region=self.region,
-            gid=self.gid,
-            gidx=self.gidx,
-            configfile=self.configfile,
-        )
-
-    def output(self):
-        """Produces the python recordings."""
-        output_list = []
-
-        workflow_output_dir = workflow_config.get("paths", "output")
-        script_path = get_output_path(
-            self.mtype, self.etype, self.region, self.gidx, workflow_output_dir
-        )
-        output_path = os.path.join(script_path, "old_python_recordings")
-
-        if self.configfile is None:
-            for idx in range(3):
-                output_list.append(
-                    luigi.LocalTarget(
-                        os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
-                    )
-                )
-
-        elif self.configfile == "config_synapses.ini":
-            output_list.append(
-                luigi.LocalTarget(os.path.join(output_path, "soma_voltage_vecstim.dat"))
-            )
-
-        return output_list
-
-    def run(self):
-        """Executes the python script."""
-        output_dir = workflow_config.get("paths", "output")
-        memodel_dir = get_output_path(
-            self.mtype, self.etype, self.region, self.gidx, output_dir
-        )
-        with cwd(memodel_dir):
-            # compile mechanisms if needed
-            if os.path.exists(os.path.join("x86_64", "special")):
-                subprocess.call(["nrnivmodl", "mechanisms"])
-            # run old_python
-            old_python_main(self.configfile)
-
-
 class CreateSystemLog(SmartTask):
     """Task to log the modules and python packages used in the execution."""
 
@@ -792,14 +732,6 @@ class DoRecordings(MemodelParameters):
                 configfile=self.configfile,
             ),
             RunPyScript(
-                mtype=self.mtype,
-                etype=self.etype,
-                region=self.region,
-                gid=self.gid,
-                gidx=self.gidx,
-                configfile=self.configfile,
-            ),
-            RunOldPyScript(
                 mtype=self.mtype,
                 etype=self.etype,
                 region=self.region,
