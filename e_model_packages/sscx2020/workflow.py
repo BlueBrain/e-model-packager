@@ -114,6 +114,11 @@ class CollectMEModels(luigi.WrapperTask):
                         mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
                     )
                 )
+                tasks.append(
+                    ApplyProtocols(
+                        mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
+                    )
+                )
         return tasks
 
 
