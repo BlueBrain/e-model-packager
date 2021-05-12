@@ -176,6 +176,7 @@ def test_voltages(
     region=get_param("region"),
     gid=int(get_param("gid")),
     gidx=int(get_param("gidx")),
+    configfile="config_multistep_short.ini",
 ):
     """Test to compare the voltages produced via python and hoc.
 
@@ -187,7 +188,6 @@ def test_voltages(
         gidx: index of cell
     """
     threshold = 1e-3
-    threshold_py_recs = 1e-8
 
     inner_folder_name = combine_names(mtype, etype, gidx)
     recording_path = os.path.join(mtype, etype, region, inner_folder_name)
@@ -322,6 +322,7 @@ def test_metype_factsheet_exists(
     region=get_param("region"),
     gid=int(get_param("gid")),
     gidx=int(get_param("gidx")),
+    configfile="config_singlestep_short.ini",
 ):
     """Check that the me-type factsheet json file has been created.
 
@@ -639,16 +640,16 @@ def test_factsheets_fcts(
     region=get_param("region"),
     gid=int(get_param("gid")),
     gidx=int(get_param("gidx")),
-    run_single_step=True,
+    configfile="config_singlestep_short.ini",
 ):
     """Test dictionary output from functions used for factsheets."""
     path_ = os.path.join("tests", "output", "memodel_dirs")
     memodel_path = os.path.join(
         path_, mtype, etype, region, "_".join([mtype, etype, str(gidx)])
     )
-    config = load_config()
 
     with cwd(memodel_path):
+        config = load_config(config_dir="config", filename=configfile)
         check_features(config)
         check_morph_name(config)
         check_mechanisms(config)

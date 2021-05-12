@@ -28,7 +28,6 @@ from e_model_packages.sscx2020.utils import (
     NpEncoder,
     cwd,
     get_output_path,
-    create_single_step_config,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
@@ -213,7 +212,7 @@ class ApplyProtocols(MemodelParameters):
 class CreateFactsheets(MemodelParameters):
     """Task to create a me-type factsheet json file."""
 
-    configfile = None
+    configfile = luigi.Parameter(default="config_singlestep.ini")
 
     def requires(self):
         """Requires the script to have been copied in the main output directory."""
@@ -223,6 +222,7 @@ class CreateFactsheets(MemodelParameters):
             region=self.region,
             gid=self.gid,
             gidx=self.gidx,
+            configfile=self.configfile,
         )
 
         return tasks
@@ -534,7 +534,7 @@ class RunHoc(MemodelParameters):
         configfile : name of config file in /config to use when creating hoc
     """
 
-    configfile = luigi.Parameter(default=None)
+    configfile = luigi.Parameter(default="config_multistep.ini")
     has_rerun_create_hoc = False
 
     def requires(self):
@@ -577,18 +577,18 @@ class RunHoc(MemodelParameters):
         )
         output_path = os.path.join(script_path, "hoc_recordings")
 
-        if self.configfile is None:
+        if self.configfile == "config_synapses.ini":
+            output_list.append(
+                luigi.LocalTarget(os.path.join(output_path, "soma_voltage_vecstim.dat"))
+            )
+
+        else:
             for idx in range(3):
                 output_list.append(
                     luigi.LocalTarget(
                         os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
                     )
                 )
-
-        elif self.configfile == "config_synapses.ini":
-            output_list.append(
-                luigi.LocalTarget(os.path.join(output_path, "soma_voltage_vecstim.dat"))
-            )
 
         return output_list
 
@@ -607,11 +607,9 @@ class RunPyScript(MemodelParameters):
 
     Attributes:
         configfile : name of config file in /config to use when running script
-        run_single_step: set to True to only run one single step protocol
     """
 
-    configfile = luigi.Parameter(default=None)
-    run_single_step = luigi.BoolParameter(default=False)
+    configfile = luigi.Parameter(default="config_multistep.ini")
 
     def requires(self):
         """Requires the output paths to be made."""
@@ -623,37 +621,41 @@ class RunPyScript(MemodelParameters):
             gidx=self.gidx,
         )
 
-    def output(self):
-        """Produces the python recordings."""
-        output_list = []
-
+    @property
+    def output_path(self):
+        """Directory containing the output."""
         workflow_output_dir = workflow_config.get("paths", "output")
         script_path = get_output_path(
             self.mtype, self.etype, self.region, self.gidx, workflow_output_dir
         )
         output_path = os.path.join(script_path, "python_recordings")
+        return output_path
 
-        if self.configfile is None:
-            if self.run_single_step:
-                output_list.append(
-                    luigi.LocalTarget(
-                        os.path.join(output_path, "soma_voltage_step1.dat")
-                    )
+    def output(self):
+        """Produces the python recordings."""
+        output_list = []
+
+        if self.configfile in ["config_singlestep.ini", "config_singlestep_short.ini"]:
+            output_list.append(
+                luigi.LocalTarget(
+                    os.path.join(self.output_path, "soma_voltage_step1.dat")
                 )
-            else:
-                for idx in range(3):
-                    output_list.append(
-                        luigi.LocalTarget(
-                            os.path.join(
-                                output_path, "soma_voltage_step%d.dat" % (idx + 1)
-                            )
-                        )
-                    )
-
+            )
         elif self.configfile == "config_synapses.ini":
             output_list.append(
-                luigi.LocalTarget(os.path.join(output_path, "soma_voltage_vecstim.dat"))
+                luigi.LocalTarget(
+                    os.path.join(self.output_path, "soma_voltage_vecstim.dat")
+                )
             )
+        else:
+            for idx in range(3):
+                output_list.append(
+                    luigi.LocalTarget(
+                        os.path.join(
+                            self.output_path, "soma_voltage_step%d.dat" % (idx + 1)
+                        )
+                    )
+                )
 
         return output_list
 
@@ -663,21 +665,12 @@ class RunPyScript(MemodelParameters):
         memodel_dir = get_output_path(
             self.mtype, self.etype, self.region, self.gidx, output_dir
         )
-        if self.run_single_step:
-            new_config = "config_single_step.ini"
-            config_dir = os.path.join(memodel_dir, "config")
-            create_single_step_config(self.configfile, new_config, config_dir)
 
-            with cwd(memodel_dir):
-                subprocess.call(["sh", "./run_py.sh", new_config])
-
-            os.remove(os.path.join(config_dir, new_config))
-        else:
-            with cwd(memodel_dir):
-                if self.configfile:
-                    subprocess.call(["sh", "./run_py.sh", self.configfile])
-                else:
-                    subprocess.call(["sh", "./run_py.sh"])
+        with cwd(memodel_dir):
+            if self.configfile:
+                subprocess.call(["sh", "./run_py.sh", self.configfile])
+            else:
+                subprocess.call(["sh", "./run_py.sh"])
 
 
 class CreateSystemLog(SmartTask):
