@@ -1,4 +1,3 @@
-if [ ! -f "x86_64/special" ]; then
-    nrnivmodl mechanisms
-fi
+./compile_mechanisms.sh
+
 nrniv run.hoc

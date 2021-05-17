@@ -93,6 +93,7 @@ def test_directory_exists(
         "run_hoc.sh",
         "LICENSE.txt",
         "run_py.sh",
+        "compile_mechanisms.sh",
         "requirements.txt",
         "cell_info.json",
         "README.md",

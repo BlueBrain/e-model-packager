@@ -1,10 +1,7 @@
 # Copyright (c) BBP/EPFL 2018; All rights reserved.                         
 # Do not distribute without further notice.   
 
-# preloaded=False not implemented yet in BluePyOpt mechanisms
-if [ ! -f "x86_64/special" ]; then
-    nrnivmodl mechanisms
-fi
+./compile_mechanisms.sh
 
 if [ $# -eq 0 ]
 then

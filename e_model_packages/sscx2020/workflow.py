@@ -32,6 +32,7 @@ from e_model_packages.sscx2020.utils import (
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
 
+from emodelrunner.run import main as run_emodel
 from emodelrunner.load import load_config, get_hoc_paths_args
 from emodelrunner.create_hoc import get_hoc, write_hocs
 from emodelrunner.write_factsheets import (
@@ -668,9 +669,11 @@ class RunPyScript(MemodelParameters):
 
         with cwd(memodel_dir):
             if self.configfile:
-                subprocess.call(["sh", "./run_py.sh", self.configfile])
+                subprocess.call(["sh", "./compile_mechanisms.sh", self.configfile])
+                run_emodel(config_file=self.configfile)
             else:
-                subprocess.call(["sh", "./run_py.sh"])
+                subprocess.call(["sh", "./compile_mechanisms.sh"])
+                run_emodel(config_file=None)
 
 
 class CreateSystemLog(SmartTask):
