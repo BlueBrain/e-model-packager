@@ -15,13 +15,14 @@ test_config.read(os.path.join("tests", "luigi_test.cfg"))
 get_param = partial(test_config.get, "params")
 
 
-@launch_luigi(module="workflow", task="ApplyProtocols")
+@launch_luigi(module="workflow", task="CreateNWB")
 def test_nwb_denormalized_dataframe_conversion(
     mtype=get_param("mtype"),
     etype=get_param("etype"),
     region=get_param("region"),
     gid=int(get_param("gid")),
     gidx=int(get_param("gidx")),
+    configfile="config_multistep_short.ini",
 ):
     """Checks if the NWB output can successfully be converted into the denormalized dataframe.
 

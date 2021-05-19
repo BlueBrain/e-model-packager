@@ -1,9 +1,9 @@
-"""Script to create an nwb file given protocols, stimuli and responses."""
+"""Script to create an nwb file given stimuli and responses."""
 
-import pickle
 import argparse
 
 from datetime import datetime
+from pathlib import Path
 from dateutil.tz import tzlocal
 
 import numpy as np
@@ -21,7 +21,7 @@ def interpolate(time, voltage, new_dt):
     return interp_time, interp_voltage
 
 
-def create_nwb(emodel_name, protocols, stimuli, responses):
+def create_nwb(emodel_name, voltage_recordings, current_recordings):
     """Creates and NWB object from the given stimuli/responses."""
     # pylint: disable=no-member, redefined-outer-name, too-many-locals
     nwbfile = ICEphysFile(
@@ -38,26 +38,22 @@ def create_nwb(emodel_name, protocols, stimuli, responses):
         device=device,
     )
 
-    sampling_period = 25e-3  # 1ms to 25 microsec
     sampling_rate = 1 / 25e-6  # for a sampling period of 25 microsec
     milivolt_volt = UnitConverter(1e-3)
     nanoamp_amp = UnitConverter(1e-9)
-    for protocol in protocols:
-        stimulus_array = stimuli[protocol].stimulus.generate(dt=sampling_period)[1]
-        voltage_array = responses[f"{protocol}.soma.v"]["voltage"].values
-        response_time = responses[f"{protocol}.soma.v"]["time"].values
+    for idx, (current, voltage) in enumerate(
+        zip(current_recordings, voltage_recordings)
+    ):
+        stimulus_array = current[:, 1]
+        voltage_array = voltage[:, 1]
 
+        protocol_name = f"step_{idx+1}"
         voltage_array = milivolt_volt.convert_array(voltage_array)
-
-        response_time, voltage_array = interpolate(
-            response_time, voltage_array, sampling_period
-        )
-
         stimulus_array = nanoamp_amp.convert_array(stimulus_array)
 
         # Create an ic-ephys stimulus
         stimulus = CurrentClampStimulusSeries(
-            name=protocol,
+            name=protocol_name,
             data=stimulus_array,
             rate=sampling_rate,
             electrode=electrode,
@@ -66,7 +62,7 @@ def create_nwb(emodel_name, protocols, stimuli, responses):
 
         # Create an ic-response
         response = CurrentClampSeries(
-            name=protocol,
+            name=protocol_name,
             data=voltage_array,
             rate=sampling_rate,
             electrode=electrode,
@@ -90,7 +86,7 @@ def create_nwb(emodel_name, protocols, stimuli, responses):
             simultaneous_recordings=[
                 sweep_index,
             ],
-            stimulus_type=protocol,
+            stimulus_type=protocol_name,
         )
 
         # (D) Add a list of sequential recordings table indices as a repetition
@@ -115,23 +111,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--emodel_name", help="name of the emodel")
     parser.add_argument(
-        "--pickle_recordings",
-        help="path to pickle containing protocols, stimuli and responses",
+        "--recordings_path",
+        help="path containing stimuli and responses",
     )
     parser.add_argument("--output_file", help="output NWB file")
     args = parser.parse_args()
 
-    with open(args.pickle_recordings, "rb") as pickle_file:
-        recordings = pickle.load(pickle_file)
+    voltage_recording_paths = sorted(
+        Path(args.recordings_path).glob("soma_voltage_*.dat")
+    )
+    current_recording_paths = sorted(
+        Path(args.recordings_path).glob("current_step*.dat")
+    )
+
+    voltage_recordings = [np.loadtxt(volt) for volt in voltage_recording_paths]
+    current_recordings = [np.loadtxt(curr) for curr in current_recording_paths]
 
     emodel_name = args.emodel_name
     output_file = args.output_file
 
-    nwb = create_nwb(
-        emodel_name,
-        recordings["protocols"],
-        recordings["stimuli"],
-        recordings["responses"],
-    )
+    nwb = create_nwb(emodel_name, voltage_recordings, current_recordings)
 
     write_nwb(nwb, output_file)

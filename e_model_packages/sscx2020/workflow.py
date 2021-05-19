@@ -13,15 +13,11 @@ import subprocess
 import sys
 from pathlib import Path
 import logging
-import pickle
 
 from tqdm import tqdm
 import pandas as pd
 
 import luigi
-
-from bluepyemodel.api import get_db
-from bluepyemodel.tools.misc_evaluators import trace_evaluation
 
 
 from e_model_packages.sscx2020.utils import (
@@ -111,19 +107,35 @@ class CollectMEModels(luigi.WrapperTask):
                 )
                 tasks.append(
                     CreateFactsheets(
-                        mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
+                        mtype=mtype,
+                        etype=etype,
+                        region=region,
+                        gid=gid,
+                        gidx=gidx,
+                        configfile="config_multistep.ini",
                     )
                 )
                 tasks.append(
-                    ApplyProtocols(
-                        mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
+                    CreateNWB(
+                        mtype=mtype,
+                        etype=etype,
+                        region=region,
+                        gid=gid,
+                        gidx=gidx,
+                        configfile="config_multistep.ini",
                     )
                 )
         return tasks
 
 
-class ApplyProtocols(MemodelParameters):
-    """Applies the protocols and saves the results in an NWB."""
+class CreateNWB(MemodelParameters):
+    """Applies the protocols and saves the results in an NWB.
+
+    Attributes:
+        configfile : name of emodel config file containing protocol info.
+    """
+
+    configfile = luigi.Parameter(default="config_multistep.ini")
 
     @property
     def emodel_name(self):
@@ -132,87 +144,42 @@ class ApplyProtocols(MemodelParameters):
         emodel = circuit.get_emodel_attributes(self.gid)
         return emodel.name
 
-    @property
-    def morph_filepath(self):
-        """Extract morph_filepath from the circuit."""
-        sim = BluepySimulation(workflow_config.get("paths", "circuit"))
-        morph_dir = sim.morph_dir
-        circuit = BluepyCircuit(workflow_config.get("paths", "circuit"))
-        cell = circuit.get_cell_attributes(self.gid)
-        morph_name = cell.morphology_fname
-        return os.path.join(morph_dir, morph_name)
-
     def requires(self):
         """Requires the output paths to be made."""
-        return PrepareMEModelDirectory(
+        return RunPyScript(
             mtype=self.mtype,
             etype=self.etype,
             region=self.region,
             gid=self.gid,
             gidx=self.gidx,
+            configfile=self.configfile,
         )
 
-    def output(self):
-        """Protocols & recordings output."""
+    @property
+    def memodel_dir(self):
+        """Directory containing the memodel."""
         output_dir = workflow_config.get("paths", "output")
         memodel_dir = get_output_path(
             self.mtype, self.etype, self.region, self.gidx, output_dir
         )
-        nwb_recordings = luigi.LocalTarget(Path(memodel_dir) / "recordings.nwb")
-        protocols = luigi.LocalTarget(Path(memodel_dir) / "protocols.json")
-        pickle_recordings = luigi.LocalTarget(Path(memodel_dir) / "recordings.pickle")
-        return {
-            "nwb_recordings": nwb_recordings,
-            "protocols_json": protocols,
-            "pickle_recordings": pickle_recordings,
-        }
+        return memodel_dir
+
+    def output(self):
+        """NWB output."""
+        return luigi.LocalTarget(Path(self.memodel_dir) / "recordings.nwb")
 
     def run(self):
         """Creates and saves the nwb containing protocol responses."""
-        protocols, stimuli, responses = self.run_protocols()
-        pickle_output = self.output()["pickle_recordings"].path
-        with open(pickle_output, "wb") as pickle_handle:
-            pickle.dump(
-                {"protocols": protocols, "stimuli": stimuli, "responses": responses},
-                pickle_handle,
-            )
-
-        with self.output()["protocols_json"].open("w") as out_file:
-            json.dump(protocols, out_file, indent=4, cls=NpEncoder)
-
         nwb_env = workflow_config.get("nwb", "env")
         nwb_script = workflow_config.get("nwb", "script")
-        nwb_output = self.output()["nwb_recordings"].path
+        nwb_output = self.output().path
+        recordings_path = Path(self.memodel_dir) / "python_recordings"
         cmd = (
             f"{nwb_env} {nwb_script} --emodel_name={self.emodel_name}"
-            f" --pickle_recordings={pickle_output} --output_file={nwb_output}"
+            f" --recordings_path={recordings_path} --output_file={nwb_output}"
         )
         cmd = cmd.split(" ")
         subprocess.run(cmd, check=True)
-
-    def run_protocols(self):
-        """Applies the protocols.
-
-        Returns:
-            protocols (dict): the dictionary containing protocol params
-            stimuli (dict): stimulus objects indexed by protocol name
-            responses (dict): response objects indexed by protocol name
-        """
-        emodel_dir = workflow_config.get("paths", "emodel_dir")
-        # pylint: disable = no-value-for-parameter
-        emodel_db = get_db(
-            "singlecell",
-            emodel_dir=emodel_dir,
-            legacy_dir_structure=True,
-        )
-
-        combo_dict = {
-            "emodel": self.emodel_name,
-            "morphology_path": self.morph_filepath,
-        }
-
-        protocols, stimuli, responses = trace_evaluation(combo_dict, emodel_db)
-        return (protocols, stimuli, responses)
 
 
 class CreateFactsheets(MemodelParameters):
@@ -265,7 +232,9 @@ class CreateFactsheets(MemodelParameters):
             write_morph_json_from_config(config, factsheets_dir)
 
         # remove extra output
-        shutil.rmtree(os.path.join(memodel_dir, "x86_64"))
+        mechanisms_compilation_dir = os.path.join(memodel_dir, "x86_64")
+        if os.path.isdir(mechanisms_compilation_dir):
+            shutil.rmtree(os.path.join(memodel_dir, "x86_64"))
 
 
 class PrepareMEModelDirectory(MemodelParameters):
