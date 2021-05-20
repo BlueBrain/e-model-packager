@@ -552,7 +552,7 @@ class RunHoc(MemodelParameters):
         )
         output_path = os.path.join(script_path, "hoc_recordings")
 
-        if self.configfile == "config_synapses.ini":
+        if self.configfile in ["config_synapses.ini", "config_synapses_short.ini"]:
             output_list.append(
                 luigi.LocalTarget(os.path.join(output_path, "soma_voltage_vecstim.dat"))
             )
@@ -616,7 +616,7 @@ class RunPyScript(MemodelParameters):
                     os.path.join(self.output_path, "soma_voltage_step1.dat")
                 )
             )
-        elif self.configfile == "config_synapses.ini":
+        elif self.configfile in ["config_synapses.ini", "config_synapses_short.ini"]:
             output_list.append(
                 luigi.LocalTarget(
                     os.path.join(self.output_path, "soma_voltage_vecstim.dat")

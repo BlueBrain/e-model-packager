@@ -45,27 +45,6 @@ test_config.read(os.path.join("tests", "luigi_test.cfg"))
 get_param = partial(test_config.get, "params")
 
 
-@pytest.fixture(scope="session")
-def prepare_test_synapses_config():
-    """Prepares a test config with synapses that uses neuron's rng."""
-    mtype = get_param("mtype")
-    etype = get_param("etype")
-    region = get_param("region")
-    gidx = int(get_param("gidx"))
-    configfile = "config_synapses.ini"
-
-    output_path = os.path.join("tests", "output")
-    memodel_path = get_output_path(mtype, etype, region, gidx, output_path)
-
-    # re-write config file to have consistent randomness accross simulations
-    config_path = os.path.join(memodel_path, "config", configfile)
-    with open(config_path, "r") as config_f:
-        config = config_f.read()
-    new_config = re.sub("vecstim_random=.*", "vecstim_random=neuron", config)
-    with open(config_path, "w") as config_f:
-        config_f.write(new_config)
-
-
 @launch_luigi(module="workflow", task="PrepareMEModelDirectory")
 def test_directory_exists(
     mtype=get_param("mtype"),
@@ -230,7 +209,6 @@ def run_bglibpy_cell(blueconfig_path, gid, sim_time, dt=0.025):
     return ssim.get_time_trace(), ssim.get_voltage_trace(gid)
 
 
-@pytest.mark.usefixtures("prepare_test_synapses_config")
 @launch_luigi(module="workflow", task="RunPyScript")
 def test_synapses(
     mtype=get_param("mtype"),
@@ -238,7 +216,7 @@ def test_synapses(
     region=get_param("region"),
     gid=int(get_param("gid")),
     gidx=int(get_param("gidx")),
-    configfile="config_synapses.ini",
+    configfile="config_synapses_short.ini",
 ):
     """Test to compare the output of cell with synapses between our run.py and bglibpy.
 
@@ -257,7 +235,7 @@ def test_synapses(
     circuit_config_path = test_config.get("paths", "circuit")
 
     # run cells from bglibpy
-    sim_time = 3000
+    sim_time = 600
     _, bg_v = run_bglibpy_cell(circuit_config_path, gid, sim_time)
 
     base_path = f"memodel_dirs/{mtype}/{etype}/{region}/{mtype}_{etype}_{gidx}"
@@ -276,7 +254,6 @@ def test_synapses(
     assert rms < threshold
 
 
-@pytest.mark.usefixtures("prepare_test_synapses_config")
 @launch_luigi(module="workflow", task="DoRecordings", reload_hoc=True)
 def test_synapses_hoc_vs_py_script(
     mtype=get_param("mtype"),
@@ -284,7 +261,7 @@ def test_synapses_hoc_vs_py_script(
     region=get_param("region"),
     gid=int(get_param("gid")),
     gidx=int(get_param("gidx")),
-    configfile="config_synapses.ini",
+    configfile="config_synapses_short.ini",
 ):
     """Test to compare the voltages produced via python and hoc.
 
