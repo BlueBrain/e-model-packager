@@ -53,6 +53,7 @@ setup(
         "luigi-tools>=0.0.6",
         "h5py",
         "glusynapseutils @ file://localhost//gpfs/bbp.cscs.ch/project/proj32/ajaquier/GluSynapseUtils/dist/glusynapseutils-0.0.1.dev0-py3-none-any.whl",
+        "efel",
     ],
     packages=find_packages(),
     python_requires=">=2.7",

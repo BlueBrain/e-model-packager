@@ -5,10 +5,16 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import configparser
+
 import luigi
+from emodelrunner.load import load_config
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.sscx2020.utils import cwd
 from e_model_packages.synaptic_plasticity.extractors import extract_all
+from e_model_packages.synaptic_plasticity.precell_configuration import (
+    get_amp_duration_spikedelay,
+)
 from e_model_packages.synaptic_plasticity.utils import get_output_path
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
@@ -44,7 +50,6 @@ class PrepareMEModelDirectory(luigi.Task):
 
         os.makedirs(os.path.join(memodel_dir, "morphology"))
         os.makedirs(os.path.join(memodel_dir, "synapses"))
-        os.makedirs(os.path.join(memodel_dir, "config"))
         os.makedirs(os.path.join(memodel_dir, "protocols"))
 
     def copy_scripts(self):
@@ -76,6 +81,15 @@ class PrepareMEModelDirectory(luigi.Task):
         output_dir = os.path.join(self.output_folder, "protocols")
         shutil.copy(spike_train_path, output_dir)
 
+    def copy_config(self):
+        """Copy python recordings config into output directory."""
+        input_dir = workflow_config.get("paths", "emodel_config_dir")
+        output_config_dir = os.path.join(self.output_folder, "config")
+        shutil.copytree(
+            input_dir,
+            output_config_dir,
+        )
+
     def copy_templates(self):
         """Copy mechanisms into output directory."""
         output_templates_dir = os.path.join(self.output_folder, "templates")
@@ -94,6 +108,9 @@ class PrepareMEModelDirectory(luigi.Task):
         # scripts
         self.copy_scripts()
 
+        # config
+        self.copy_config()
+
         # templates
         self.copy_templates()
 
@@ -104,7 +121,12 @@ class PrepareMEModelDirectory(luigi.Task):
         circuitpath = workflow_config.get("paths", "circuitpath")
         extra_recipe = workflow_config.get("paths", "extra_recipe")
         extract_all(
-            self.source_dir, self.output_folder, self.postgid, circuitpath, extra_recipe
+            self.source_dir,
+            self.output_folder,
+            self.pregid,
+            self.postgid,
+            circuitpath,
+            extra_recipe,
         )
 
         Path(self.output().path).touch()
@@ -120,9 +142,12 @@ class RunPyScript(luigi.Task):
 
     def requires(self):
         """Requires the output paths to be made."""
-        return PrepareMEModelDirectory(
-            self.layers, self.pregid, self.postgid, self.source_dir
-        )
+        return [
+            PrepareMEModelDirectory(
+                self.layers, self.pregid, self.postgid, self.source_dir
+            ),
+            PrecellConfig(self.layers, self.pregid, self.postgid, self.source_dir),
+        ]
 
     def output(self):
         """Produces the python recordings."""
@@ -145,11 +170,104 @@ class RunPyScript(luigi.Task):
             subprocess.call(["sh", "./run.sh"])
 
 
+class PrecellConfigTarget(luigi.Target):
+    """Checks that the amplitude check has not been performed yet."""
+
+    def __init__(self, layers, pregid, postgid, configfile="config_pairsim.ini"):
+        """Constructor."""
+        self.layers = layers
+        self.pregid = pregid
+        self.postgid = postgid
+        self.configfile = configfile
+
+    def exists(self):
+        """Check if the spike delay is written in the configfile."""
+        output_dir = workflow_config.get("paths", "output")
+        memodel_dir = get_output_path(
+            output_dir, self.layers, self.pregid, self.postgid
+        )
+        configfile_path = os.path.join(memodel_dir, "config", self.configfile)
+
+        if not os.path.isfile(configfile_path):
+            return False
+
+        with cwd(memodel_dir):
+            config = load_config(filename=self.configfile)
+        if not config.has_option("Protocol", "precell_amplitude"):
+            return False
+        if not config.has_option("Protocol", "precell_spikedelay"):
+            return False
+        if not config.has_option("Protocol", "precell_width"):
+            return False
+
+        return True
+
+
+class PrecellConfig(luigi.Task):
+    """Create config s.t. the precell runs as expected during repeated spikes."""
+
+    layers = luigi.Parameter()
+    pregid = luigi.IntParameter()
+    postgid = luigi.IntParameter()
+    source_dir = luigi.Parameter()
+    amp = luigi.FloatParameter(default=1.0)
+    max_step_duration = luigi.IntParameter(default=15)
+    max_amp = luigi.FloatParameter(default=8.0)
+
+    def requires(self):
+        """Requires the output paths to be made."""
+        return PrepareMEModelDirectory(
+            self.layers,
+            self.pregid,
+            self.postgid,
+            self.source_dir,
+        )
+
+    def output(self):
+        """Output."""
+        return PrecellConfigTarget(
+            layers=self.layers, pregid=self.pregid, postgid=self.postgid
+        )
+
+    def run(self):
+        """Run cell and record spike delay."""
+        output_dir = workflow_config.get("paths", "output")
+        memodel_dir = get_output_path(
+            output_dir, self.layers, self.pregid, self.postgid
+        )
+
+        burst_freq = int(Path(self.source_dir).name.split("Hz")[0])
+        # special case, fire only once
+        if burst_freq == 0:
+            burst_interval = 5000
+        else:
+            burst_interval = 1000.0 / burst_freq
+
+        step_duration, amp, spikedelay = get_amp_duration_spikedelay(
+            memodel_dir,
+            amp=self.amp,
+            max_step_duration=self.max_step_duration,
+            burst_interval=burst_interval,
+            max_amp=self.max_amp,
+        )
+
+        # write spike delay
+        new_config = configparser.ConfigParser()
+        new_config["Protocol"] = {}
+        new_config["Protocol"]["precell_width"] = str(step_duration)
+        new_config["Protocol"]["precell_amplitude"] = str(amp)
+        new_config["Protocol"]["precell_spikedelay"] = str(spikedelay)
+
+        configfile_path = os.path.join(memodel_dir, "config", "config_pairsim.ini")
+        with open(configfile_path, "w") as configfile:
+            new_config.write(configfile)
+
+
 class RunWorkflow(luigi.WrapperTask):
     """Task to extract all cells."""
 
     def requires(self):
-        """Call PrepareMEModelDirectory for each cell."""
+        """Create MEModelDirectory for each cell."""
         args = {}
 
         index_dir = workflow_config.get("paths", "index")
@@ -163,7 +281,7 @@ class RunWorkflow(luigi.WrapperTask):
                 reader = csv.DictReader(csvfile)
                 for row in reader:
                     source_dir = os.path.dirname(row["path"])
-                    key = "_".join((layer, str(row["pregid"], str(row["postgid"]))))
+                    key = "_".join((layer, str(row["pregid"]), str(row["postgid"])))
                     if key not in args:
                         args[key] = (
                             layer,
@@ -172,6 +290,10 @@ class RunWorkflow(luigi.WrapperTask):
                             source_dir,
                         )
 
-        tasks = [PrepareMEModelDirectory(*arg) for _, arg in args.items()]
+        tasks = [
+            f(*arg)
+            for _, arg in args.items()
+            for f in (PrecellConfig, PrepareMEModelDirectory)
+        ]
 
         return tasks

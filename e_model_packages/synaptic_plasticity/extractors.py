@@ -282,7 +282,7 @@ def get_blueconfig_dict(bcpath):
     return bc.to_dict()
 
 
-def extract_all(basedir, output_dir, postgid, circuitpath, extra_recipe):
+def extract_all(basedir, output_dir, pregid, postgid, circuitpath, extra_recipe):
     """Extract everything."""
     bcpath = os.path.join(basedir, "BlueConfig")
 
@@ -323,3 +323,17 @@ def extract_all(basedir, output_dir, postgid, circuitpath, extra_recipe):
     extract_cpre_and_cpost(output_dir, basedir, fit_params, invivo)
     extract_synprop(output_dir, basedir)
     extract_protocols(output_dir, bc_dict)
+
+    # extract precell
+    extract_morph_data(output_dir, circuit, simulation, pregid)
+    extract_constants(
+        output_dir,
+        circuit,
+        pregid,
+        bc_dict,
+        fastforward=fastforward,
+        invivo=invivo,
+        fit_params=fit_params,
+        default_synrec=default_synrec,
+        out_file="constants_precell.json",
+    )

@@ -4,8 +4,6 @@ import os
 from functools import wraps
 from inspect import signature
 
-import luigi
-
 from e_model_packages.sscx2020.utils import get_output_path
 from e_model_packages.synaptic_plasticity.utils import (
     get_output_path as synaptic_plasticity_output_path,
