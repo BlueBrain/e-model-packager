@@ -27,3 +27,9 @@ This should be as easy as:
     sh run_pairsim.sh
 
 Once the simulation is done, the output is stored as output.h5. If the precell has been simulated too, its output is stored as output_precell.h5.
+
+## Funding & Acknowledgment
+
+The development of this software was supported by funding to the Blue Brain Project, a research center of the École polytechnique fédérale de Lausanne (EPFL), from the Swiss government’s ETH Board of the Swiss Federal Institutes of Technology.
+
+Copyright (c) BBP/EPFL 2021. This work is licenced under Creative Common CC BY-NC-SA-4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)

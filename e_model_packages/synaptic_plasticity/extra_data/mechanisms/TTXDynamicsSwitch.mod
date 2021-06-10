@@ -2,6 +2,7 @@
 : Outside TTX concentration level stays fixed at ttxo_level, which can be
 : set as a range variable
 : Implemented by Werner Van Geit @ BlueBrain Project, Jan 2015
+: Copyright (c) BBP/EPFL 2005-2021. This work is licenced under Creative Common CC BY-NC-SA-4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 NEURON	{
 	SUFFIX TTXDynamicsSwitch

@@ -4,7 +4,7 @@ COMMENT
  * @brief
  * @author king, muller, reimann, ramaswamy
  * @date 2011-08-17
- * @remark Copyright © BBP/EPFL 2005-2011; All rights reserved. Do not distribute without further notice.
+ * @remark Copyright (c) BBP/EPFL 2005-2021. This work is licenced under Creative Common CC BY-NC-SA-4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)
  */
 ENDCOMMENT
 

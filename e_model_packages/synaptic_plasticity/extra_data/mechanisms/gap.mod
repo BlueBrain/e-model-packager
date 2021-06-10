@@ -1,3 +1,9 @@
+COMMENT
+/**
+ * @remark Copyright (c) BBP/EPFL 2005-2021. This work is licenced under Creative Common CC BY-NC-SA-4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)
+ */
+ENDCOMMENT
+
 NEURON {
 POINT_PROCESS Gap
 RANGE vgap

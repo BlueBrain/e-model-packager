@@ -5,8 +5,7 @@ COMMENT
  * @author king, chindemi, rossert
  * @date 2019-09-20
  * @version 1.0.0
- * @remark Copyright BBP/EPFL 2005-2019; All rights reserved.
-           Do not distribute without further notice.
+ * @remark Copyright (c) BBP/EPFL 2005-2021. This work is licenced under Creative Common CC BY-NC-SA-4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)
  */
  Glutamatergic synapse model featuring:
 1) AMPA receptor with a dual-exponential conductance profile.

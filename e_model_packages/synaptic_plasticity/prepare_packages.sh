@@ -1,7 +1,7 @@
 CURRENT_DIR=$PWD
 export PYTHONPATH=${PYTHONPATH}:$CURRENT_DIR:$CURRENT_DIR/e_model_packages/synaptic_plasticity
 
-MY_PATH=~/new-e-model-packages/e-model-packages/e_model_packages/synaptic_plasticity/myenv-new/
+MY_PATH=/gpfs/bbp.cscs.ch/project/proj32/ajaquier/myenv37-glusyn
 
 BGLIBPY_MOD_LIBRARY_PATH=$MY_PATH/.neurodamus/local/x86_64/.libs/libnrnmech.so
 export BGLIBPY_MOD_LIBRARY_PATH
