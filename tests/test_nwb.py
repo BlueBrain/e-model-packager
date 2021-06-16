@@ -35,7 +35,8 @@ def test_nwb_denormalized_dataframe_conversion(
     """
     output_path = os.path.join("tests", "output")
     memodel_path = get_output_path(mtype, etype, region, gidx, output_path)
-    nwb_path = os.path.join(memodel_path, "recordings.nwb")
+    nwb_file_name = f"{region}_{mtype}_{etype}_{gidx}.nwb"
+    nwb_path = os.path.join(memodel_path, nwb_file_name)
 
     with NWBHDF5IO(nwb_path, "r") as io:
         nwbfile = io.read()

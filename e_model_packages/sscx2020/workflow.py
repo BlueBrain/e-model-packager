@@ -165,7 +165,8 @@ class CreateNWB(MemodelParameters):
 
     def output(self):
         """NWB output."""
-        return luigi.LocalTarget(Path(self.memodel_dir) / "recordings.nwb")
+        file_name = f"{self.region}_{self.mtype}_{self.etype}_{self.gidx}.nwb"
+        return luigi.LocalTarget(Path(self.memodel_dir) / file_name)
 
     def run(self):
         """Creates and saves the nwb containing protocol responses."""
