@@ -15,7 +15,8 @@ def read_simulation(blueconfig_path):
     Returns:
         Object: Bluepy's Simulation object.
     """
-    blue_config = BlueConfig(open(blueconfig_path))
+    with open(blueconfig_path, "r") as blueconfig_handle:
+        blue_config = BlueConfig(blueconfig_handle)
     return blue_config
 
 

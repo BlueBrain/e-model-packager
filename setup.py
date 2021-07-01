@@ -49,7 +49,7 @@ setup(
         "pandas",
         "pynwb",
         "ndx-icephys-meta @ git+https://git@github.com/oruebel/ndx-icephys-meta.git@2bd06bd152901ae5853253358d7efc66714f9a22",
-        "EModelRunner>=0.0.4",
+        "EModelRunner>=0.0.16",
         "luigi-tools>=0.0.6",
         "h5py",
         "glusynapseutils @ file://localhost//gpfs/bbp.cscs.ch/project/proj32/ajaquier/GluSynapseUtils/dist/glusynapseutils-0.0.1.dev0-py3-none-any.whl",

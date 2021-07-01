@@ -298,6 +298,6 @@ def test_metype_factsheet_exists(
     metype_factsheet = os.path.join(
         memodel_path, "factsheets", "me_type_factsheet.json"
     )
-    etype_factsheet = os.path.join(memodel_path, "factsheets", "e_type_factsheet.json")
+    etype_factsheet = os.path.join(memodel_path, "factsheets", "e_model_factsheet.json")
     assert os.path.isfile(metype_factsheet)
     assert os.path.isfile(etype_factsheet)

@@ -278,7 +278,8 @@ def get_fit_params(basedir):
 def get_blueconfig_dict(bcpath):
     """Get BlueConfig configuration data as a dict."""
     bc = BlueConfigFile()
-    bc.parse(open(bcpath))
+    with open(bcpath) as blueconfig_handle:
+        bc.parse(blueconfig_handle)
     return bc.to_dict()
 
 

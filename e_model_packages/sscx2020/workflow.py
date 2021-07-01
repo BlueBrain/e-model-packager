@@ -33,7 +33,7 @@ from emodelrunner.load import load_config, get_hoc_paths_args
 from emodelrunner.create_hoc import get_hoc, write_hocs
 from emodelrunner.write_factsheets import (
     write_metype_json_from_config,
-    write_etype_json_from_config,
+    write_emodel_json_from_config,
 )
 
 from luigi_tools.task import RemoveCorruptedOutputMixin
@@ -209,7 +209,7 @@ class CreateFactsheets(MemodelParameters):
         targets = []
         for fname in [
             "me_type_factsheeet.json",
-            "e_type_factsheeet.json",
+            "e_model_factsheeet.json",
             "morphology_factsheeet.json",
         ]:
             targets.append(
@@ -228,7 +228,7 @@ class CreateFactsheets(MemodelParameters):
         with cwd(memodel_dir):
             config = load_config(filename=self.configfile)
             write_metype_json_from_config(config, factsheets_dir)
-            write_etype_json_from_config(config, factsheets_dir)
+            write_emodel_json_from_config(config, factsheets_dir)
 
         # remove extra output
         mechanisms_compilation_dir = os.path.join(memodel_dir, "x86_64")
