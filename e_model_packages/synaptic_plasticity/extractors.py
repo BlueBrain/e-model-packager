@@ -1,4 +1,5 @@
 """Functions to extract data needed for the glusynapse package."""
+import configparser
 import json
 import logging
 import shutil
@@ -35,12 +36,14 @@ def extract_morph_data(
     shutil.copyfile(src, dst)
 
 
-def extract_constants(
+def extract_config(
     output_dir,
     circuit,
     postgid,
+    pregid,
     bc_dict,
-    out_file="constants.json",
+    out_file="config_pairsim.ini",
+    out_fit_params_file="fit_params.json",
     out_const_dir="config",
     celsius=34,
     v_init=-65,
@@ -49,7 +52,7 @@ def extract_constants(
     fit_params=None,
     default_synrec=None,
 ):
-    """Extract constants."""
+    """Extract and write config and fit_params."""
     # pylint: disable=too-many-arguments, too-many-locals
     # get base_seed, dt and duration from BlueConfig
     base_seed = bc_dict["Run"]["Default"]["BaseSeed"]
@@ -59,25 +62,42 @@ def extract_constants(
     # get constants
     cell = circuit.get_cell_attributes(postgid)
     cell_emodel = circuit.get_emodel_attributes(postgid)
-    constants = {
-        "celsius": celsius,
-        "v_init": v_init,
-        "morph_fname": cell.morphology_fname,
+    precell = circuit.get_cell_attributes(pregid)
+    precell_emodel = circuit.get_emodel_attributes(pregid)
+
+    config = configparser.ConfigParser()
+    config["Cell"] = {
+        "celsius": str(celsius),
+        "v_init": str(v_init),
         "emodel": cell_emodel.name,
-        "gid": int(postgid),
-        "fastforward": fastforward,
-        "invivo": invivo,
-        "fit_params": fit_params,
-        "base_seed": base_seed,
-        "dt": dt,
-        "tstop": tstop,
-        "synrec": default_synrec,
+        "precell_emodel": precell_emodel.name,
+        "gid": str(int(postgid)),
+        "precell_gid": str(int(pregid)),
+    }
+    config["Sim"] = {"dt": str(dt)}
+    config["Paths"] = {
+        "morph_file": cell.morphology_fname,
+        "precell_morph_file": precell.morphology_fname,
+    }
+    config["Protocol"] = {"tstop": tstop, "precell_amplitude": "1.0"}
+    config["SynapsePlasticity"] = {
+        "fastforward": str(fastforward),
+        "invivo": str(invivo).lower(),
+        "base_seed": str(base_seed),
+        "synrec": json.dumps(default_synrec),
     }
 
-    # write constants
-    output_path = os.path.join(output_dir, out_const_dir, out_file)
-    with open(output_path, "w") as f:
-        json.dump(constants, f)
+    # write fit_params
+    fit_params_output_path = os.path.join(
+        output_dir, out_const_dir, out_fit_params_file
+    )
+    with open(fit_params_output_path, "w") as f:
+        json.dump(fit_params, f)
+
+    # write config file
+    config_output_path = os.path.join(output_dir, out_const_dir, out_file)
+    with open(config_output_path, "w") as configfile:
+        config.write(configfile)
 
 
 # adapted from glusynapseutils.simulator._runconnectedpair_process
@@ -309,16 +329,6 @@ def extract_all(basedir, output_dir, pregid, postgid, circuitpath, extra_recipe)
 
     # extract
     extract_morph_data(output_dir, circuit, simulation, postgid)
-    extract_constants(
-        output_dir,
-        circuit,
-        postgid,
-        bc_dict,
-        fastforward=fastforward,
-        invivo=invivo,
-        fit_params=fit_params,
-        default_synrec=default_synrec,
-    )
     extract_synapses_data(output_dir, bcpath)
     extract_syn_extra_params(output_dir, ssim, circuitpath, extra_recipe, basedir)
     extract_cpre_and_cpost(output_dir, basedir, fit_params, invivo)
@@ -327,14 +337,15 @@ def extract_all(basedir, output_dir, pregid, postgid, circuitpath, extra_recipe)
 
     # extract precell
     extract_morph_data(output_dir, circuit, simulation, pregid)
-    extract_constants(
+
+    extract_config(
         output_dir,
         circuit,
+        postgid,
         pregid,
         bc_dict,
         fastforward=fastforward,
         invivo=invivo,
         fit_params=fit_params,
         default_synrec=default_synrec,
-        out_file="constants_precell.json",
     )

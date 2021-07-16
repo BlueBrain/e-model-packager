@@ -1,11 +1,9 @@
 """Configure the pre-synaptic cell's protocols."""
-import os
-
-import json
 
 import efel
 from bluepyopt import ephys
 from emodelrunner.load import get_release_params
+from emodelrunner.load import load_config
 from emodelrunner.create_cells import get_precell
 from e_model_packages.sscx2020.utils import cwd
 
@@ -55,29 +53,23 @@ def run_precell(
     """Run precell (to be run in the memodel repo)."""
     cvode_active = True
 
-    constants_precell_path = os.path.join("config", "constants_precell.json")
-    with open(constants_precell_path, "r") as f:
-        constants_precell = json.load(f)
+    config = load_config(filename="config_pairsim.ini")
 
     # load cell
     precell = get_precell(
-        emodel=constants_precell["emodel"],
-        morph_fname=constants_precell["morph_fname"],
-        morph_dir="morphology",
-        gid=constants_precell["gid"],
-        v_init=constants_precell["v_init"],
+        config,
         fixhp=fixhp,
     )
 
     # simulator
     sim = ephys.simulators.NrnSimulator(
-        dt=constants_precell["dt"], cvode_active=cvode_active
+        dt=config.getfloat("Sim", "dt"), cvode_active=cvode_active
     )
     # set dynamic timestep tolerance
     sim.neuron.h.cvode.atolscale("v", 0.1)
 
     # parameters
-    pre_release_params = get_release_params(constants_precell["emodel"])
+    pre_release_params = get_release_params(config.get("Cell", "emodel"))
 
     # protocol
     protocol = get_protocol(

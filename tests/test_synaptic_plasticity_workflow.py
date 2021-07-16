@@ -42,7 +42,6 @@ def test_directory_exists(memodel_dir=None):
     ]
 
     config_files = [
-        "constants.json",
         "config_pairsim.ini",
     ]
 

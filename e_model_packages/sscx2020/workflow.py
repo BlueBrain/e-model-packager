@@ -3,6 +3,7 @@
 # pylint: disable=wrong-import-order
 # pylint: disable=import-error
 
+import configparser
 import json
 import os
 
@@ -337,14 +338,8 @@ class PrepareMEModelDirectory(MemodelParameters):
             script_path = os.path.join(scripts_dir, script_files)
             shutil.copy(script_path, self.output_folder)
 
-    def fill_in_templates(
-        self,
-        threshold,
-        holding,
-        emodel,
-        morph_fname,
-    ):
-        """Fill in and write constants.json & current_amp.json templates.
+    def fill_in_emodel_config(self, threshold, holding, emodel, morph_fname):
+        """Fill in emodel config.
 
         Args:
         threshold(float): threshold current.
@@ -352,35 +347,39 @@ class PrepareMEModelDirectory(MemodelParameters):
         emodel(str): emodel name.
         morph_fname(str): morphology filename.
         """
-        output_dir = "config"
+        output_config_dir = os.path.join(self.output_folder, "config")
 
-        # current amps
-        current_amps = {
-            "holding": holding,
-            "amps": [1.50 * threshold, 2.00 * threshold, 2.50 * threshold],
-        }
+        for file_ in os.scandir(output_config_dir):
+            if file_.is_file() and file_.path.split(".")[-1] == "ini":
+                new_config = configparser.ConfigParser()
+                new_config.read(file_.path)
 
-        currents_amp_path = os.path.join(
-            self.output_folder, output_dir, "current_amps.json"
-        )
-        with open(currents_amp_path, "w") as out_file:
-            json.dump(current_amps, out_file, indent=4, cls=NpEncoder)
+                if "Protocol" not in new_config:
+                    new_config["Protocol"] = {}
+                new_config["Protocol"]["hold_amp"] = str(holding)
+                new_config["Protocol"]["stimulus_amp1"] = str(1.50 * threshold)
+                new_config["Protocol"]["stimulus_amp2"] = str(2.00 * threshold)
+                new_config["Protocol"]["stimulus_amp3"] = str(2.50 * threshold)
 
-        # constants
-        constants = {
-            "celsius": 34,
-            "v_init": -80,
-            "tstop": 3000,
-            "dt": 0.025,
-            "template_name": emodel,
-            "gid": self.gid,
-            "morph_dir": "morphology",
-            "morph_fname": morph_fname,
-        }
+                if "Cell" not in new_config:
+                    new_config["Cell"] = {}
+                new_config["Cell"]["celsius"] = "34"
+                new_config["Cell"]["v_init"] = "-80"
+                new_config["Cell"]["emodel"] = emodel
+                new_config["Cell"]["gid"] = str(self.gid)
 
-        constants_path = os.path.join(self.output_folder, output_dir, "constants.json")
-        with open(constants_path, "w") as out_file:
-            json.dump(constants, out_file, indent=4, cls=NpEncoder)
+                if "Sim" not in new_config:
+                    new_config["Sim"] = {}
+                new_config["Sim"]["dt"] = "0.025"
+
+                if "Paths" not in new_config:
+                    new_config["Paths"] = {}
+                new_config["Paths"]["morph_dir"] = "morphology"
+                new_config["Paths"]["morph_file"] = morph_fname
+
+                # write config file
+                with open(file_.path, "w") as configfile:
+                    new_config.write(configfile)
 
     def run(self):
         """Create me-model directories."""
@@ -434,8 +433,8 @@ class PrepareMEModelDirectory(MemodelParameters):
 
         cell_emodel = circuit.get_emodel_attributes(self.gid)
 
-        # templates to be filled
-        self.fill_in_templates(
+        # config to be filled
+        self.fill_in_emodel_config(
             cell_emodel.threshold_current,
             cell_emodel.holding_current,
             cell_emodel.name,

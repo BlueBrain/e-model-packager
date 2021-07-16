@@ -51,6 +51,7 @@ class PrepareMEModelDirectory(luigi.Task):
         os.makedirs(os.path.join(memodel_dir, "morphology"))
         os.makedirs(os.path.join(memodel_dir, "synapses"))
         os.makedirs(os.path.join(memodel_dir, "protocols"))
+        os.makedirs(os.path.join(memodel_dir, "config"))
 
     def copy_scripts(self):
         """Copy scripts."""
@@ -81,15 +82,6 @@ class PrepareMEModelDirectory(luigi.Task):
         output_dir = os.path.join(self.output_folder, "protocols")
         shutil.copy(spike_train_path, output_dir)
 
-    def copy_config(self):
-        """Copy python recordings config into output directory."""
-        input_dir = workflow_config.get("paths", "emodel_config_dir")
-        output_config_dir = os.path.join(self.output_folder, "config")
-        shutil.copytree(
-            input_dir,
-            output_config_dir,
-        )
-
     def copy_templates(self):
         """Copy mechanisms into output directory."""
         output_templates_dir = os.path.join(self.output_folder, "templates")
@@ -107,9 +99,6 @@ class PrepareMEModelDirectory(luigi.Task):
 
         # scripts
         self.copy_scripts()
-
-        # config
-        self.copy_config()
 
         # templates
         self.copy_templates()
@@ -252,13 +241,14 @@ class PrecellConfig(luigi.Task):
         )
 
         # write spike delay
+        configfile_path = os.path.join(memodel_dir, "config", "config_pairsim.ini")
         new_config = configparser.ConfigParser()
-        new_config["Protocol"] = {}
+        # do not use load_config in order to not load the default values
+        new_config.read(configfile_path)
         new_config["Protocol"]["precell_width"] = str(step_duration)
         new_config["Protocol"]["precell_amplitude"] = str(amp)
         new_config["Protocol"]["precell_spikedelay"] = str(spikedelay)
 
-        configfile_path = os.path.join(memodel_dir, "config", "config_pairsim.ini")
         with open(configfile_path, "w") as configfile:
             new_config.write(configfile)
 

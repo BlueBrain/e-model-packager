@@ -84,9 +84,12 @@ def test_directory_exists(
     ]
 
     config_files = [
+        "config_multistep.ini",
+        "config_multistep_short.ini",
+        "config_singlestep.ini",
+        "config_singlestep_short.ini",
         "config_synapses.ini",
-        "constants.json",
-        "current_amps.json",
+        "config_synapses_short.ini",
     ]
 
     synapses = ["synapses.tsv", "synconf.txt"]
@@ -252,7 +255,6 @@ def test_synapses_hoc_vs_py_script(
         configfile : name of config file in /config to use when running script / creating hoc
     """
     threshold = 0.1
-    threshold_py_recs = 0.1
 
     output_path = os.path.join("tests", "output")
     memodel_path = get_output_path(mtype, etype, region, gidx, output_path)
@@ -280,7 +282,7 @@ def test_metype_factsheet_exists(
     gidx=int(get_param("gidx")),
     configfile="config_singlestep_short.ini",
 ):
-    """Check that the me-type factsheet json file has been created.
+    """Check that the me-type and the emodel factsheets have been created.
 
     Attributes:
         mtype: morphological type
