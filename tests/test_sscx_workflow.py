@@ -4,9 +4,7 @@
 # pylint: disable=import-error
 import configparser
 import os
-import re
 import numpy as np
-import pytest
 from functools import partial
 
 import bglibpy
@@ -14,7 +12,6 @@ from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
     get_output_path,
     combine_names,
-    cwd,
 )
 from e_model_packages.circuit import BluepyCircuit
 
