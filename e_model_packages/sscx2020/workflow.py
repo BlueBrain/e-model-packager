@@ -102,7 +102,12 @@ class CollectMEModels(luigi.WrapperTask):
                 gidx = idx + 1
                 tasks.append(
                     CreateHoc(
-                        mtype=mtype, etype=etype, region=region, gid=gid, gidx=gidx
+                        mtype=mtype,
+                        etype=etype,
+                        region=region,
+                        gid=gid,
+                        gidx=gidx,
+                        configfile="config_multistep.ini",
                     )
                 )
                 tasks.append(
