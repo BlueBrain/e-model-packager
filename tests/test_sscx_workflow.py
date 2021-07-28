@@ -7,6 +7,7 @@ import os
 import numpy as np
 from functools import partial
 
+import json
 import bglibpy
 from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
@@ -87,12 +88,29 @@ def test_directory_exists(
         "config_singlestep_short.ini",
         "config_synapses.ini",
         "config_synapses_short.ini",
+        "recipes/recipes.json",
+        "params/final.json",
+        "features/units.json",
     ]
 
     synapses = ["synapses.tsv", "synconf.txt"]
 
+    path_ = os.path.join("tests", "output", "memodel_dirs")
+    memodel_path = os.path.join(
+        path_, mtype, etype, region, "_".join([mtype, etype, str(gidx)])
+    )
+
     for item in config_files:
         memodel_files_to_be_checked.append(os.path.join("config", item))
+
+    recipes_path = os.path.join(memodel_path, "config", "recipes", "recipes.json")
+    assert os.path.isfile(recipes_path)
+    with open(recipes_path, "r") as recipes_file:
+        recipes = json.load(recipes_file)
+
+    for _, recipe in recipes.items():
+        memodel_files_to_be_checked.append(recipe["params"])
+        memodel_files_to_be_checked.append(recipe["features"])
 
     for item in templates:
         memodel_files_to_be_checked.append(os.path.join("templates", item))
@@ -108,11 +126,6 @@ def test_directory_exists(
     cell = circuit.get_cell_attributes(gid)
     memodel_files_to_be_checked.append(
         os.path.join("morphology", f"{cell.morphology}.asc")
-    )
-
-    path_ = os.path.join("tests", "output", "memodel_dirs")
-    memodel_path = os.path.join(
-        path_, mtype, etype, region, "_".join([mtype, etype, str(gidx)])
     )
 
     for item in memodel_files_to_be_checked:

@@ -1,0 +1,20 @@
+# 2012 release compositions
+
+cADpyr_L5PC,                    C060114A7.asc, L5CSPC
+cADpyr_L4PC,                    C310897A-P4.asc
+cADpyr_L6UTPC,                  tkb060924b2_ch5_cc2_n_og_100x_1.asc
+cADpyr_L23PC,                   C140300B-P1.asc
+
+bAC,                            C210401C.asc,   L3BTC
+bIR = bAC + noise,              C210401C.asc,   L3BTC
+
+bNAC,                           C010600C1.asc,  L2SBC
+bSTUT = bNAC + noise,           C010600C1.asc,  L2SBC
+
+cACint,                         C100501A3.asc,  L23MC
+cSTUT = cACint + noise,         C100501A3.asc,  L23MC
+
+cNAC,                           C010600C1.asc,  L2SBC
+cIR = cNAC + noise,             C010600C1.asc,  L2SBC
+dNAC = cNAC + delay,            C010600C1.asc,  L2SBC
+dSTUT = cNAC + delay + noise,   C010600C1.asc,  L2SBC

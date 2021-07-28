@@ -53,7 +53,7 @@ def run_precell(
     """Run precell (to be run in the memodel repo)."""
     cvode_active = True
 
-    config = load_config(filename="config_pairsim.ini")
+    config = load_config(config_path="config/config_pairsim.ini")
 
     # load cell
     precell = get_precell(
@@ -69,7 +69,7 @@ def run_precell(
     sim.neuron.h.cvode.atolscale("v", 0.1)
 
     # parameters
-    pre_release_params = get_release_params(config.get("Cell", "emodel"))
+    pre_release_params = get_release_params(config, precell=True)
 
     # protocol
     protocol = get_protocol(

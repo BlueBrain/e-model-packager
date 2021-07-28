@@ -30,11 +30,11 @@ from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
 
 from emodelrunner.run import main as run_emodel
-from emodelrunner.load import load_config, get_hoc_paths_args
+from emodelrunner.load import find_param_file, load_config, get_hoc_paths_args
 from emodelrunner.create_hoc import get_hoc, write_hocs
-from emodelrunner.write_factsheets import (
+from emodelrunner.factsheets.output import (
     write_metype_json_from_config,
-    write_emodel_json_from_config,
+    write_emodel_json,
 )
 
 from luigi_tools.task import RemoveCorruptedOutputMixin
@@ -212,15 +212,14 @@ class CreateFactsheets(MemodelParameters):
         memodel_dir = get_output_path(
             self.mtype, self.etype, self.region, self.gidx, output_dir
         )
-        targets = []
-        for fname in [
-            "me_type_factsheeet.json",
-            "e_model_factsheeet.json",
-            "morphology_factsheeet.json",
-        ]:
-            targets.append(
-                luigi.LocalTarget(os.path.join(memodel_dir, "factsheets", fname))
+        targets = {}
+        keys = ["metype", "emodel"]
+        factsheet_names = ["me_type_factsheeet.json", "e_model_factsheeet.json"]
+        for key, factsheet_name in zip(keys, factsheet_names):
+            targets[key] = luigi.LocalTarget(
+                os.path.join(memodel_dir, "factsheets", factsheet_name)
             )
+
         return targets
 
     def run(self):
@@ -229,12 +228,56 @@ class CreateFactsheets(MemodelParameters):
         memodel_dir = get_output_path(
             self.mtype, self.etype, self.region, self.gidx, output_dir
         )
-
         factsheets_dir = "factsheets"
+
         with cwd(memodel_dir):
-            config = load_config(filename=self.configfile)
-            write_metype_json_from_config(config, factsheets_dir)
-            write_emodel_json_from_config(config, factsheets_dir)
+            config = load_config(config_path=os.path.join("config", self.configfile))
+            # get data path from run.py output
+            step_number = config.getint("Protocol", "run_step_number")
+            voltage_fname = "soma_voltage_step{}.dat".format(step_number)
+            voltage_fpath = os.path.join("python_recordings", voltage_fname)
+            morph_dir = config.get("Paths", "morph_dir")
+            morph_fname = config.get("Paths", "morph_file")
+            morph_path = os.path.join(morph_dir, morph_fname)
+            metype_output_path = os.path.join(factsheets_dir, "me_type_factsheet.json")
+
+            write_metype_json_from_config(
+                config, voltage_fpath, morph_path, metype_output_path
+            )
+
+            emodel = config.get("Cell", "emodel")
+
+            recipes_path = config.get("Paths", "recipes_path")
+            with open(recipes_path, "r") as recipes_file:
+                recipes_dict = json.load(recipes_file)
+
+            features_path = recipes_dict[emodel]["features"]
+            with open(features_path, "r") as features_file:
+                features_dict = json.load(features_file)
+
+            units_path = config.get("Paths", "units_path")
+            with open(units_path, "r") as units_file:
+                feature_units_dict = json.load(units_file)
+
+            unoptimized_params_path = find_param_file(recipes_path, emodel)
+            with open(unoptimized_params_path, "r") as unoptimized_params_file:
+                unoptimized_params_dict = json.load(unoptimized_params_file)
+
+            optimized_params_path = config.get("Paths", "params_path")
+            with open(optimized_params_path, "r") as optimized_params_file:
+                optimized_params_dict = json.load(optimized_params_file)
+
+            emodel_output_path = os.path.join(factsheets_dir, "e_model_factsheet.json")
+
+            write_emodel_json(
+                emodel,
+                recipes_dict,
+                features_dict,
+                feature_units_dict,
+                unoptimized_params_dict,
+                optimized_params_dict,
+                emodel_output_path,
+            )
 
         # remove extra output
         mechanisms_compilation_dir = os.path.join(memodel_dir, "x86_64")
@@ -274,6 +317,10 @@ class PrepareMEModelDirectory(MemodelParameters):
         os.makedirs(memodel_morph_dir)
         os.makedirs(os.path.join(memodel_dir, "hoc_recordings"))
         os.makedirs(os.path.join(memodel_dir, "python_recordings"))
+        os.makedirs(os.path.join(memodel_dir, "config"))
+        os.makedirs(os.path.join(memodel_dir, "config", "features"))
+        os.makedirs(os.path.join(memodel_dir, "config", "params"))
+        os.makedirs(os.path.join(memodel_dir, "config", "recipes"))
 
     def write_cell_info(self, morphology, layer, output_dir):
         """Create cell_info.json file and write it."""
@@ -304,14 +351,56 @@ class PrepareMEModelDirectory(MemodelParameters):
         shutil.copy(morph_path, memodel_morph_dir)
 
     @staticmethod
-    def copy_config(output_dir):
+    def copy_config_data(input_dir, output_dir, emodel):
+        """Copy params, features and recipes from config."""
+        # recipes
+        with open(Path(input_dir) / "recipes" / "recipes.json", "r") as recipes_file:
+            recipe = json.load(recipes_file)[emodel]
+        params_path = recipe["params"]
+        features_path = recipe["features"]
+
+        recipe_out = {emodel: recipe}
+        recipes_out_path = Path(output_dir) / "config" / "recipes" / "recipes.json"
+        with open(recipes_out_path, "w") as recipes_out_file:
+            json.dump(recipe_out, recipes_out_file)
+
+        # unoptimized params
+        input_params_path = Path(input_dir).parent / params_path
+        output_params_path = Path(output_dir) / params_path
+        shutil.copy(input_params_path, output_params_path)
+
+        # features
+        input_features_path = Path(input_dir).parent / features_path
+        output_features_path = Path(output_dir) / features_path
+        shutil.copy(input_features_path, output_features_path)
+
+        # units
+        input_units_path = Path(input_dir) / "features" / "units.json"
+        output_units_path = Path(output_dir) / "config" / "features" / "units.json"
+        shutil.copy(input_units_path, output_units_path)
+
+        # optimized params
+        with open(Path(input_dir) / "params" / "final.json", "r") as final_file:
+            final = json.load(final_file)[emodel]
+
+        final_out = {emodel: final}
+        final_out_path = Path(output_dir) / "config" / "params" / "final.json"
+        with open(final_out_path, "w") as final_out_file:
+            json.dump(final_out, final_out_file)
+
+    def copy_config(self, output_dir, emodel):
         """Copy python recordings config into output directory."""
         input_dir = workflow_config.get("paths", "emodel_config_dir")
         output_config_dir = os.path.join(output_dir, "config")
-        shutil.copytree(
-            input_dir,
-            output_config_dir,
-        )
+        # recipes, params, features
+        self.copy_config_data(input_dir, output_dir, emodel)
+
+        # luigi config files
+        luigi_config_filenames = workflow_config.get("files", "luigi_config_files")
+        for config_filename in luigi_config_filenames:
+            input_filepath = os.path.join(input_dir, config_filename)
+            output_filepath = os.path.join(output_config_dir, config_filename)
+            shutil.copy(input_filepath, output_filepath)
 
     @staticmethod
     def copy_templates(output_dir):
@@ -430,13 +519,13 @@ class PrepareMEModelDirectory(MemodelParameters):
         # scripts
         self.copy_scripts()
 
+        cell_emodel = circuit.get_emodel_attributes(self.gid)
+
         # config
-        self.copy_config(memodel_dir)
+        self.copy_config(memodel_dir, emodel=cell_emodel.name)
 
         # templates to be copied
         self.copy_templates(memodel_dir)
-
-        cell_emodel = circuit.get_emodel_attributes(self.gid)
 
         # config to be filled
         self.fill_in_emodel_config(
@@ -489,7 +578,7 @@ class CreateHoc(MemodelParameters):
         """Creates the hoc script."""
         with cwd(self.output_folder):
             run_hoc_filename = "run.hoc"
-            config = load_config(filename=self.configfile)
+            config = load_config(config_path=os.path.join("config", self.configfile))
             cell_hoc, syn_hoc, simul_hoc, run_hoc = get_hoc(
                 config=config, syn_temp_name="hoc_synapses"
             )
@@ -645,12 +734,8 @@ class RunPyScript(MemodelParameters):
         )
 
         with cwd(memodel_dir):
-            if self.configfile:
-                subprocess.call(["sh", "./compile_mechanisms.sh", self.configfile])
-                run_emodel(config_file=self.configfile)
-            else:
-                subprocess.call(["sh", "./compile_mechanisms.sh"])
-                run_emodel(config_file=None)
+            subprocess.call(["sh", "./compile_mechanisms.sh", self.configfile])
+            run_emodel(config_path=os.path.join("config", self.configfile))
 
 
 class CreateSystemLog(SmartTask):

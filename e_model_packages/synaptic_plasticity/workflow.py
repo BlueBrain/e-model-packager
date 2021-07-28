@@ -6,9 +6,11 @@ import subprocess
 from pathlib import Path
 
 import configparser
+import json
 
 import luigi
 from emodelrunner.load import load_config
+from e_model_packages.circuit import BluepyCircuit
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.sscx2020.utils import cwd
 from e_model_packages.synaptic_plasticity.extractors import extract_all
@@ -52,6 +54,8 @@ class PrepareMEModelDirectory(luigi.Task):
         os.makedirs(os.path.join(memodel_dir, "synapses"))
         os.makedirs(os.path.join(memodel_dir, "protocols"))
         os.makedirs(os.path.join(memodel_dir, "config"))
+        os.makedirs(os.path.join(memodel_dir, "config", "params"))
+        os.makedirs(os.path.join(memodel_dir, "config", "recipes"))
 
     def copy_scripts(self):
         """Copy scripts."""
@@ -89,6 +93,63 @@ class PrepareMEModelDirectory(luigi.Task):
             workflow_config.get("paths", "templates_to_copy_dir"), output_templates_dir
         )
 
+    @staticmethod
+    def copy_unoptimized_params(input_dir, output_dir, emodels):
+        """Copy unoptimized params folder."""
+        for emodel in emodels:
+            # load recipes
+            recipes_path = os.path.join(input_dir, "recipes/recipes.json")
+            with open(recipes_path, "r") as recipes_file:
+                recipe = json.load(recipes_file)[emodel]
+
+            # get params path
+            params_path = recipe["params"]
+
+            # copy unoptimized params
+            input_params_path = Path(input_dir).parent / params_path
+            output_params_path = os.path.join(output_dir, params_path)
+            if not os.path.isfile(output_params_path):
+                shutil.copy(input_params_path, output_params_path)
+
+    @staticmethod
+    def get_recipes_and_final_dicts(input_dir, emodels):
+        """Get trimmed recipes and final dicts."""
+        recipes_out = {}
+        final_out = {}
+        for emodel in emodels:
+            # recipes
+            recipes_path = os.path.join(input_dir, "recipes/recipes.json")
+            with open(recipes_path, "r") as recipes_file:
+                recipe = json.load(recipes_file)[emodel]
+            if emodel not in recipes_out:
+                recipes_out[emodel] = recipe
+
+            # optimized params
+            with open(os.path.join(input_dir, "params/final.json"), "r") as final_file:
+                final = json.load(final_file)[emodel]
+            if emodel not in final_out:
+                final_out[emodel] = final
+
+        return recipes_out, final_out
+
+    def copy_config_data(self, input_dir, output_dir, emodels):
+        """Copy params, final and recipes from config."""
+        # copy params
+        self.copy_unoptimized_params(input_dir, output_dir, emodels)
+
+        # get recipes and final
+        recipes_out, final_out = self.get_recipes_and_final_dicts(input_dir, emodels)
+
+        # write recipes
+        recipes_out_path = os.path.join(output_dir, "config", "recipes", "recipes.json")
+        with open(recipes_out_path, "w") as recipes_out_file:
+            json.dump(recipes_out, recipes_out_file)
+
+        # write final
+        final_out_path = os.path.join(output_dir, "config/params/final.json")
+        with open(final_out_path, "w") as final_out_file:
+            json.dump(final_out, final_out_file)
+
     def run(self):
         """Create directory and copy data."""
         # make dirs
@@ -105,6 +166,15 @@ class PrepareMEModelDirectory(luigi.Task):
 
         # spike train
         self.copy_spike_train()
+
+        # copy config data
+        input_dir = workflow_config.get("paths", "emodel_config_dir")
+        circuit = BluepyCircuit(os.path.join(self.source_dir, "BlueConfig"))
+        precell_emodel = circuit.get_emodel_attributes(self.pregid).name
+        postcell_emodel = circuit.get_emodel_attributes(self.postgid).name
+        self.copy_config_data(
+            input_dir, self.output_folder, [postcell_emodel, precell_emodel]
+        )
 
         # extract data from circuit
         circuitpath = workflow_config.get("paths", "circuitpath")
@@ -180,8 +250,7 @@ class PrecellConfigTarget(luigi.Target):
         if not os.path.isfile(configfile_path):
             return False
 
-        with cwd(memodel_dir):
-            config = load_config(filename=self.configfile)
+        config = load_config(config_path=configfile_path)
         if not config.has_option("Protocol", "precell_amplitude"):
             return False
         if not config.has_option("Protocol", "precell_spikedelay"):

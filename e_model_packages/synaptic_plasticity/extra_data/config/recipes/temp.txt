@@ -1,0 +1,46 @@
+  bAC L23_BTC:C210401C (C011098A-I3)
+bIR L23_BTC:C210401C
+---------
+  bNAC C010600C1 (C011098A-I3)
+  bSTUT C010600C1 - (C011098A-I3)
+---------
+  cACint C100501A3 (C011098A-I3)
+cIR C010600C1 - orig: C100501A3 ,or:C011098A-I3
+---------
+  cNAC C010600C1 - (C011098A-I3) new: L23_BTC:C210401C
+cSTUT C100501A3 - orig: C010600C1 (C011098A-I3)
+  dNAC C010600C1 (C011098A-I3)
+dSTUT C010600C1 - (C011098A-I3)
+---------
+
+Finished:
+
+
+bIR
+bSTUT
+cIR
+cSTUT
+dSTUT
+
+Rerun:
+bAC:
+bIR: L6_DBC, L6_MC, L5_DBC, L4_DBC, L23_BP, L5_BP,
+bNAC: L6_NGC
+bSTUT:
+cACint: L6_CHC, L4_CHC, L4_NGC, L23_BP, L4_BP run
+cADpyr_L2TPC: L2_IPC
+cADpyr_L4TPC:
+cADpyr_L5TPC:
+cADpyr_L6UPC:
+cIR: L5_DBC
+cNAC: L4_CHC, L23_BP, L4_BP run
+cSTUT: L23_NGC
+dNAC:
+dSTUT: L23_BP, L4_BP run
+
+
+Remove features for ME-gating:
+bpo_threshold_current
+bpo_holding_current
+SpikeRec
+bAP

@@ -7,5 +7,5 @@ if [ $# -eq 0 ]
 then
     python -m emodelrunner.run
 else
-    python -m emodelrunner.run --c $1
+    python -m emodelrunner.run --config_path $1
 fi
