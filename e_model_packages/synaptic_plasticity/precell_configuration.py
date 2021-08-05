@@ -118,6 +118,9 @@ def get_spikedelay_and_duration(
     )
 
     peak_times = efel_results[0]["peak_time"] - step_delay
+    # some cells can fire with just the initial voltage
+    # so remove all spikes before stimulus
+    peak_times = [peak_time for peak_time in peak_times if peak_time > 0]
     spikedelay = peak_times[0]
     # replace duration if it is so long that the cell spikes twice
     if len(peak_times) > 1:
