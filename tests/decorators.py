@@ -8,7 +8,6 @@ from e_model_packages.sscx2020.utils import get_output_path
 from e_model_packages.synaptic_plasticity.utils import (
     get_output_path as synaptic_plasticity_output_path,
 )
-from tests.utils import get_random_cell_index
 
 
 def launch_luigi(module, task, reload_hoc=False):
@@ -77,13 +76,18 @@ def launch_luigi_synaptic_plasticity(module, task):
         """Decorator."""
         dirs = ["e_model_packages", "synaptic_plasticity"]
         test_config_path = os.path.join("tests", "luigi_test_synaptic_plasticity.cfg")
+        output_dir = "tests/output"
         path_to_luigi = os.path.join(*dirs)
         path_to_module = ".".join(dirs)
 
-        # get layers, pregid, postgid and source_dir
-        test_config = configparser.ConfigParser()
-        test_config.read(test_config_path)
-        cell_data = get_random_cell_index(test_config)
+        cell_data = {
+            "layers": "L4SS_L4SS",
+            "pregid": 111202,
+            "postgid": 111376,
+            "source_dir": "/gpfs/bbp.cscs.ch/project/proj32/"
+            + "glusynapse_20190926_release/testing/egger_1999/"
+            + "simulations/L4SS_L4SS/111202-111376/50Hz_10ms",
+        }
 
         sig = signature(func)
 
@@ -115,7 +119,6 @@ def launch_luigi_synaptic_plasticity(module, task):
             )
 
             # prepare function arguments
-            output_dir = test_config.get("paths", "output")
             memodel_dir = synaptic_plasticity_output_path(
                 output_dir,
                 cell_data["layers"],
