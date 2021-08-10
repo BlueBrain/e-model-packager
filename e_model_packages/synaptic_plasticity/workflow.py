@@ -15,6 +15,7 @@ from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.sscx2020.utils import cwd
 from e_model_packages.synaptic_plasticity.extractors import extract_all
 from e_model_packages.synaptic_plasticity.precell_configuration import (
+    check_for_special_cell,
     get_amp_duration_spikedelay,
 )
 from e_model_packages.synaptic_plasticity.utils import get_output_path
@@ -319,6 +320,9 @@ class PrecellConfig(luigi.Task):
         new_config["Protocol"]["precell_width"] = str(step_duration)
         new_config["Protocol"]["precell_amplitude"] = str(amp)
         new_config["Protocol"]["precell_spikedelay"] = str(spikedelay)
+        new_config = check_for_special_cell(
+            new_config, self.layers, self.pregid, self.postgid
+        )
 
         with open(configfile_path, "w", encoding="utf-8") as configfile:
             new_config.write(configfile)

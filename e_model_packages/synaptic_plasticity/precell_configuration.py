@@ -8,6 +8,20 @@ from emodelrunner.create_cells import get_precell
 from e_model_packages.sscx2020.utils import cwd
 
 
+def check_for_special_cell(new_config, layers, pregid, postgid):
+    """Check for cell for which we cannot extract the best preecll config values.
+
+    And replace for appropriate values.
+    """
+    if layers == "L4SS_L4SS" and pregid == 111560 and postgid == 109921:
+        new_config["Protocol"]["precell_spikedelay"] = "1.1"
+    elif layers == "L23PC_L23PC" and pregid == 23381 and postgid == 9436:
+        new_config["Protocol"]["precell_spikedelay"] = "3.3"
+    elif layers == "L23PC_L23PC" and pregid == 113515 and postgid == 119830:
+        new_config["Protocol"]["precell_spikedelay"] = "1.19"
+    return new_config
+
+
 def get_protocol(
     amp,
     step_delay,
@@ -159,6 +173,8 @@ def check_repeated_spikes(
     )
 
     peak_times = efel_results[0]["peak_time"]
+
+    peak_times = [peak_time for peak_time in peak_times if peak_time > step_delay]
 
     return peak_times
 
