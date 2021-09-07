@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 import logging
 
+import numpy as np
 from tqdm import tqdm
 import pandas as pd
 
@@ -28,6 +29,7 @@ from e_model_packages.sscx2020.utils import (
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
+from e_model_packages.nwb.create_nwb import create_nwb, write_nwb
 
 from emodelrunner.run import main as run_emodel
 from emodelrunner.load import find_param_file, load_config, get_hoc_paths_args
@@ -176,16 +178,20 @@ class CreateNWB(MemodelParameters):
 
     def run(self):
         """Creates and saves the nwb containing protocol responses."""
-        nwb_env = workflow_config.get("nwb", "env")
-        nwb_script = workflow_config.get("nwb", "script")
-        nwb_output = self.output().path
         recordings_path = Path(self.memodel_dir) / "python_recordings"
-        cmd = (
-            f"{nwb_env} {nwb_script} --emodel_name={self.emodel_name}"
-            f" --recordings_path={recordings_path} --output_file={nwb_output}"
+        voltage_recording_paths = sorted(
+            Path(recordings_path).glob("soma_voltage_*.dat")
         )
-        cmd = cmd.split(" ")
-        subprocess.run(cmd, check=True)
+        current_recording_paths = sorted(
+            Path(recordings_path).glob("current_step*.dat")
+        )
+
+        voltage_recordings = [np.loadtxt(volt) for volt in voltage_recording_paths]
+        current_recordings = [np.loadtxt(curr) for curr in current_recording_paths]
+
+        nwb = create_nwb(self.emodel_name, voltage_recordings, current_recordings)
+
+        write_nwb(nwb, self.output().path)
 
 
 class CreateFactsheets(MemodelParameters):
@@ -248,23 +254,27 @@ class CreateFactsheets(MemodelParameters):
             emodel = config.get("Cell", "emodel")
 
             recipes_path = config.get("Paths", "recipes_path")
-            with open(recipes_path, "r") as recipes_file:
+            with open(recipes_path, "r", encoding="utf-8") as recipes_file:
                 recipes_dict = json.load(recipes_file)
 
             features_path = recipes_dict[emodel]["features"]
-            with open(features_path, "r") as features_file:
+            with open(features_path, "r", encoding="utf-8") as features_file:
                 features_dict = json.load(features_file)
 
             units_path = config.get("Paths", "units_path")
-            with open(units_path, "r") as units_file:
+            with open(units_path, "r", encoding="utf-8") as units_file:
                 feature_units_dict = json.load(units_file)
 
             unoptimized_params_path = find_param_file(recipes_path, emodel)
-            with open(unoptimized_params_path, "r") as unoptimized_params_file:
+            with open(
+                unoptimized_params_path, "r", encoding="utf-8"
+            ) as unoptimized_params_file:
                 unoptimized_params_dict = json.load(unoptimized_params_file)
 
             optimized_params_path = config.get("Paths", "params_path")
-            with open(optimized_params_path, "r") as optimized_params_file:
+            with open(
+                optimized_params_path, "r", encoding="utf-8"
+            ) as optimized_params_file:
                 optimized_params_dict = json.load(optimized_params_file)
 
             emodel_output_path = os.path.join(factsheets_dir, "e_model_factsheet.json")
@@ -340,7 +350,7 @@ class PrepareMEModelDirectory(MemodelParameters):
             "morphology": morphology,
         }
 
-        with open(cell_info_path, "w") as out_file:
+        with open(cell_info_path, "w", encoding="utf-8") as out_file:
             json.dump(cell_info, out_file, indent=4, cls=NpEncoder)
 
     @staticmethod
@@ -354,14 +364,16 @@ class PrepareMEModelDirectory(MemodelParameters):
     def copy_config_data(input_dir, output_dir, emodel):
         """Copy params, features and recipes from config."""
         # recipes
-        with open(Path(input_dir) / "recipes" / "recipes.json", "r") as recipes_file:
+        with open(
+            Path(input_dir) / "recipes" / "recipes.json", "r", encoding="utf-8"
+        ) as recipes_file:
             recipe = json.load(recipes_file)[emodel]
         params_path = recipe["params"]
         features_path = recipe["features"]
 
         recipe_out = {emodel: recipe}
         recipes_out_path = Path(output_dir) / "config" / "recipes" / "recipes.json"
-        with open(recipes_out_path, "w") as recipes_out_file:
+        with open(recipes_out_path, "w", encoding="utf-8") as recipes_out_file:
             json.dump(recipe_out, recipes_out_file)
 
         # unoptimized params
@@ -380,12 +392,14 @@ class PrepareMEModelDirectory(MemodelParameters):
         shutil.copy(input_units_path, output_units_path)
 
         # optimized params
-        with open(Path(input_dir) / "params" / "final.json", "r") as final_file:
+        with open(
+            Path(input_dir) / "params" / "final.json", "r", encoding="utf-8"
+        ) as final_file:
             final = json.load(final_file)[emodel]
 
         final_out = {emodel: final}
         final_out_path = Path(output_dir) / "config" / "params" / "final.json"
-        with open(final_out_path, "w") as final_out_file:
+        with open(final_out_path, "w", encoding="utf-8") as final_out_file:
             json.dump(final_out, final_out_file)
 
     def copy_config(self, output_dir, emodel):
@@ -472,7 +486,7 @@ class PrepareMEModelDirectory(MemodelParameters):
                 new_config["Paths"]["morph_file"] = morph_fname
 
                 # write config file
-                with open(file_.path, "w") as configfile:
+                with open(file_.path, "w", encoding="utf-8") as configfile:
                     new_config.write(configfile)
 
     def run(self):
@@ -502,15 +516,15 @@ class PrepareMEModelDirectory(MemodelParameters):
         syn_extractor.load_synapses()
 
         synapse_tsv_filename = os.path.join(synapses_dir, "synapses.tsv")
-        with open(synapse_tsv_filename, "w") as synapse_tsv_file:
+        with open(synapse_tsv_filename, "w", encoding="utf-8") as synapse_tsv_file:
             synapse_tsv_file.write(syn_extractor.synapse_tsv_content)
 
         mtype_filename = os.path.join(synapses_dir, "mtype_map.tsv")
-        with open(mtype_filename, "w") as mtype_file:
+        with open(mtype_filename, "w", encoding="utf-8") as mtype_file:
             mtype_file.write(syn_extractor.mtype_map_content)
 
         synconf_filename = os.path.join(synapses_dir, "synconf.txt")
-        with open(synconf_filename, "w") as synconf_file:
+        with open(synconf_filename, "w", encoding="utf-8") as synconf_file:
             synconf_file.write(syn_extractor.synconf)
 
         # copy mechanisms

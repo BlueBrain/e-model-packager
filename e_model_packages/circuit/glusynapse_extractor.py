@@ -23,10 +23,7 @@ class GluSynapseExtractor(SynapseExtractor):
         pregids = [pregid]
         # Special case: multiple connections
         # if "ExtraPreCell" in self.ssim.bc_circuit.cells.ids:
-        if (
-            "ExtraPreCell" in self.ssim.bc_circuit.cells._targets._targets
-            or "ExtraPreCell" in self.ssim.bc_circuit.cells._targets._resolve_cache
-        ):
+        if "ExtraPreCell" in self.ssim.bc_circuit.cells._targets._targets:
             pregids = pregids + list(self.ssim.bc_circuit.cells.ids("ExtraPreCell"))
 
         return pregids

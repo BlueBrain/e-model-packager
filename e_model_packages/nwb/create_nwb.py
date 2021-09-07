@@ -8,8 +8,9 @@ from dateutil.tz import tzlocal
 
 import numpy as np
 from pynwb import NWBHDF5IO
+from pynwb.file import NWBFile
 from pynwb.icephys import CurrentClampStimulusSeries, CurrentClampSeries
-from ndx_icephys_meta.icephys import ICEphysFile
+
 from e_model_packages.nwb.units import UnitConverter
 
 
@@ -24,7 +25,7 @@ def interpolate(time, voltage, new_dt):
 def create_nwb(emodel_name, voltage_recordings, current_recordings):
     """Creates and NWB object from the given stimuli/responses."""
     # pylint: disable=no-member, redefined-outer-name, too-many-locals
-    nwbfile = ICEphysFile(
+    nwbfile = NWBFile(
         session_description="SSCX Simulation Data",
         identifier=emodel_name,
         session_start_time=datetime.now(tzlocal()),

@@ -91,12 +91,12 @@ def extract_config(
     fit_params_output_path = os.path.join(
         output_dir, out_const_dir, out_fit_params_file
     )
-    with open(fit_params_output_path, "w") as f:
+    with open(fit_params_output_path, "w", encoding="utf-8") as f:
         json.dump(fit_params, f)
 
     # write config file
     config_output_path = os.path.join(output_dir, out_const_dir, out_file)
-    with open(config_output_path, "w") as configfile:
+    with open(config_output_path, "w", encoding="utf-8") as configfile:
         config.write(configfile)
 
 
@@ -124,15 +124,15 @@ def extract_synapses_data(output_dir, bcpath, syn_dir="synapses"):
     synapses_dir = os.path.join(output_dir, syn_dir)
 
     synapse_tsv_filename = os.path.join(synapses_dir, "synapses.tsv")
-    with open(synapse_tsv_filename, "w") as synapse_tsv_file:
+    with open(synapse_tsv_filename, "w", encoding="utf-8") as synapse_tsv_file:
         synapse_tsv_file.write(syn_ext.synapse_tsv_content)
 
     mtype_filename = os.path.join(synapses_dir, "mtype_map.tsv")
-    with open(mtype_filename, "w") as mtype_file:
+    with open(mtype_filename, "w", encoding="utf-8") as mtype_file:
         mtype_file.write(syn_ext.mtype_map_content)
 
     synconf_filename = os.path.join(synapses_dir, "synconf.txt")
-    with open(synconf_filename, "w") as synconf_file:
+    with open(synconf_filename, "w", encoding="utf-8") as synconf_file:
         synconf_file.write(syn_ext.synconf)
 
 
@@ -173,10 +173,7 @@ def extract_syn_extra_params(
     pregid = list(ssim.bc_circuit.cells.ids("PreCell"))[0]
     pregids = [pregid]
     # Special case: multiple connections
-    if (
-        "ExtraPreCell" in ssim.bc_circuit.cells._targets._targets
-        or "ExtraPreCell" in ssim.bc_circuit.cells._targets._resolve_cache
-    ):
+    if "ExtraPreCell" in ssim.bc_circuit.cells._targets._targets:
         pregids = pregids + list(ssim.bc_circuit.cells.ids("ExtraPreCell"))
 
     # Generate supplementary model parameters
@@ -194,7 +191,7 @@ def extract_syn_extra_params(
 
     # write syn_extra_params on file
     output_file = os.path.join(output_dir, syn_dir, output_file)
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(syn_extra_params, f, indent=4)
 
 
@@ -215,7 +212,7 @@ def extract_cpre_and_cpost(
 
     # -- write syn_extra_params on file
     output_path = os.path.join(output_dir, syn_dir, output_file)
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump({"c_pre": c_pre, "c_post": c_post}, f, indent=4)
 
 
@@ -230,7 +227,7 @@ def extract_protocols(
     #     stimuli_dict[key] = dict(item)
 
     output_path = os.path.join(output_dir, prot_dir, output_file)
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(stimuli_dict, f, indent=4)
 
 
@@ -249,7 +246,7 @@ def extract_synprop(
 
     # # -- write syn_extra_params on file
     output_path = os.path.join(output_dir, syn_dir, output_file)
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(synprop, f, indent=4, cls=NpEncoder)
 
 
@@ -275,7 +272,7 @@ def get_fit_params(basedir):
     ]
 
     file_path = os.path.join(basedir, "simulation.batch")
-    with open(file_path, "r") as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         file_content = f.read()
 
     for line in file_content.splitlines():
@@ -298,7 +295,7 @@ def get_fit_params(basedir):
 def get_blueconfig_dict(bcpath):
     """Get BlueConfig configuration data as a dict."""
     bc = BlueConfigFile()
-    with open(bcpath) as blueconfig_handle:
+    with open(bcpath, encoding="utf-8") as blueconfig_handle:
         bc.parse(blueconfig_handle)
     return bc.to_dict()
 

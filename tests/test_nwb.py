@@ -4,8 +4,12 @@ import configparser
 import os
 from functools import partial
 
+from hdmf.common.hierarchicaltable import (
+    drop_id_columns,
+    flatten_column_index,
+    to_hierarchical_dataframe,
+)
 from pynwb import NWBHDF5IO
-from ndx_icephys_meta.icephys import ICEphysFile
 
 from e_model_packages.sscx2020.utils import get_output_path
 from tests.decorators import launch_luigi
@@ -40,5 +44,13 @@ def test_nwb_denormalized_dataframe_conversion(
 
     with NWBHDF5IO(nwb_path, "r") as io:
         nwbfile = io.read()
-        df = nwbfile.get_icephys_meta_parent_table().to_denormalized_dataframe()
-        assert not df.empty
+        root_table = nwbfile.get_icephys_meta_parent_table()
+        icephys_meta_df = to_hierarchical_dataframe(root_table)
+        # Reset the index of the dataframe and turn the values into columns instead
+        icephys_meta_df.reset_index(inplace=True)
+        # Flatten the column-index, turning the pandas.MultiIndex into a pandas.Index of tuples
+        flatten_column_index(dataframe=icephys_meta_df, max_levels=2, inplace=True)
+        # Remove the id columns. By setting inplace=False allows us to visualize the result of this
+        # action while keeping the id columns in our main icephys_meta_df table
+        drop_id_columns(dataframe=icephys_meta_df, inplace=False)
+        assert not icephys_meta_df.empty

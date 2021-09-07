@@ -99,7 +99,7 @@ class PrepareMEModelDirectory(luigi.Task):
         for emodel in emodels:
             # load recipes
             recipes_path = os.path.join(input_dir, "recipes/recipes.json")
-            with open(recipes_path, "r") as recipes_file:
+            with open(recipes_path, "r", encoding="utf-8") as recipes_file:
                 recipe = json.load(recipes_file)[emodel]
 
             # get params path
@@ -119,13 +119,15 @@ class PrepareMEModelDirectory(luigi.Task):
         for emodel in emodels:
             # recipes
             recipes_path = os.path.join(input_dir, "recipes/recipes.json")
-            with open(recipes_path, "r") as recipes_file:
+            with open(recipes_path, "r", encoding="utf-8") as recipes_file:
                 recipe = json.load(recipes_file)[emodel]
             if emodel not in recipes_out:
                 recipes_out[emodel] = recipe
 
             # optimized params
-            with open(os.path.join(input_dir, "params/final.json"), "r") as final_file:
+            with open(
+                os.path.join(input_dir, "params/final.json"), "r", encoding="utf-8"
+            ) as final_file:
                 final = json.load(final_file)[emodel]
             if emodel not in final_out:
                 final_out[emodel] = final
@@ -142,12 +144,12 @@ class PrepareMEModelDirectory(luigi.Task):
 
         # write recipes
         recipes_out_path = os.path.join(output_dir, "config", "recipes", "recipes.json")
-        with open(recipes_out_path, "w") as recipes_out_file:
+        with open(recipes_out_path, "w", encoding="utf-8") as recipes_out_file:
             json.dump(recipes_out, recipes_out_file)
 
         # write final
         final_out_path = os.path.join(output_dir, "config/params/final.json")
-        with open(final_out_path, "w") as final_out_file:
+        with open(final_out_path, "w", encoding="utf-8") as final_out_file:
             json.dump(final_out, final_out_file)
 
     def run(self):
@@ -318,7 +320,7 @@ class PrecellConfig(luigi.Task):
         new_config["Protocol"]["precell_amplitude"] = str(amp)
         new_config["Protocol"]["precell_spikedelay"] = str(spikedelay)
 
-        with open(configfile_path, "w") as configfile:
+        with open(configfile_path, "w", encoding="utf-8") as configfile:
             new_config.write(configfile)
 
 
@@ -336,7 +338,7 @@ class RunWorkflow(luigi.WrapperTask):
         for layer in layers:
             index_file_name = "index_" + layer + ".csv"
             index_file_path = os.path.join(index_dir, index_file_name)
-            with open(index_file_path, newline="") as csvfile:
+            with open(index_file_path, newline="", encoding="utf-8") as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
                     source_dir = os.path.dirname(row["path"])
