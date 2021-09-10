@@ -31,3 +31,8 @@ class BluepySimulation:
     def morph_dir(self):
         """Directory containing the morphology."""
         return os.path.join(self.blueconfig.Run["MorphologyPath"], "ascii")
+
+    @property
+    def morph_parent_dir(self):
+        """Directory containing the morphology."""
+        return self.blueconfig.Run["MorphologyPath"]

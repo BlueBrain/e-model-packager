@@ -88,6 +88,7 @@ def test_directory_exists(
         "config_singlestep_short.ini",
         "config_synapses.ini",
         "config_synapses_short.ini",
+        "config_recipe_protocols.ini",
         "recipes/recipes.json",
         "params/final.json",
         "features/units.json",
@@ -241,7 +242,6 @@ def test_synapses(
 
     # compare
     rms = np.sqrt(np.mean((bg_v - py_v[:, 1]) ** 2))
-    print(rms)
     assert rms < threshold
 
 

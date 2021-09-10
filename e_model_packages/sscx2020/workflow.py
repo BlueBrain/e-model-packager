@@ -446,7 +446,25 @@ class PrepareMEModelDirectory(MemodelParameters):
             script_path = os.path.join(scripts_dir, script_files)
             shutil.copy(script_path, self.output_folder)
 
-    def fill_in_emodel_config(self, threshold, holding, emodel, morph_fname):
+    @staticmethod
+    def get_apical_point_isec(apical_dir, morphology_fname):
+        """Return the index of the section of the apical point."""
+        apic_filepath = os.path.join(apical_dir, "apical_points_isec.json")
+        with open(apic_filepath, "r", encoding="utf-8") as apic_file:
+            apical_point_isecs = json.load(apic_file)
+
+        morph_name = Path(morphology_fname).stem
+
+        try:
+            apical_point_isec = apical_point_isecs[morph_name]
+        except KeyError:
+            apical_point_isec = -1
+
+        return apical_point_isec
+
+    def fill_in_emodel_config(
+        self, threshold, holding, emodel, morph_fname, apical_point_isec
+    ):
         """Fill in emodel config.
 
         Args:
@@ -454,6 +472,7 @@ class PrepareMEModelDirectory(MemodelParameters):
         holding(float): holding current.
         emodel(str): emodel name.
         morph_fname(str): morphology filename.
+        apical_point_isec(int): section index of the apical point.
         """
         output_config_dir = os.path.join(self.output_folder, "config")
 
@@ -468,6 +487,8 @@ class PrepareMEModelDirectory(MemodelParameters):
                 new_config["Protocol"]["stimulus_amp1"] = str(1.50 * threshold)
                 new_config["Protocol"]["stimulus_amp2"] = str(2.00 * threshold)
                 new_config["Protocol"]["stimulus_amp3"] = str(2.50 * threshold)
+                # add apical point isec to config
+                new_config["Protocol"]["apical_point_isec"] = str(apical_point_isec)
 
                 if "Cell" not in new_config:
                     new_config["Cell"] = {}
@@ -541,12 +562,18 @@ class PrepareMEModelDirectory(MemodelParameters):
         # templates to be copied
         self.copy_templates(memodel_dir)
 
+        # get the apicla point section index
+        apical_point_isec = self.get_apical_point_isec(
+            simulation.morph_parent_dir, cell.morphology_fname
+        )
+
         # config to be filled
         self.fill_in_emodel_config(
             cell_emodel.threshold_current,
             cell_emodel.holding_current,
             cell_emodel.name,
             cell.morphology_fname,
+            apical_point_isec,
         )
 
         Path(self.output().path).touch()

@@ -4,7 +4,7 @@ import os
 from functools import partial
 import configparser
 
-from e_model_packages.circuit import BluepyCircuit
+from e_model_packages.circuit import BluepyCircuit, BluepySimulation
 
 test_config = configparser.ConfigParser()
 test_config.read(os.path.join("tests", "luigi_test.cfg"))
@@ -30,3 +30,21 @@ def test_get_gid_from_circuit():
     )
 
     assert gid == gid_gt
+
+
+def test_morph_dir_from_bluepysimulation():
+    """Test the values of morph_dir and morph_parent_dir in BluepySimulation."""
+    morph_parent_dir = (
+        "/gpfs/bbp.cscs.ch/project/proj83/entities/morph-release-2020-08-10"
+    )
+    morph_dir = (
+        "/gpfs/bbp.cscs.ch/project/proj83/entities/morph-release-2020-08-10/ascii"
+    )
+    # get circuit path
+    config_circuit = configparser.ConfigParser()
+    config_circuit.read(os.path.join("tests", "luigi_test.cfg"))
+    circuit_config_path = config_circuit.get("paths", "circuit")
+
+    simulation = BluepySimulation(circuit_config_path)
+    assert simulation.morph_parent_dir == morph_parent_dir
+    assert simulation.morph_dir == morph_dir
