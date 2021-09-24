@@ -89,9 +89,19 @@ def test_directory_exists(
         "config_synapses.ini",
         "config_synapses_short.ini",
         "config_recipe_protocols.ini",
-        "recipes/recipes.json",
+        "config_factsheets.ini",
         "params/final.json",
         "features/units.json",
+        "protocols/RmpRiTau.json",
+        "protocols/allsteps.json",
+        "protocols/allsteps_short.json",
+        "protocols/singlestep.json",
+        "protocols/singlestep_short.json",
+        "protocols/synapses.json",
+        "protocols/synapses_short.json",
+        "protocols/cADpyr_L5PC.json",
+        "features/cADpyr_L5PC.json",
+        "params/pyr.json",
     ]
 
     synapses = ["synapses.tsv", "synconf.txt"]
@@ -103,15 +113,6 @@ def test_directory_exists(
 
     for item in config_files:
         memodel_files_to_be_checked.append(os.path.join("config", item))
-
-    recipes_path = os.path.join(memodel_path, "config", "recipes", "recipes.json")
-    assert os.path.isfile(recipes_path)
-    with open(recipes_path, "r") as recipes_file:
-        recipes = json.load(recipes_file)
-
-    for _, recipe in recipes.items():
-        memodel_files_to_be_checked.append(recipe["params"])
-        memodel_files_to_be_checked.append(recipe["features"])
 
     for item in templates:
         memodel_files_to_be_checked.append(os.path.join("templates", item))
@@ -167,10 +168,10 @@ def test_voltages(
 
     for idx in range(3):
         hoc_path = os.path.join(
-            script_path, "hoc_recordings", "soma_voltage_step%d.dat" % (idx + 1)
+            script_path, "hoc_recordings", f"L5TPCa.Step_{150 + idx * 50}.soma.v.dat"
         )
         py_path = os.path.join(
-            script_path, "python_recordings", "soma_voltage_step%d.dat" % (idx + 1)
+            script_path, "python_recordings", f"L5TPCa.Step_{150 + idx * 50}.soma.v.dat"
         )
 
         hoc_voltage = np.loadtxt(hoc_path)
@@ -236,7 +237,11 @@ def test_synapses(
 
     # load run.py output
     py_path = os.path.join(
-        "tests", "output", base_path, "python_recordings", "soma_voltage_vecstim.dat"
+        "tests",
+        "output",
+        base_path,
+        "python_recordings",
+        "L5TPCa.Synapses_Vecstim.soma.v.dat",
     )
     py_v = np.loadtxt(py_path)
 
@@ -270,9 +275,11 @@ def test_synapses_hoc_vs_py_script(
     memodel_path = get_output_path(mtype, etype, region, gidx, output_path)
 
     # load output
-    hoc_path = os.path.join(memodel_path, "hoc_recordings", "soma_voltage_vecstim.dat")
+    hoc_path = os.path.join(
+        memodel_path, "hoc_recordings", "L5TPCa.Synapses_Vecstim.soma.v.dat"
+    )
     py_path = os.path.join(
-        memodel_path, "python_recordings", "soma_voltage_vecstim.dat"
+        memodel_path, "python_recordings", "L5TPCa.Synapses_Vecstim.soma.v.dat"
     )
 
     hoc_voltage = np.loadtxt(hoc_path)
@@ -290,7 +297,7 @@ def test_metype_factsheet_exists(
     region=get_param("region"),
     gid=int(get_param("gid")),
     gidx=int(get_param("gidx")),
-    configfile="config_singlestep_short.ini",
+    configfile="config_factsheets.ini",
 ):
     """Check that the me-type and the emodel factsheets have been created.
 

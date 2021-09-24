@@ -26,13 +26,14 @@ from e_model_packages.sscx2020.utils import (
     NpEncoder,
     cwd,
     get_output_path,
+    LocalTargetCustom,
 )
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
 from e_model_packages.nwb.create_nwb import create_nwb, write_nwb
 
 from emodelrunner.run import main as run_emodel
-from emodelrunner.load import find_param_file, load_config, get_hoc_paths_args
+from emodelrunner.load import load_config, get_hoc_paths_args
 from emodelrunner.create_hoc import get_hoc, write_hocs
 from emodelrunner.factsheets.output import (
     write_metype_json_from_config,
@@ -84,6 +85,50 @@ class MemodelParameters(SmartTask):
     region = luigi.Parameter()
     gid = luigi.IntParameter()
     gidx = luigi.IntParameter()
+
+
+class RunScriptMixin:
+    """Class with a function to easily get the output targets from runs."""
+
+    def get_output_targets_from_run(self):
+        """Get output targets for a python or hoc run."""
+        if self.configfile in ["config_singlestep.ini", "config_singlestep_short.ini"]:
+            path = os.path.join(self.output_path, "*.Step_150.soma.v.dat")
+            return LocalTargetCustom(path)
+
+        elif self.configfile in ["config_synapses.ini", "config_synapses_short.ini"]:
+            path = os.path.join(self.output_path, "*.Synapses_Vecstim.soma.v.dat")
+            return LocalTargetCustom(path)
+
+        elif self.configfile in ["config_multistep.ini", "config_multistep_short.ini"]:
+            output_list = []
+            for idx in range(3):
+                path = os.path.join(
+                    self.output_path, f"*.Step_{150 + idx * 50}.soma.v.dat"
+                )
+                output_list.append(LocalTargetCustom(path))
+            return output_list
+
+        elif self.configfile == "config_factsheets.ini":
+            path = os.path.join(self.output_path, "*.RmpRiTau.soma.v.dat")
+            return LocalTargetCustom(path)
+
+        elif self.configfile == "config_recipe_protocols.ini":
+            # files all main protocols have in common
+            output_list = []
+            output_files = [
+                "*.RMP.soma.v.dat",
+                "*.Rin.soma.v.dat",
+                "*.IV_-100.soma.v.dat",
+                "*.bpo_holding_current.dat",
+                "*.bpo_threshold_current.dat",
+            ]
+            for outfile in output_files:
+                path = os.path.join(self.output_path, outfile)
+                output_list.append(LocalTargetCustom(path))
+            return output_list
+
+        raise Exception(f"Configfile {self.configfile} was not expected.")
 
 
 class CollectMEModels(luigi.WrapperTask):
@@ -180,10 +225,10 @@ class CreateNWB(MemodelParameters):
         """Creates and saves the nwb containing protocol responses."""
         recordings_path = Path(self.memodel_dir) / "python_recordings"
         voltage_recording_paths = sorted(
-            Path(recordings_path).glob("soma_voltage_*.dat")
+            Path(recordings_path).glob("*.Step_*.soma.v.dat")
         )
         current_recording_paths = sorted(
-            Path(recordings_path).glob("current_step*.dat")
+            Path(recordings_path).glob("current_*.Step_*.dat")
         )
 
         voltage_recordings = [np.loadtxt(volt) for volt in voltage_recording_paths]
@@ -197,7 +242,7 @@ class CreateNWB(MemodelParameters):
 class CreateFactsheets(MemodelParameters):
     """Task to create a me-type factsheet json file."""
 
-    configfile = luigi.Parameter(default="config_singlestep.ini")
+    configfile = luigi.Parameter(default="config_factsheet.ini")
 
     def requires(self):
         """Requires the script to have been copied in the main output directory."""
@@ -235,43 +280,45 @@ class CreateFactsheets(MemodelParameters):
             self.mtype, self.etype, self.region, self.gidx, output_dir
         )
         factsheets_dir = "factsheets"
+        protocol_key = "RmpRiTau"
+
+        config = load_config(
+            config_path=os.path.join(memodel_dir, "config", self.configfile)
+        )
+        # is not exactly the same as self.mtype
+        prefix = config.get("Morphology", "mtype")
+        voltage_path = Path("python_recordings") / (
+            prefix + "." + protocol_key + ".soma.v.dat"
+        )
+        morph_path = config.get("Paths", "morph_path")
+        metype_output_path = os.path.join(factsheets_dir, "me_type_factsheet.json")
+
+        emodel = config.get("Cell", "emodel")
+        features_path = config.get("Paths", "features_path")
+        units_path = config.get("Paths", "units_path")
+        unoptimized_params_path = config.get("Paths", "unoptimized_params_path")
+        optimized_params_path = config.get("Paths", "params_path")
 
         with cwd(memodel_dir):
-            config = load_config(config_path=os.path.join("config", self.configfile))
-            # get data path from run.py output
-            step_number = config.getint("Protocol", "run_step_number")
-            voltage_fname = "soma_voltage_step{}.dat".format(step_number)
-            voltage_fpath = os.path.join("python_recordings", voltage_fname)
-            morph_dir = config.get("Paths", "morph_dir")
-            morph_fname = config.get("Paths", "morph_file")
-            morph_path = os.path.join(morph_dir, morph_fname)
-            metype_output_path = os.path.join(factsheets_dir, "me_type_factsheet.json")
-
             write_metype_json_from_config(
-                config, voltage_fpath, morph_path, metype_output_path
+                config,
+                voltage_path,
+                morph_path,
+                metype_output_path,
+                protocol_key=protocol_key,
             )
 
-            emodel = config.get("Cell", "emodel")
-
-            recipes_path = config.get("Paths", "recipes_path")
-            with open(recipes_path, "r", encoding="utf-8") as recipes_file:
-                recipes_dict = json.load(recipes_file)
-
-            features_path = recipes_dict[emodel]["features"]
             with open(features_path, "r", encoding="utf-8") as features_file:
                 features_dict = json.load(features_file)
 
-            units_path = config.get("Paths", "units_path")
             with open(units_path, "r", encoding="utf-8") as units_file:
                 feature_units_dict = json.load(units_file)
 
-            unoptimized_params_path = find_param_file(recipes_path, emodel)
             with open(
                 unoptimized_params_path, "r", encoding="utf-8"
             ) as unoptimized_params_file:
                 unoptimized_params_dict = json.load(unoptimized_params_file)
 
-            optimized_params_path = config.get("Paths", "params_path")
             with open(
                 optimized_params_path, "r", encoding="utf-8"
             ) as optimized_params_file:
@@ -281,7 +328,7 @@ class CreateFactsheets(MemodelParameters):
 
             write_emodel_json(
                 emodel,
-                recipes_dict,
+                prefix,
                 features_dict,
                 feature_units_dict,
                 unoptimized_params_dict,
@@ -330,7 +377,7 @@ class PrepareMEModelDirectory(MemodelParameters):
         os.makedirs(os.path.join(memodel_dir, "config"))
         os.makedirs(os.path.join(memodel_dir, "config", "features"))
         os.makedirs(os.path.join(memodel_dir, "config", "params"))
-        os.makedirs(os.path.join(memodel_dir, "config", "recipes"))
+        os.makedirs(os.path.join(memodel_dir, "config", "protocols"))
 
     def write_cell_info(self, morphology, layer, output_dir):
         """Create cell_info.json file and write it."""
@@ -361,21 +408,10 @@ class PrepareMEModelDirectory(MemodelParameters):
         shutil.copy(morph_path, memodel_morph_dir)
 
     @staticmethod
-    def copy_config_data(input_dir, output_dir, emodel):
+    def copy_config_data(
+        input_dir, output_dir, emodel, params_path, features_path, protocol_path
+    ):
         """Copy params, features and recipes from config."""
-        # recipes
-        with open(
-            Path(input_dir) / "recipes" / "recipes.json", "r", encoding="utf-8"
-        ) as recipes_file:
-            recipe = json.load(recipes_file)[emodel]
-        params_path = recipe["params"]
-        features_path = recipe["features"]
-
-        recipe_out = {emodel: recipe}
-        recipes_out_path = Path(output_dir) / "config" / "recipes" / "recipes.json"
-        with open(recipes_out_path, "w", encoding="utf-8") as recipes_out_file:
-            json.dump(recipe_out, recipes_out_file)
-
         # unoptimized params
         input_params_path = Path(input_dir).parent / params_path
         output_params_path = Path(output_dir) / params_path
@@ -391,6 +427,11 @@ class PrepareMEModelDirectory(MemodelParameters):
         output_units_path = Path(output_dir) / "config" / "features" / "units.json"
         shutil.copy(input_units_path, output_units_path)
 
+        # protocols
+        input_protocol_path = Path(input_dir).parent / protocol_path
+        output_protocol_path = Path(output_dir) / protocol_path
+        shutil.copy(input_protocol_path, output_protocol_path)
+
         # optimized params
         with open(
             Path(input_dir) / "params" / "final.json", "r", encoding="utf-8"
@@ -402,19 +443,94 @@ class PrepareMEModelDirectory(MemodelParameters):
         with open(final_out_path, "w", encoding="utf-8") as final_out_file:
             json.dump(final_out, final_out_file)
 
-    def copy_config(self, output_dir, emodel):
-        """Copy python recordings config into output directory."""
-        input_dir = workflow_config.get("paths", "emodel_config_dir")
-        output_config_dir = os.path.join(output_dir, "config")
-        # recipes, params, features
-        self.copy_config_data(input_dir, output_dir, emodel)
-
-        # luigi config files
-        luigi_config_filenames = workflow_config.get("files", "luigi_config_files")
+    @staticmethod
+    def copy_config_files(input_dir, output_config_dir):
+        """Copy the .ini config files into output config directory."""
+        luigi_config_filenames = workflow_config.get("files", "emodel_config_files")
         for config_filename in luigi_config_filenames:
             input_filepath = os.path.join(input_dir, config_filename)
             output_filepath = os.path.join(output_config_dir, config_filename)
             shutil.copy(input_filepath, output_filepath)
+
+    @staticmethod
+    def copy_protocol_files(input_dir, output_config_dir):
+        """Copy the protocol files into output config protocol directory."""
+        luigi_config_filenames = workflow_config.get("files", "protocols_files")
+        for config_filename in luigi_config_filenames:
+            input_filepath = os.path.join(input_dir, "protocols", config_filename)
+            output_filepath = os.path.join(
+                output_config_dir, "protocols", config_filename
+            )
+            shutil.copy(input_filepath, output_filepath)
+
+    @staticmethod
+    def add_recipe_data_to_config(
+        output_config_dir,
+        params_path,
+        features_path,
+        protocol_path,
+        mtype_from_recipe,
+    ):
+        """Add params, features and protocol paths and mtype to config files."""
+        for file_ in os.scandir(output_config_dir):
+            if file_.is_file() and file_.path.split(".")[-1] == "ini":
+                new_config = configparser.ConfigParser()
+                new_config.read(file_.path)
+                if "Paths" not in new_config:
+                    new_config["Paths"] = {}
+
+                if "features_path" not in new_config["Paths"]:
+                    new_config["Paths"]["features_path"] = features_path
+                if "unoptimized_params_path" not in new_config["Paths"]:
+                    new_config["Paths"]["unoptimized_params_path"] = params_path
+                if "prot_path" not in new_config["Paths"]:
+                    new_config["Paths"]["prot_path"] = protocol_path
+
+                if "Morphology" not in new_config:
+                    new_config["Morphology"] = {}
+                new_config["Morphology"]["mtype"] = mtype_from_recipe
+
+                # write config file
+                with open(file_.path, "w", encoding="utf-8") as configfile:
+                    new_config.write(configfile)
+
+    def copy_config(self, output_dir, emodel):
+        """Copy config files into output directory."""
+        input_dir = workflow_config.get("paths", "emodel_config_dir")
+        output_config_dir = os.path.join(output_dir, "config")
+        # recipes
+        with open(
+            Path(input_dir) / "recipes" / "recipes.json", "r", encoding="utf-8"
+        ) as recipes_file:
+            recipe = json.load(recipes_file)[emodel]
+        params_path = recipe["params"]
+        features_path = recipe["features"]
+        protocol_path = recipe["protocol"]
+        recipe_morph = recipe["morphology"]
+        if isinstance(recipe_morph, list):
+            mtype_from_recipe = recipe_morph[0][0]
+        else:
+            mtype_from_recipe = "_"
+
+        # protocols, params, features
+        self.copy_config_data(
+            input_dir, output_dir, emodel, params_path, features_path, protocol_path
+        )
+
+        # emodel config files
+        self.copy_config_files(input_dir, output_config_dir)
+
+        # protocol files
+        self.copy_protocol_files(input_dir, output_config_dir)
+
+        # add paths and mtype to config files
+        self.add_recipe_data_to_config(
+            output_config_dir,
+            params_path,
+            features_path,
+            protocol_path,
+            mtype_from_recipe,
+        )
 
     @staticmethod
     def copy_templates(output_dir):
@@ -462,14 +578,43 @@ class PrepareMEModelDirectory(MemodelParameters):
 
         return apical_point_isec
 
-    def fill_in_emodel_config(
-        self, threshold, holding, emodel, morph_fname, apical_point_isec
-    ):
+    def fill_in_step_protocols(self, threshold, holding):
         """Fill in emodel config.
 
         Args:
         threshold(float): threshold current.
         holding(float): holding current.
+        """
+        output_config_dir = os.path.join(self.output_folder, "config", "protocols")
+
+        for file_ in os.scandir(output_config_dir):
+            if file_.is_file() and file_.path.split(".")[-1] == "json":
+                with open(file_.path, "r", encoding="utf-8") as protocol_file:
+                    new_protocol = json.load(protocol_file)
+
+                if "Step_150" in new_protocol and "Main" not in new_protocol:
+                    new_protocol["Step_150"]["stimuli"]["step"]["amp"] = (
+                        1.50 * threshold
+                    )
+                    new_protocol["Step_150"]["stimuli"]["holding"]["amp"] = holding
+                if "Step_200" in new_protocol and "Main" not in new_protocol:
+                    new_protocol["Step_200"]["stimuli"]["step"]["amp"] = (
+                        2.00 * threshold
+                    )
+                    new_protocol["Step_200"]["stimuli"]["holding"]["amp"] = holding
+                if "Step_250" in new_protocol and "Main" not in new_protocol:
+                    new_protocol["Step_250"]["stimuli"]["step"]["amp"] = (
+                        2.50 * threshold
+                    )
+                    new_protocol["Step_250"]["stimuli"]["holding"]["amp"] = holding
+
+                with open(file_.path, "w", encoding="utf-8") as f:
+                    json.dump(new_protocol, f)
+
+    def fill_in_emodel_config(self, emodel, morph_fname, apical_point_isec):
+        """Fill in emodel config.
+
+        Args:
         emodel(str): emodel name.
         morph_fname(str): morphology filename.
         apical_point_isec(int): section index of the apical point.
@@ -483,10 +628,6 @@ class PrepareMEModelDirectory(MemodelParameters):
 
                 if "Protocol" not in new_config:
                     new_config["Protocol"] = {}
-                new_config["Protocol"]["hold_amp"] = str(holding)
-                new_config["Protocol"]["stimulus_amp1"] = str(1.50 * threshold)
-                new_config["Protocol"]["stimulus_amp2"] = str(2.00 * threshold)
-                new_config["Protocol"]["stimulus_amp3"] = str(2.50 * threshold)
                 # add apical point isec to config
                 new_config["Protocol"]["apical_point_isec"] = str(apical_point_isec)
 
@@ -503,8 +644,9 @@ class PrepareMEModelDirectory(MemodelParameters):
 
                 if "Paths" not in new_config:
                     new_config["Paths"] = {}
-                new_config["Paths"]["morph_dir"] = "morphology"
-                new_config["Paths"]["morph_file"] = morph_fname
+                new_config["Paths"]["morph_path"] = os.path.join(
+                    "morphology", morph_fname
+                )
 
                 # write config file
                 with open(file_.path, "w", encoding="utf-8") as configfile:
@@ -567,10 +709,13 @@ class PrepareMEModelDirectory(MemodelParameters):
             simulation.morph_parent_dir, cell.morphology_fname
         )
 
+        # protocols to be filled
+        self.fill_in_step_protocols(
+            cell_emodel.threshold_current, cell_emodel.holding_current
+        )
+
         # config to be filled
         self.fill_in_emodel_config(
-            cell_emodel.threshold_current,
-            cell_emodel.holding_current,
             cell_emodel.name,
             cell.morphology_fname,
             apical_point_isec,
@@ -635,7 +780,7 @@ class CreateHoc(MemodelParameters):
             )
 
 
-class RunHoc(MemodelParameters):
+class RunHoc(MemodelParameters, RunScriptMixin):
     """Task to run the hoc files for an emodel.
 
     Attributes:
@@ -675,30 +820,19 @@ class RunHoc(MemodelParameters):
             configfile=self.configfile,
         )
 
-    def output(self):
-        """Produces the hoc recordings."""
-        output_list = []
-
+    @property
+    def output_path(self):
+        """Directory containing the output."""
         workflow_output_dir = workflow_config.get("paths", "output")
         script_path = get_output_path(
             self.mtype, self.etype, self.region, self.gidx, workflow_output_dir
         )
         output_path = os.path.join(script_path, "hoc_recordings")
+        return output_path
 
-        if self.configfile in ["config_synapses.ini", "config_synapses_short.ini"]:
-            output_list.append(
-                luigi.LocalTarget(os.path.join(output_path, "soma_voltage_vecstim.dat"))
-            )
-
-        else:
-            for idx in range(3):
-                output_list.append(
-                    luigi.LocalTarget(
-                        os.path.join(output_path, "soma_voltage_step%d.dat" % (idx + 1))
-                    )
-                )
-
-        return output_list
+    def output(self):
+        """Produces the hoc recordings."""
+        return self.get_output_targets_from_run()
 
     def run(self):
         """Executes the hoc script."""
@@ -710,7 +844,7 @@ class RunHoc(MemodelParameters):
             subprocess.call(["sh", "./run_hoc.sh"])
 
 
-class RunPyScript(MemodelParameters):
+class RunPyScript(MemodelParameters, RunScriptMixin):
     """Task to run the python script for an emodel.
 
     Attributes:
@@ -741,31 +875,7 @@ class RunPyScript(MemodelParameters):
 
     def output(self):
         """Produces the python recordings."""
-        output_list = []
-
-        if self.configfile in ["config_singlestep.ini", "config_singlestep_short.ini"]:
-            output_list.append(
-                luigi.LocalTarget(
-                    os.path.join(self.output_path, "soma_voltage_step1.dat")
-                )
-            )
-        elif self.configfile in ["config_synapses.ini", "config_synapses_short.ini"]:
-            output_list.append(
-                luigi.LocalTarget(
-                    os.path.join(self.output_path, "soma_voltage_vecstim.dat")
-                )
-            )
-        else:
-            for idx in range(3):
-                output_list.append(
-                    luigi.LocalTarget(
-                        os.path.join(
-                            self.output_path, "soma_voltage_step%d.dat" % (idx + 1)
-                        )
-                    )
-                )
-
-        return output_list
+        return self.get_output_targets_from_run()
 
     def run(self):
         """Executes the python script."""

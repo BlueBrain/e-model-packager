@@ -1,9 +1,12 @@
 """Contains the utility functions needed for the workflow."""
 
+import glob
 import json
 import os
 from contextlib import contextmanager
 import numpy as np
+
+import luigi
 
 # pylint: disable=super-with-arguments
 
@@ -43,3 +46,16 @@ def cwd(path):
     os.chdir(path)
     yield
     os.chdir(old_dir)
+
+
+class LocalTargetCustom(luigi.LocalTarget):
+    """Allow '*' in file path when checking for existence."""
+
+    def exists(self):
+        """Returns ``True`` if the path exists; ``False`` otherwise.
+
+        Path can have '*' in it.
+        """
+        if "*" in self.path:
+            return bool(glob.glob(self.path))
+        return super(LocalTargetCustom, self).exists()

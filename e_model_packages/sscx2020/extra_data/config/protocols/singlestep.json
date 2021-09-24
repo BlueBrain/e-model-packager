@@ -1,0 +1,19 @@
+{
+    "Step_150": {
+        "type": "StepProtocol",
+        "stimuli": {
+            "step": {
+                "delay": 700.0,
+                "amp": null,
+                "duration": 2000.0,
+                "totduration": 3000.0
+            },
+            "holding": {
+                "delay": 0.0,
+                "amp": null,
+                "duration": 3000.0,
+                "totduration": 3000.0
+            }
+        }
+    }
+}

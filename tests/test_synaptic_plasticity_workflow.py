@@ -44,8 +44,8 @@ def test_directory_exists(memodel_dir=None):
 
     config_files = [
         "config_pairsim.ini",
-        "recipes/recipes.json",
         "params/final.json",
+        "params/pyr.json",
     ]
 
     protocols = ["out.dat", "stimuli.json"]
@@ -61,14 +61,6 @@ def test_directory_exists(memodel_dir=None):
 
     for item in config_files:
         memodel_files_to_be_checked.append(os.path.join("config", item))
-
-    recipes_path = os.path.join(memodel_dir, "config", "recipes", "recipes.json")
-    assert os.path.isfile(recipes_path)
-    with open(recipes_path, "r") as recipes_file:
-        recipes = json.load(recipes_file)
-
-    for _, recipe in recipes.items():
-        memodel_files_to_be_checked.append(recipe["params"])
 
     for item in templates:
         memodel_files_to_be_checked.append(os.path.join("templates", item))

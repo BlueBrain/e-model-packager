@@ -56,7 +56,6 @@ class PrepareMEModelDirectory(luigi.Task):
         os.makedirs(os.path.join(memodel_dir, "protocols"))
         os.makedirs(os.path.join(memodel_dir, "config"))
         os.makedirs(os.path.join(memodel_dir, "config", "params"))
-        os.makedirs(os.path.join(memodel_dir, "config", "recipes"))
 
     def copy_scripts(self):
         """Copy scripts."""
@@ -113,18 +112,10 @@ class PrepareMEModelDirectory(luigi.Task):
                 shutil.copy(input_params_path, output_params_path)
 
     @staticmethod
-    def get_recipes_and_final_dicts(input_dir, emodels):
+    def get_final_dict(input_dir, emodels):
         """Get trimmed recipes and final dicts."""
-        recipes_out = {}
         final_out = {}
         for emodel in emodels:
-            # recipes
-            recipes_path = os.path.join(input_dir, "recipes/recipes.json")
-            with open(recipes_path, "r", encoding="utf-8") as recipes_file:
-                recipe = json.load(recipes_file)[emodel]
-            if emodel not in recipes_out:
-                recipes_out[emodel] = recipe
-
             # optimized params
             with open(
                 os.path.join(input_dir, "params/final.json"), "r", encoding="utf-8"
@@ -133,7 +124,7 @@ class PrepareMEModelDirectory(luigi.Task):
             if emodel not in final_out:
                 final_out[emodel] = final
 
-        return recipes_out, final_out
+        return final_out
 
     def copy_config_data(self, input_dir, output_dir, emodels):
         """Copy params, final and recipes from config."""
@@ -141,12 +132,7 @@ class PrepareMEModelDirectory(luigi.Task):
         self.copy_unoptimized_params(input_dir, output_dir, emodels)
 
         # get recipes and final
-        recipes_out, final_out = self.get_recipes_and_final_dicts(input_dir, emodels)
-
-        # write recipes
-        recipes_out_path = os.path.join(output_dir, "config", "recipes", "recipes.json")
-        with open(recipes_out_path, "w", encoding="utf-8") as recipes_out_file:
-            json.dump(recipes_out, recipes_out_file)
+        final_out = self.get_final_dict(input_dir, emodels)
 
         # write final
         final_out_path = os.path.join(output_dir, "config/params/final.json")
@@ -182,6 +168,7 @@ class PrepareMEModelDirectory(luigi.Task):
         # extract data from circuit
         circuitpath = workflow_config.get("paths", "circuitpath")
         extra_recipe = workflow_config.get("paths", "extra_recipe")
+        recipes_path = os.path.join(input_dir, "recipes/recipes.json")
         extract_all(
             self.source_dir,
             self.output_folder,
@@ -189,6 +176,7 @@ class PrepareMEModelDirectory(luigi.Task):
             self.postgid,
             circuitpath,
             extra_recipe,
+            recipes_path,
         )
 
         Path(self.output().path).touch()

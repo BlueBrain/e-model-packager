@@ -42,6 +42,7 @@ def extract_config(
     postgid,
     pregid,
     bc_dict,
+    recipes_path,
     out_file="config_pairsim.ini",
     out_fit_params_file="fit_params.json",
     out_const_dir="config",
@@ -65,6 +66,11 @@ def extract_config(
     precell = circuit.get_cell_attributes(pregid)
     precell_emodel = circuit.get_emodel_attributes(pregid)
 
+    with open(recipes_path, "r", encoding="utf-8") as recipes_file:
+        recipe = json.load(recipes_file)
+    unopt_params_path = recipe[cell_emodel.name]["params"]
+    precell_unopt_params_path = recipe[precell_emodel.name]["params"]
+
     config = configparser.ConfigParser()
     config["Cell"] = {
         "celsius": str(celsius),
@@ -76,8 +82,10 @@ def extract_config(
     }
     config["Sim"] = {"dt": str(dt)}
     config["Paths"] = {
-        "morph_file": cell.morphology_fname,
-        "precell_morph_file": precell.morphology_fname,
+        "morph_path": os.path.join("morphology", cell.morphology_fname),
+        "precell_morph_path": os.path.join("morphology", precell.morphology_fname),
+        "unoptimized_params_path": unopt_params_path,
+        "precell_unoptimized_params_path": precell_unopt_params_path,
     }
     config["Protocol"] = {"tstop": tstop, "precell_amplitude": "1.0"}
     config["SynapsePlasticity"] = {
@@ -300,8 +308,11 @@ def get_blueconfig_dict(bcpath):
     return bc.to_dict()
 
 
-def extract_all(basedir, output_dir, pregid, postgid, circuitpath, extra_recipe):
+def extract_all(
+    basedir, output_dir, pregid, postgid, circuitpath, extra_recipe, recipes_path
+):
     """Extract everything."""
+    # pylint: disable=too-many-locals
     bcpath = os.path.join(basedir, "BlueConfig")
 
     circuit = BluepyCircuit(bcpath)
@@ -341,6 +352,7 @@ def extract_all(basedir, output_dir, pregid, postgid, circuitpath, extra_recipe)
         postgid,
         pregid,
         bc_dict,
+        recipes_path,
         fastforward=fastforward,
         invivo=invivo,
         fit_params=fit_params,

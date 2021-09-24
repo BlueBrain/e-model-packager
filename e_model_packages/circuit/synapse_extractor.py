@@ -27,7 +27,7 @@ class SynapseExtractor:
         """Convert section name into sectionlist_id and section_list_index."""
         match = re.match(r"(.*)\[(.*)\]", sec_name)
         if match is None:
-            raise Exception("Couldnt match section name %s" % sec_name)
+            raise Exception(f"Couldnt match section name {sec_name}")
 
         sectionlist_name = match.groups()[0]
         sectionlist_index = int(match.groups()[1])
@@ -39,6 +39,7 @@ class SynapseExtractor:
     @staticmethod
     def generate_synconf_content(synconf_dict, synconf_ordering):
         """Generate content for synconf.txt."""
+        # pylint: disable=consider-using-f-string
         synconf_content = ""
         for command in synconf_ordering:
             gids = synconf_dict[command]
@@ -58,7 +59,7 @@ class SynapseExtractor:
         if synapse_dict["syn_type"] < 100:
             # or synapse_dict['syn_type'] == 9:
             return synapse_dict["synapse_parameters"]["tau_d_GABAA"]
-        raise Exception("Unknown synapse type %d" % synapse_dict["syn_type"])
+        raise Exception(f"Unknown synapse type {synapse_dict['syn_type']}")
 
     def get_pre_mtype_id(self, mtype_map, pre_gid):
         """Assign pre-cell mtype to an id."""
@@ -80,7 +81,7 @@ class SynapseExtractor:
         self, add_stimuli=False, add_synapses=None, intersect_pre_gids=None
     ):
         """Loads synapses information."""
-        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-locals, consider-using-f-string
         self.ssim.instantiate_gids(
             [self.gid],
             synapse_detail=2,
@@ -98,7 +99,7 @@ class SynapseExtractor:
         # n_of_cols is actually not related to nmb of keys
         n_of_cols = 14
 
-        self.synapse_tsv_content = "%d %d\n" % (n_of_synapses, n_of_cols)
+        self.synapse_tsv_content = f"{n_of_synapses} {n_of_cols}\n"
 
         synconf_dict = collections.defaultdict(list)
         synconf_ordering = []
