@@ -33,7 +33,7 @@ from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExt
 from e_model_packages.nwb.create_nwb import create_nwb, write_nwb
 
 from emodelrunner.run import main as run_emodel
-from emodelrunner.load import load_config, get_hoc_paths_args
+from emodelrunner.load import load_sscx_config, get_hoc_paths_args
 from emodelrunner.create_hoc import get_hoc, write_hocs
 from emodelrunner.factsheets.output import (
     write_metype_json_from_config,
@@ -282,24 +282,24 @@ class CreateFactsheets(MemodelParameters):
         factsheets_dir = "factsheets"
         protocol_key = "RmpRiTau"
 
-        config = load_config(
-            config_path=os.path.join(memodel_dir, "config", self.configfile)
-        )
-        # is not exactly the same as self.mtype
-        prefix = config.get("Morphology", "mtype")
-        voltage_path = Path("python_recordings") / (
-            prefix + "." + protocol_key + ".soma.v.dat"
-        )
-        morph_path = config.get("Paths", "morph_path")
-        metype_output_path = os.path.join(factsheets_dir, "me_type_factsheet.json")
-
-        emodel = config.get("Cell", "emodel")
-        features_path = config.get("Paths", "features_path")
-        units_path = config.get("Paths", "units_path")
-        unoptimized_params_path = config.get("Paths", "unoptimized_params_path")
-        optimized_params_path = config.get("Paths", "params_path")
-
         with cwd(memodel_dir):
+            config = load_sscx_config(
+                config_path=os.path.join("config", self.configfile)
+            )
+            # is not exactly the same as self.mtype
+            prefix = config.get("Morphology", "mtype")
+            voltage_path = Path("python_recordings") / (
+                prefix + "." + protocol_key + ".soma.v.dat"
+            )
+            morph_path = config.get("Paths", "morph_path")
+            metype_output_path = os.path.join(factsheets_dir, "me_type_factsheet.json")
+
+            emodel = config.get("Cell", "emodel")
+            features_path = config.get("Paths", "features_path")
+            units_path = config.get("Paths", "units_path")
+            unoptimized_params_path = config.get("Paths", "unoptimized_params_path")
+            optimized_params_path = config.get("Paths", "params_path")
+
             write_metype_json_from_config(
                 config,
                 voltage_path,
@@ -763,11 +763,10 @@ class CreateHoc(MemodelParameters):
     def run(self):
         """Creates the hoc script."""
         with cwd(self.output_folder):
-            run_hoc_filename = "run.hoc"
-            config = load_config(config_path=os.path.join("config", self.configfile))
-            cell_hoc, syn_hoc, simul_hoc, run_hoc = get_hoc(
-                config=config, syn_temp_name="hoc_synapses"
+            config = load_sscx_config(
+                config_path=os.path.join("config", self.configfile)
             )
+            cell_hoc, syn_hoc, simul_hoc, run_hoc = get_hoc(config=config)
 
             hoc_paths = get_hoc_paths_args(config)
             write_hocs(
@@ -775,7 +774,6 @@ class CreateHoc(MemodelParameters):
                 cell_hoc,
                 simul_hoc,
                 run_hoc,
-                run_hoc_filename,
                 syn_hoc,
             )
 

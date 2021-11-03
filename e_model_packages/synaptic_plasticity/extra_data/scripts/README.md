@@ -17,16 +17,26 @@ Then, install EModelRunner:
 
 Running the simulation should be as easy as:
 
-    sh run.sh
+    sh run.sh config_path
 
+Where config_path is the path to a specific config file. You will find the available config files in the config folder.
 It will run the post-synaptic cell using pre-defined spike train of the pre-synaptic cell to stimulate the synapses.
 
 You can also do a true pair simulation, where both the pre-synaptic and the post-synaptic cells. 
 This should be as easy as:
 
-    sh run_pairsim.sh
+    sh run_pairsim.sh config_path
 
-Once the simulation is done, the output is stored as output.h5. If the precell has been simulated too, its output is stored as output_precell.h5.
+Where config_path is the path to a specific config file. You will find the available config files in the config folder.
+
+Once the simulation is done, the output is stored as output_{protocol_details}.h5.
+If the precell has been simulated too, its output is stored as output_precell_{protocol_details}.h5.
+
+Please, bear in mind that, since it is difficult to make the pre-synaptic cell spike at exactly the same time as in the pre-recorded spike-train file
+(especially when the pre-synaptic cell has to spike multiple times in a row),
+the results of the 'true pair' simulation might differ slightly from those of the 'post-synaptic cell only' simulation.
+
+All the config files are working for both the 'post-synaptic cell only' and the 'true pair' simulations.
 
 ## Funding & Acknowledgment
 

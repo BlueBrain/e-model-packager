@@ -17,6 +17,8 @@ def test_directory_exists(memodel_dir=None):
     memodel_files_to_be_checked = [
         "run.sh",
         "run_pairsim.sh",
+        "run_all.sh",
+        "run_all_pairsim.sh",
         "LICENSE.txt",
         "requirements.txt",
         "README.md",
@@ -43,12 +45,24 @@ def test_directory_exists(memodel_dir=None):
     ]
 
     config_files = [
-        "config_pairsim.ini",
+        "config_10Hz_10ms.ini",
+        "config_1Hz_10ms.ini",
+        "config_20Hz_10ms.ini",
+        "config_50Hz_10ms.ini",
         "params/final.json",
         "params/pyr.json",
     ]
 
-    protocols = ["out.dat", "stimuli.json"]
+    protocols = [
+        "spiketrain_10Hz_10ms.dat",
+        "spiketrain_1Hz_10ms.dat",
+        "spiketrain_20Hz_10ms.dat",
+        "spiketrain_50Hz_10ms.dat",
+        "stimuli_10Hz.json",
+        "stimuli_1Hz.json",
+        "stimuli_20Hz.json",
+        "stimuli_50Hz.json",
+    ]
 
     synapses = [
         "synapses.tsv",
@@ -85,7 +99,7 @@ def test_directory_exists(memodel_dir=None):
 def test_voltage_trace(memodel_dir=None, original_path=None):
     """Compare that the voltage trace of a random cell with the original one."""
     # Note that the args are set in the decorator.
-    new_path = os.path.join(memodel_dir, "output.h5")
+    new_path = os.path.join(memodel_dir, "output_50Hz_10ms.h5")
 
     threshold_v = 0.1
     threshold_other = 0.5
@@ -115,7 +129,7 @@ def test_voltage_trace(memodel_dir=None, original_path=None):
 def test_voltage_pairsim(memodel_dir=None, original_path=None):
     """Compare that the voltage trace of a random cell with the original one."""
     # Note that the args are set in the decorator.
-    new_path = os.path.join(memodel_dir, "output.h5")
+    new_path = os.path.join(memodel_dir, "output_50Hz_10ms.h5")
 
     # there is a bit of a precision lost
     # due to the approximate timing of the precell spiking
@@ -126,7 +140,7 @@ def test_voltage_pairsim(memodel_dir=None, original_path=None):
         os.remove(new_path)
 
     with cwd(memodel_dir):
-        subprocess.call(["sh", "run_pairsim.sh"])
+        subprocess.call(["sh", "run_pairsim.sh", "config/config_50Hz_10ms.ini"])
 
     with h5py.File(original_path, "r") as original:
         with h5py.File(new_path, "r") as new:

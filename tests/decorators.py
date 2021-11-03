@@ -1,8 +1,9 @@
 """Decorator launching luigi."""
-import configparser
 import os
 from functools import wraps
 from inspect import signature
+
+import json
 
 from e_model_packages.sscx2020.utils import get_output_path
 from e_model_packages.synaptic_plasticity.utils import (
@@ -80,14 +81,28 @@ def launch_luigi_synaptic_plasticity(module, task):
         path_to_luigi = os.path.join(*dirs)
         path_to_module = ".".join(dirs)
 
+        source_dirs = []
+        base_source_dir = (
+            "/gpfs/bbp.cscs.ch/project/proj32/"
+            + "glusynapse_20190926_release/testing/egger_1999/"
+            + "simulations/L4SS_L4SS/111202-111376"
+        )
+        spiketrains = ["10ms"]
+        stims = ["50Hz", "20Hz", "10Hz", "1Hz"]
+        config_path = "config/config_50Hz_10ms.ini"
+        for stim in stims:
+            for train in spiketrains:
+                source_dirs.append(os.path.join(base_source_dir, stim + "_" + train))
         cell_data = {
             "layers": "L4SS_L4SS",
             "pregid": 111202,
             "postgid": 111376,
-            "source_dir": "/gpfs/bbp.cscs.ch/project/proj32/"
-            + "glusynapse_20190926_release/testing/egger_1999/"
-            + "simulations/L4SS_L4SS/111202-111376/50Hz_10ms",
+            # be sure that json list is inside ' '
+            # so that argparse detect it as one argument
+            "source_dirs": "'" + json.dumps(source_dirs) + "'",
         }
+        if task == "RunPyScript":
+            cell_data["config_path"] = config_path
 
         sig = signature(func)
 
@@ -107,7 +122,7 @@ def launch_luigi_synaptic_plasticity(module, task):
 
             # change PYTHONPATH
             os.system("export PYTHONPATH=${{PYTHONPATH}}:{}".format(path_to_luigi))
-
+            print(arguments)
             # launch luigi
             os.system(
                 "LUIGI_CONFIG_PATH='{}' luigi --module {} {} --local-scheduler {}".format(
@@ -125,7 +140,7 @@ def launch_luigi_synaptic_plasticity(module, task):
                 cell_data["pregid"],
                 cell_data["postgid"],
             )
-            original_path = os.path.join(cell_data["source_dir"], "simulation.h5")
+            original_path = os.path.join(source_dirs[0], "simulation.h5")
 
             # read arguments, including default ones
             bound_args = sig.bind(*args, **kwargs)

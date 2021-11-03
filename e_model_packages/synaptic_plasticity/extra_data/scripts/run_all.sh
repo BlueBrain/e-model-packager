@@ -5,4 +5,14 @@ if [ ! -f "x86_64/special" ]; then
     nrnivmodl mechanisms
 fi
 
-python -m emodelrunner.run_pairsim --config_path $1
+if [ $# -eq 0 ]
+then
+    search_dir = "./config"
+else
+    search_dir=$1
+fi
+
+for config_path in "$search_dir"/*.ini
+do
+    python -m emodelrunner.run_synplas --config_path $config_path
+done

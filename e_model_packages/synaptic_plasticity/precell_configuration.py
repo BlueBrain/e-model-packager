@@ -1,9 +1,12 @@
 """Configure the pre-synaptic cell's protocols."""
 
+import glob
+import os
+
 import efel
 from bluepyopt import ephys
 from emodelrunner.load import get_release_params
-from emodelrunner.load import load_config
+from emodelrunner.configuration import SynplasConfigValidator
 from emodelrunner.create_cells import get_precell
 from e_model_packages.sscx2020.utils import cwd
 
@@ -65,9 +68,12 @@ def run_precell(
     amp, step_delay, step_duration, burst_interval=50, n_spikes=5, fixhp=True
 ):
     """Run precell (to be run in the memodel repo)."""
+    # pylint: disable=protected-access
+    config_path = glob.glob(os.path.join("config", "*.ini"))[0]
     cvode_active = True
 
-    config = load_config(config_path="config/config_pairsim.ini")
+    conf_validator = SynplasConfigValidator()
+    config = conf_validator._get_unvalidated_config(config_path)
 
     # load cell
     precell = get_precell(
@@ -76,9 +82,7 @@ def run_precell(
     )
 
     # simulator
-    sim = ephys.simulators.NrnSimulator(
-        dt=config.getfloat("Sim", "dt"), cvode_active=cvode_active
-    )
+    sim = ephys.simulators.NrnSimulator(cvode_active=cvode_active)
     # set dynamic timestep tolerance
     sim.neuron.h.cvode.atolscale("v", 0.1)
 

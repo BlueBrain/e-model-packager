@@ -14,6 +14,11 @@ with open("README.rst", encoding="utf-8") as f:
 
 VERSION = imp.load_source("", "e_model_packages/version.py").__version__
 
+
+EXTRA_GLUSYNAPSE = [
+    "glusynapseutils @ file://localhost//gpfs/bbp.cscs.ch/project/proj32/ajaquier/GluSynapseUtils/20210903/GluSynapseUtils/dist/glusynapseutils-0.0.1.dev0-py3-none-any.whl"
+]
+
 setup(
     name="e-model-packages",
     version=VERSION,
@@ -42,12 +47,13 @@ setup(
         "bluepysnap",
         "pandas",
         "pynwb >= 2.0.0",
-        "EModelRunner>=0.0.16",
+        "EModelRunner>=1.0.3",
         "luigi-tools>=0.0.6",
         "h5py",
-        "glusynapseutils @ file://localhost//gpfs/bbp.cscs.ch/project/proj32/ajaquier/GluSynapseUtils/20210903/GluSynapseUtils/dist/glusynapseutils-0.0.1.dev0-py3-none-any.whl",
         "efel",
+        "schema",
     ],
+    extras_require={"glusynapse": EXTRA_GLUSYNAPSE},
     packages=find_packages(),
     python_requires=">=3.7",
     classifiers=[

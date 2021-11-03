@@ -1,7 +1,7 @@
 /*
 Copyright (c) BBP/EPFL 2021.
 This work is licenced under Creative Common CC BY-NC-SA-4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)                                    
-*/   
+*/
 
 load_file("nrngui.hoc")
 load_file("createsimulation.hoc")
@@ -12,6 +12,7 @@ stepcurrent = "none"
 
 // Set up simulation
 create_cell()
+access cell.soma
 create_recording()
 
 for i_stim=1,{{n_stims}} {

@@ -2,6 +2,7 @@
 import configparser
 import json
 import logging
+from pathlib import Path
 import shutil
 import os
 
@@ -41,9 +42,9 @@ def extract_config(
     circuit,
     postgid,
     pregid,
-    bc_dict,
+    bc_dicts,
     recipes_path,
-    out_file="config_pairsim.ini",
+    outfile_basename="config",
     out_fit_params_file="fit_params.json",
     out_const_dir="config",
     celsius=34,
@@ -52,13 +53,11 @@ def extract_config(
     invivo=False,
     fit_params=None,
     default_synrec=None,
+    base_stimuli_name="stimuli",
+    base_spiketrain_name="spiketrain",
 ):
     """Extract and write config and fit_params."""
     # pylint: disable=too-many-arguments, too-many-locals
-    # get base_seed, dt and duration from BlueConfig
-    base_seed = bc_dict["Run"]["Default"]["BaseSeed"]
-    dt = bc_dict["Run"]["Default"]["Dt"]
-    tstop = bc_dict["Run"]["Default"]["Duration"]
 
     # get constants
     cell = circuit.get_cell_attributes(postgid)
@@ -71,30 +70,6 @@ def extract_config(
     unopt_params_path = recipe[cell_emodel.name]["params"]
     precell_unopt_params_path = recipe[precell_emodel.name]["params"]
 
-    config = configparser.ConfigParser()
-    config["Cell"] = {
-        "celsius": str(celsius),
-        "v_init": str(v_init),
-        "emodel": cell_emodel.name,
-        "precell_emodel": precell_emodel.name,
-        "gid": str(int(postgid)),
-        "precell_gid": str(int(pregid)),
-    }
-    config["Sim"] = {"dt": str(dt)}
-    config["Paths"] = {
-        "morph_path": os.path.join("morphology", cell.morphology_fname),
-        "precell_morph_path": os.path.join("morphology", precell.morphology_fname),
-        "unoptimized_params_path": unopt_params_path,
-        "precell_unoptimized_params_path": precell_unopt_params_path,
-    }
-    config["Protocol"] = {"tstop": tstop, "precell_amplitude": "1.0"}
-    config["SynapsePlasticity"] = {
-        "fastforward": str(fastforward),
-        "invivo": str(invivo).lower(),
-        "base_seed": str(base_seed),
-        "synrec": json.dumps(default_synrec),
-    }
-
     # write fit_params
     fit_params_output_path = os.path.join(
         output_dir, out_const_dir, out_fit_params_file
@@ -102,10 +77,52 @@ def extract_config(
     with open(fit_params_output_path, "w", encoding="utf-8") as f:
         json.dump(fit_params, f)
 
-    # write config file
-    config_output_path = os.path.join(output_dir, out_const_dir, out_file)
-    with open(config_output_path, "w", encoding="utf-8") as configfile:
-        config.write(configfile)
+    for bc_dict in bc_dicts:
+        base_seed = bc_dict["Run"]["Default"]["BaseSeed"]
+        tstop = bc_dict["Run"]["Default"]["Duration"]
+
+        original_dir = bc_dict["Run"]["Default"]["CurrentDir"]
+        pulse_spiketrain_names = Path(original_dir).stem
+        pulse_name, _ = pulse_spiketrain_names.split("_")
+
+        stimuli_path = f"protocols/{base_stimuli_name}_{pulse_name}.json"
+        spiketrain_path = (
+            f"protocols/{base_spiketrain_name}_{pulse_spiketrain_names}.dat"
+        )
+
+        config = configparser.ConfigParser()
+        config["Cell"] = {
+            "celsius": str(celsius),
+            "v_init": str(v_init),
+            "emodel": cell_emodel.name,
+            "precell_emodel": precell_emodel.name,
+            "gid": str(int(postgid)),
+            "precell_gid": str(int(pregid)),
+        }
+        config["Paths"] = {
+            "morph_path": os.path.join("morphology", cell.morphology_fname),
+            "precell_morph_path": os.path.join("morphology", precell.morphology_fname),
+            "unoptimized_params_path": unopt_params_path,
+            "precell_unoptimized_params_path": precell_unopt_params_path,
+            "spiketrain_path": spiketrain_path,
+            "stimuli_path": stimuli_path,
+            "synplas_output_path": f"output_{pulse_spiketrain_names}.h5",
+            "pairsim_output_path": f"output_{pulse_spiketrain_names}.h5",
+            "pairsim_precell_output_path": f"output_precell_{pulse_spiketrain_names}.h5",
+        }
+        config["Protocol"] = {"tstop": tstop, "precell_amplitude": "1.0"}
+        config["SynapsePlasticity"] = {
+            "fastforward": str(fastforward),
+            "invivo": str(invivo).lower(),
+            "base_seed": str(base_seed),
+            "synrec": json.dumps(default_synrec),
+        }
+
+        # write config file
+        out_file = f"{outfile_basename}_{pulse_spiketrain_names}.ini"
+        config_output_path = os.path.join(output_dir, out_const_dir, out_file)
+        with open(config_output_path, "w", encoding="utf-8") as configfile:
+            config.write(configfile)
 
 
 # adapted from glusynapseutils.simulator._runconnectedpair_process
@@ -225,18 +242,23 @@ def extract_cpre_and_cpost(
 
 
 def extract_protocols(
-    output_dir, bc_dict, prot_dir="protocols", output_file="stimuli.json"
+    output_dir, bc_dicts, prot_dir="protocols", base_output_name="stimuli"
 ):
     """Extract Pulse Stimuli from BlueConfig."""
-    stimuli_dict = {}
-    for key, item in bc_dict["Stimulus"].items():
-        stimuli_dict[key] = dict(item)
-    # for key, item in bc_dict["StimulusInject"].items():
-    #     stimuli_dict[key] = dict(item)
+    for bc_dict in bc_dicts:
+        original_dir = bc_dict["Run"]["Default"]["CurrentDir"]
+        pulse_spiketrain_names = Path(original_dir).stem
+        pulse_name = pulse_spiketrain_names.split("_")[0]
 
-    output_path = os.path.join(output_dir, prot_dir, output_file)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(stimuli_dict, f, indent=4)
+        output_file = f"{base_output_name}_{pulse_name}.json"
+        output_path = os.path.join(output_dir, prot_dir, output_file)
+
+        if not Path(output_path).is_file():
+            stimuli_dict = {}
+            for key, item in bc_dict["Stimulus"].items():
+                stimuli_dict[key] = dict(item)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(stimuli_dict, f, indent=4)
 
 
 # adapted from glusynapseutils.simulation.simulator._runconnectedpair_process
@@ -309,17 +331,21 @@ def get_blueconfig_dict(bcpath):
 
 
 def extract_all(
-    basedir, output_dir, pregid, postgid, circuitpath, extra_recipe, recipes_path
+    basedirs, output_dir, pregid, postgid, circuitpath, extra_recipe, recipes_path
 ):
     """Extract everything."""
     # pylint: disable=too-many-locals
+    basedir = basedirs[0]
     bcpath = os.path.join(basedir, "BlueConfig")
 
     circuit = BluepyCircuit(bcpath)
     simulation = BluepySimulation(bcpath)
     ssim = bglibpy.SSim(bcpath)
 
-    bc_dict = get_blueconfig_dict(bcpath)
+    bc_dicts = []
+    for basedir_i in basedirs:
+        bcpath_i = os.path.join(basedir_i, "BlueConfig")
+        bc_dicts.append(get_blueconfig_dict(bcpath_i))
 
     default_synrec = [
         "rho_GB",
@@ -331,6 +357,7 @@ def extract_all(
         "ica_VDCC",
         "effcai_GB",
     ]
+    base_stimuli_name = "stimuli"
 
     # params from simulation.batch
     fit_params, fastforward, invivo = get_fit_params(basedir)
@@ -341,7 +368,7 @@ def extract_all(
     extract_syn_extra_params(output_dir, ssim, circuitpath, extra_recipe, basedir)
     extract_cpre_and_cpost(output_dir, basedir, fit_params, invivo)
     extract_synprop(output_dir, basedir)
-    extract_protocols(output_dir, bc_dict)
+    extract_protocols(output_dir, bc_dicts, base_output_name=base_stimuli_name)
 
     # extract precell
     extract_morph_data(output_dir, circuit, simulation, pregid)
@@ -351,10 +378,11 @@ def extract_all(
         circuit,
         postgid,
         pregid,
-        bc_dict,
+        bc_dicts,
         recipes_path,
         fastforward=fastforward,
         invivo=invivo,
         fit_params=fit_params,
         default_synrec=default_synrec,
+        base_stimuli_name=base_stimuli_name,
     )

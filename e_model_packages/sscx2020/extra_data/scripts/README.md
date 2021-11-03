@@ -118,7 +118,7 @@ Below are the default configuration parameters that you can change :
     dt=0.025
     # set to True to allow adaptative timestep. 
     # attention: these scripts have not been designed to support adaptative timesteps.
-    cvcode_active=False
+    cvode_active=False
 
     [Synapses]
     # set to True to add synapses
