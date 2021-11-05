@@ -51,6 +51,10 @@ class PrepareMEModelDirectory(luigi.Task):
     def makedirs(self):
         """Make directories."""
         memodel_dir = self.output_folder
+        # if folder is already created, delete it
+        # (it is generally from a previously failed run)
+        if Path(memodel_dir).is_dir():
+            shutil.rmtree(memodel_dir)
         os.makedirs(memodel_dir)
 
         os.makedirs(os.path.join(memodel_dir, "morphology"))
@@ -248,6 +252,10 @@ class PrecellConfigTarget(luigi.Target):
         memodel_dir = get_output_path(
             output_dir, self.layers, self.pregid, self.postgid
         )
+
+        if not Path(memodel_dir).is_dir():
+            return False
+
         with cwd(memodel_dir):
             config_paths = glob.glob(os.path.join("config", "*.ini"))
 
@@ -361,18 +369,14 @@ class RunWorkflow(luigi.WrapperTask):
                     source_dir = os.path.dirname(row["path"])
                     key = "_".join((layer, str(row["pregid"]), str(row["postgid"])))
                     if key not in args:
-                        args[key] = (
+                        args[key] = [
                             layer,
                             int(row["pregid"]),
                             int(row["postgid"]),
                             [source_dir],
-                        )
+                        ]
                     else:
                         args[key][3].append(source_dir)
-
-        # convert source_dir list in json, as it is the way luigi reads list parameters
-        for arg in args.values():
-            arg[3] = json.dumps(arg[3])
 
         tasks = [
             f(*arg)
