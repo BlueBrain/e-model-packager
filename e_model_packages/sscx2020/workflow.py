@@ -2,6 +2,7 @@
 # pylint: disable=wrong-import-position
 # pylint: disable=wrong-import-order
 # pylint: disable=import-error
+# pylint: disable=too-many-lines
 
 import configparser
 import json
@@ -611,6 +612,67 @@ class PrepareMEModelDirectory(MemodelParameters):
                 with open(file_.path, "w", encoding="utf-8") as f:
                     json.dump(new_protocol, f)
 
+    @staticmethod
+    def fill_in_config_default_values(config_dict):
+        """Fill in config dict with default values.
+
+        Args:
+            config_dict (dict): the configuration dictionary
+        """
+        if "Cell" not in config_dict:
+            config_dict["Cell"] = {}
+        config_dict["Cell"]["celsius"] = "34"
+        config_dict["Cell"]["v_init"] = "-80"
+
+        if "Morphology" not in config_dict:
+            config_dict["Morphology"] = {}
+        config_dict["Morphology"]["do_replace_axon"] = "True"
+
+        if "Sim" not in config_dict:
+            config_dict["Sim"] = {}
+        config_dict["Sim"]["dt"] = "0.025"
+        config_dict["Sim"]["cvode_active"] = "False"
+
+        if "Synapses" not in config_dict:
+            config_dict["Synapses"] = {}
+        config_dict["Synapses"]["seed"] = "846515"
+        config_dict["Synapses"]["rng_settings_mode"] = "Random123"
+        config_dict["Synapses"]["hoc_synapse_template_name"] = "hoc_synapses"
+
+        if "Paths" not in config_dict:
+            config_dict["Paths"] = {}
+        config_dict["Paths"]["memodel_dir"] = "."
+        config_dict["Paths"]["output_dir"] = "%(memodel_dir)s/python_recordings"
+        config_dict["Paths"]["params_path"] = "%(memodel_dir)s/config/params/final.json"
+        config_dict["Paths"][
+            "units_path"
+        ] = "%(memodel_dir)s/config/features/units.json"
+        config_dict["Paths"]["templates_dir"] = "%(memodel_dir)s/templates"
+        config_dict["Paths"][
+            "cell_template_path"
+        ] = "%(templates_dir)s/cell_template_neurodamus.jinja2"
+        config_dict["Paths"][
+            "run_hoc_template_path"
+        ] = "%(templates_dir)s/run_hoc.jinja2"
+        config_dict["Paths"][
+            "createsimulation_template_path"
+        ] = "%(templates_dir)s/createsimulation.jinja2"
+        config_dict["Paths"][
+            "synapses_template_path"
+        ] = "%(templates_dir)s/synapses.jinja2"
+        config_dict["Paths"][
+            "replace_axon_hoc_path"
+        ] = "%(templates_dir)s/replace_axon_hoc.hoc"
+        config_dict["Paths"]["syn_dir_for_hoc"] = "%(memodel_dir)s/synapses"
+        config_dict["Paths"]["syn_dir"] = "%(memodel_dir)s/synapses"
+        config_dict["Paths"]["syn_data_file"] = "synapses.tsv"
+        config_dict["Paths"]["syn_conf_file"] = "synconf.txt"
+        config_dict["Paths"]["syn_hoc_file"] = "synapses.hoc"
+        config_dict["Paths"]["syn_mtype_map"] = "mtype_map.tsv"
+        config_dict["Paths"]["simul_hoc_file"] = "createsimulation.hoc"
+        config_dict["Paths"]["cell_hoc_file"] = "cell.hoc"
+        config_dict["Paths"]["run_hoc_file"] = "run.hoc"
+
     def fill_in_emodel_config(self, emodel, morph_fname, apical_point_isec):
         """Fill in emodel config.
 
@@ -626,6 +688,8 @@ class PrepareMEModelDirectory(MemodelParameters):
                 new_config = configparser.ConfigParser()
                 new_config.read(file_.path)
 
+                self.fill_in_config_default_values(new_config)
+
                 if "Protocol" not in new_config:
                     new_config["Protocol"] = {}
                 # add apical point isec to config
@@ -633,14 +697,8 @@ class PrepareMEModelDirectory(MemodelParameters):
 
                 if "Cell" not in new_config:
                     new_config["Cell"] = {}
-                new_config["Cell"]["celsius"] = "34"
-                new_config["Cell"]["v_init"] = "-80"
                 new_config["Cell"]["emodel"] = emodel
                 new_config["Cell"]["gid"] = str(self.gid)
-
-                if "Sim" not in new_config:
-                    new_config["Sim"] = {}
-                new_config["Sim"]["dt"] = "0.025"
 
                 if "Paths" not in new_config:
                     new_config["Paths"] = {}

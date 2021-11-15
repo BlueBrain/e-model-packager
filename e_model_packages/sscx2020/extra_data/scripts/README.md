@@ -8,38 +8,38 @@
 
 ## How to run the cell using python
 
-Running the cell with the default configuration should as easy as :
+Running the cell with the default configuration should as easy as:
 
-    sh run_py.sh
+    sh run_py.sh config_path
 
-if you want to run the three standard step stimuli protocols with synapses deactivated,
-or :
+Where config_path is the path to a specific config file. You will find the available config files in the config folder.
+Note that the protocol used will depend on the contents of the config file.
 
-    sh run_py.sh config_synapses.ini
-
-if you want to run the standard synapses stimuli only protocol.
-
-If you want to change the default parameters, go see the
+If you want to change the contents of the config files, go see the
 'How to change the configuration file'
 section.
+
+The output can be found under python_recordings.
 
 
 ## How to run the cell using hoc
 
-Running the cell with the default configuration
-(three standard step stimuli protocols with synapses deactivated)
-should as easy as :
+You can also run the simulation using hoc. In order to do that, you will have to first create the hoc files with the following line:
+
+    python create_hoc.py --config_path config_path
+
+Where config_path is the path to a specific config file. You will find the available config files in the config folder.
+Note that the protocol used will depend on the contents of the config file.
+
+If you want to change the contents of the config files, go see the
+'How to change the configuration file'
+section.
+
+Then run the simulation with:
 
     sh run_hoc.sh
 
-If you want to change the default parameters,
-change the config file according to the
-'How to change the configuration file'
-section of this README, and then run the create_hoc.py script using python :
-
-    python create_hoc.py --c <your_config_file>.ini
-
-The hoc files are then rewritten and you can run them as described above.
+The output can be found under python_recordings.
 
 
 ## How to use the GUI
@@ -67,91 +67,77 @@ or resumed by clicking on the continue button.
 
 ## How to change the configuration file
 
-The configuration file should always be in the config/ folder.
-There, you can either modify an existing configuration file (config_synapses.ini)
-or you can create your own.
+The configuration files present in the config folder already contain all the available fields. Feel free to change them of create new configuration files.
 
-Below are the default configuration parameters that you can change :
-
-
-    [Protocol]
-    # set to True to run the simulation with step stimuli
-    run_step_protocol=True
-    # set to True to run all three steps (run_step_protocol must be True)
-    run_all_steps=True
-    # if run_step_protocol is True and run_all_steps is False, run this step (must be 1,2 or 3)
-    run_step_number=1
-    # duration of the simulation [ms]
-    total_duration=3000
-    # time at which the step stimuli begin [ms]
-    stimulus_delay=700
-    # duration of the step stimuli [ms]
-    stimulus_duration=2000
-    # time at which the holding stimulus begin [ms]
-    hold_stimulus_delay=0
-    # suration of the holding stimulus [ms]
-    hold_stimulus_duration=3000
-    # synapse stimulus. can be vecstim (one random spike per synapse)
-    # or netstim (synapses spike at regular interval for a given amount of spikes)
-    syn_stim_mode=vecstim
-    # time at which the synapses are deactivated (for vecstim)
-    syn_stop=%(total_duration)s
-    # interval between two synaptic spike [ms] (for netstim)
-    syn_interval=100
-    # number of spikes for each synapse (for netstim)
-    syn_nmb_of_spikes=5
-    # time at which to activate the synapses [ms]
-    syn_start=50
-    # synaptic noise. set to 0 to have no noise
-    syn_noise=0
-    # random seed for vecstim. affects the time at which synapses spike
-    syn_stim_seed=1
-    # which random generator to use. can be python or neuron. 
-    vecstim_random=python
-
-    [Morphology]
-    # set to True to replace the axon by an AIS stub.
-    do_replace_axon=True
-
-    [Sim]
-    # simulation timestep [ms]
-    dt=0.025
-    # set to True to allow adaptative timestep. 
-    # attention: these scripts have not been designed to support adaptative timesteps.
-    cvode_active=False
+Below is a configuration file with some explanatory comments:
 
     [Synapses]
-    # set to True to add synapses
-    add_synapses=False
-    # random seed for the synapses
-    seed=932156
-    # random seed mode. Can be Random123 or Compatibility
-    rng_settings_mode=Random123
+    add_synapses = False
+    # RNG seed for synapses
+    seed = 846515
+    # RNG mode for synapses. Can be "Ramdom123" or "Compatibility"
+    rng_settings_mode = Random123
+    hoc_synapse_template_name = hoc_synapses
 
     [Paths]
-    # paths to files.
-    memodel_dir=.
-    output_path=%(memodel_dir)s/python_recordings
-    output_file=soma_voltage_
-    constants_dir=config
-    constants_file=constants.json
-    recipes_dir=config/recipes
-    recipes_file=recipes.json
-    params_dir=config/params
-    params_file=final.json
-    protocol_amplitudes_dir=config
-    protocol_amplitudes_file=current_amps.json
-    templates_dir=templates
-    create_hoc_template_file=cell_template_neurodamus.jinja2
-    replace_axon_hoc_dir=%(templates_dir)s
-    replace_axon_hoc_file=replace_axon_hoc.hoc
-    syn_dir_for_hoc=synapses
-    syn_dir=%(memodel_dir)s/%(syn_dir_for_hoc)s
-    syn_data_file=synapses.tsv
-    syn_conf_file=synconf.txt
-    syn_hoc_file=synapses.hoc
-    syn_mtype_map=mtype_map.tsv
-    simul_hoc_file=createsimulation.hoc
+    # path to the protocol file
+    prot_path = config/protocols/RmpRiTau.json
+    features_path = config/features/cADpyr_L5PC.json
+    # path to the unoptimized parameters
+    unoptimized_params_path = config/params/pyr.json
+    # directory of the cell package. A lot of paths depend on this.
+    memodel_dir = .
+    output_dir = %(memodel_dir)s/python_recordings
+    # path to the optimized parameters
+    params_path = %(memodel_dir)s/config/params/final.json
+    units_path = %(memodel_dir)s/config/features/units.json
+    # path to the templates folder. Contains hoc templates and the replacement axon.
+    templates_dir = %(memodel_dir)s/templates
+    cell_template_path = %(templates_dir)s/cell_template_neurodamus.jinja2
+    run_hoc_template_path = %(templates_dir)s/run_hoc.jinja2
+    createsimulation_template_path = %(templates_dir)s/createsimulation.jinja2
+    synapses_template_path = %(templates_dir)s/synapses.jinja2
+    replace_axon_hoc_path = %(templates_dir)s/replace_axon_hoc.hoc
+    # folder where the synapses data files are
+    syn_dir_for_hoc = %(memodel_dir)s/synapses
+    # folder where to put the synapse hoc file when created
+    syn_dir = %(memodel_dir)s/synapses
+    syn_data_file = synapses.tsv
+    syn_conf_file = synconf.txt
+    syn_hoc_file = synapses.hoc
+    syn_mtype_map = mtype_map.tsv
+    simul_hoc_file = createsimulation.hoc
+    cell_hoc_file = cell.hoc
+    run_hoc_file = run.hoc
+    # morphology path
+    morph_path = morphology/dend-C270999B-P3_axon-C060110A3_-_Scale_x1.000_y0.950_z1.000.asc
+
+    [Morphology]
+    # is only used for naming the output files
+    mtype = L5TPCa
+    # whether to replace the axon by a stub axon
+    do_replace_axon = True
+
+    [Cell]
+    # temperature in celsius
+    celsius = 34
+    # initial voltage
+    v_init = -80
+    # name of the emodel
+    emodel = cADpyr_L5TPC
+    # id of the cell
+    gid = 4138379
+
+    [Sim]
+    # timestep if timesteps are constant
+    dt = 0.025
+    # whether to activate adaptable timesteps.
+    cvode_active = False
+
+    [Protocol]
+    # index of the section of the apical point
+    apical_point_isec = 5
+
 
 ## Funding & Acknowledgment
 

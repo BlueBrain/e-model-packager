@@ -3,9 +3,4 @@
 
 ./compile_mechanisms.sh
 
-if [ $# -eq 0 ]
-then
-    python -m emodelrunner.run
-else
-    python -m emodelrunner.run --config_path $1
-fi
+python -m emodelrunner.run --config_path $1

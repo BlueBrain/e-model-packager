@@ -109,6 +109,16 @@ def extract_config(
             "synplas_output_path": f"output_{pulse_spiketrain_names}.h5",
             "pairsim_output_path": f"output_{pulse_spiketrain_names}.h5",
             "pairsim_precell_output_path": f"output_precell_{pulse_spiketrain_names}.h5",
+            # default values
+            "memodel_dir": ".",
+            "params_path": "%(memodel_dir)s/config/params/final.json",
+            "templates_dir": "%(memodel_dir)s/templates",
+            "synplas_fit_params_path": "%(memodel_dir)s/config/fit_params.json",
+            "replace_axon_hoc_path": "%(templates_dir)s/replace_axon_hoc.hoc",
+            "syn_dir": "%(memodel_dir)s/synapses",
+            "syn_data_file": "synapses.tsv",
+            "syn_conf_file": "synconf.txt",
+            "syn_prop_path": "%(syn_dir)s/synapse_properties.json",
         }
         config["Protocol"] = {"tstop": tstop, "precell_amplitude": "1.0"}
         config["SynapsePlasticity"] = {
@@ -116,6 +126,13 @@ def extract_config(
             "invivo": str(invivo).lower(),
             "base_seed": str(base_seed),
             "synrec": json.dumps(default_synrec),
+        }
+        config["Morphology"] = {
+            "do_replace_axon": "True",
+        }
+        config["Synapses"] = {
+            "seed": "846515",
+            "rng_settings_mode": "Random123",
         }
 
         # write config file
