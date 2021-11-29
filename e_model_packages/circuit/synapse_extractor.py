@@ -53,13 +53,11 @@ class SynapseExtractor:
     @staticmethod
     def get_tau_d(synapse_dict):
         """Return tau_d given synapse type."""
-        if synapse_dict["syn_type"] > 100:
-            # 119 or synapse_dict['syn_type'] == 113:
-            return synapse_dict["synapse_parameters"]["tau_d_AMPA"]
-        if synapse_dict["syn_type"] < 100:
-            # or synapse_dict['syn_type'] == 9:
+        is_inhibitory = synapse_dict["syn_type"] < 100
+        if is_inhibitory:
             return synapse_dict["synapse_parameters"]["tau_d_GABAA"]
-        raise Exception(f"Unknown synapse type {synapse_dict['syn_type']}")
+        else:
+            return synapse_dict["synapse_parameters"]["tau_d_AMPA"]
 
     def get_pre_mtype_id(self, mtype_map, pre_gid):
         """Assign pre-cell mtype to an id."""
