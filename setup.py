@@ -47,7 +47,7 @@ setup(
         "bluepysnap",
         "pandas",
         "pynwb >= 2.0.0",
-        "EModelRunner>=1.0.3",
+        "EModelRunner>=1.0.11",
         "luigi-tools>=0.0.6",
         "h5py",
         "efel",

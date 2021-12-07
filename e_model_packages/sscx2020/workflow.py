@@ -35,7 +35,7 @@ from e_model_packages.nwb.create_nwb import create_nwb, write_nwb
 
 from emodelrunner.run import main as run_emodel
 from emodelrunner.load import load_sscx_config, get_hoc_paths_args
-from emodelrunner.create_hoc import get_hoc, write_hocs
+from emodelrunner.create_hoc import get_hoc, write_hocs, copy_features_hoc
 from emodelrunner.factsheets.output import (
     write_metype_json_from_config,
     write_emodel_json,
@@ -824,15 +824,20 @@ class CreateHoc(MemodelParameters):
             config = load_sscx_config(
                 config_path=os.path.join("config", self.configfile)
             )
-            cell_hoc, syn_hoc, simul_hoc, run_hoc = get_hoc(config=config)
+            cell_hoc, syn_hoc, simul_hoc, run_hoc, main_protocol_hoc = get_hoc(
+                config=config
+            )
 
             hoc_paths = get_hoc_paths_args(config)
+            if main_protocol_hoc:
+                copy_features_hoc(config)
             write_hocs(
                 hoc_paths,
                 cell_hoc,
                 simul_hoc,
                 run_hoc,
                 syn_hoc,
+                main_protocol_hoc,
             )
 
 

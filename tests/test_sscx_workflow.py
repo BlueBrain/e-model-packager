@@ -61,6 +61,8 @@ def test_directory_exists(
         "createsimulation.jinja2",
         "run_hoc.jinja2",
         "synapses.jinja2",
+        "main_protocol.jinja2",
+        "features.hoc",
     ]
 
     mechanisms = [
