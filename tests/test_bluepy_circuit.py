@@ -19,10 +19,7 @@ def test_get_gid_from_circuit():
     gidx = int(get_param("gidx"))
     gid_gt = int(get_param("gid"))
 
-    # get circuit path
-    config_circuit = configparser.ConfigParser()
-    config_circuit.read(os.path.join("tests", "luigi_test.cfg"))
-    circuit_config_path = config_circuit.get("paths", "circuit")
+    circuit_config_path = test_config.get("paths", "circuit")
 
     circuit = BluepyCircuit(circuit_config_path)
     gid = circuit.get_gid_from_circuit(
@@ -40,10 +37,8 @@ def test_morph_dir_from_bluepysimulation():
     morph_dir = (
         "/gpfs/bbp.cscs.ch/project/proj83/entities/morph-release-2020-08-10/ascii"
     )
-    # get circuit path
-    config_circuit = configparser.ConfigParser()
-    config_circuit.read(os.path.join("tests", "luigi_test.cfg"))
-    circuit_config_path = config_circuit.get("paths", "circuit")
+
+    circuit_config_path = test_config.get("paths", "circuit")
 
     simulation = BluepySimulation(circuit_config_path)
     assert simulation.morph_parent_dir == morph_parent_dir
