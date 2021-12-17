@@ -442,7 +442,7 @@ class PrepareMEModelDirectory(MemodelParameters):
         final_out = {emodel: final}
         final_out_path = Path(output_dir) / "config" / "params" / "final.json"
         with open(final_out_path, "w", encoding="utf-8") as final_out_file:
-            json.dump(final_out, final_out_file)
+            json.dump(final_out, final_out_file, indent=4)
 
     @staticmethod
     def copy_config_files(input_dir, output_config_dir):
@@ -610,7 +610,7 @@ class PrepareMEModelDirectory(MemodelParameters):
                     new_protocol["Step_250"]["stimuli"]["holding"]["amp"] = holding
 
                 with open(file_.path, "w", encoding="utf-8") as f:
-                    json.dump(new_protocol, f)
+                    json.dump(new_protocol, f, indent=4)
 
     @staticmethod
     def fill_in_config_default_values(config_dict):

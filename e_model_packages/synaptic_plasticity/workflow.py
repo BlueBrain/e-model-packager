@@ -150,7 +150,7 @@ class PrepareMEModelDirectory(luigi.Task):
         # write final
         final_out_path = os.path.join(output_dir, "config/params/final.json")
         with open(final_out_path, "w", encoding="utf-8") as final_out_file:
-            json.dump(final_out, final_out_file)
+            json.dump(final_out, final_out_file, indent=4)
 
     def run(self):
         """Create directory and copy data."""

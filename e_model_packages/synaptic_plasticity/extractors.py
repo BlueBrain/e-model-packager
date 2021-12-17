@@ -75,7 +75,7 @@ def extract_config(
         output_dir, out_const_dir, out_fit_params_file
     )
     with open(fit_params_output_path, "w", encoding="utf-8") as f:
-        json.dump(fit_params, f)
+        json.dump(fit_params, f, indent=4)
 
     for bc_dict in bc_dicts:
         base_seed = bc_dict["Run"]["Default"]["BaseSeed"]
