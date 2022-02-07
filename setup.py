@@ -44,14 +44,15 @@ setup(
         # Can revert to regular BPO when we switch to proj38 code.
         "bluepyopt @ git+http://github.com/BlueBrain/BluePyOpt@CMA_clean#egg=bluepyopt",
         "bglibpy",
-        "bluepysnap",
+        "bluepysnap @ git+https://github.com/BlueBrain/snap.git",  # latest commit does not enforce click<8.0.0  remove git stuff at next release
         "pandas",
         "pynwb >= 2.0.0",
-        "EModelRunner>=1.0.11",
+        "EModelRunner>=1.1.1",
         "luigi-tools>=0.0.6",
         "h5py",
         "efel",
         "schema",
+        "click>=8.0.0",
     ],
     extras_require={"glusynapse": EXTRA_GLUSYNAPSE},
     packages=find_packages(),

@@ -91,6 +91,7 @@ def extract_config(
         )
 
         config = configparser.ConfigParser()
+        config["Package"] = {"type": "synplas"}
         config["Cell"] = {
             "celsius": str(celsius),
             "v_init": str(v_init),
@@ -112,9 +113,7 @@ def extract_config(
             # default values
             "memodel_dir": ".",
             "params_path": "%(memodel_dir)s/config/params/final.json",
-            "templates_dir": "%(memodel_dir)s/templates",
             "synplas_fit_params_path": "%(memodel_dir)s/config/fit_params.json",
-            "replace_axon_hoc_path": "%(templates_dir)s/replace_axon_hoc.hoc",
             "syn_dir": "%(memodel_dir)s/synapses",
             "syn_data_file": "synapses.tsv",
             "syn_conf_file": "synconf.txt",

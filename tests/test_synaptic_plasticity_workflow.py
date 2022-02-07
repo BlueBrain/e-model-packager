@@ -24,10 +24,6 @@ def test_directory_exists(memodel_dir=None):
         "README.md",
     ]
 
-    templates = [
-        "replace_axon_hoc.hoc",
-    ]
-
     mechanisms = [
         "Ca_HVA2.mod",
         "Ca_LVAst.mod",
@@ -75,9 +71,6 @@ def test_directory_exists(memodel_dir=None):
 
     for item in config_files:
         memodel_files_to_be_checked.append(os.path.join("config", item))
-
-    for item in templates:
-        memodel_files_to_be_checked.append(os.path.join("templates", item))
 
     for item in mechanisms:
         memodel_files_to_be_checked.append(os.path.join("mechanisms", item))

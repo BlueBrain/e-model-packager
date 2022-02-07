@@ -11,7 +11,7 @@ import json
 from schema import SchemaError
 
 import luigi
-from emodelrunner.load import load_synplas_config
+from emodelrunner.load import load_config
 from e_model_packages.circuit import BluepyCircuit
 from e_model_packages.sscx2020.config_decorator import ConfigDecorator
 from e_model_packages.sscx2020.utils import cwd
@@ -99,13 +99,6 @@ class PrepareMEModelDirectory(luigi.Task):
             )
             shutil.copy(spike_train_path, output_dir)
 
-    def copy_templates(self):
-        """Copy mechanisms into output directory."""
-        output_templates_dir = os.path.join(self.output_folder, "templates")
-        shutil.copytree(
-            workflow_config.get("paths", "templates_to_copy_dir"), output_templates_dir
-        )
-
     @staticmethod
     def copy_unoptimized_params(input_dir, output_dir, emodels):
         """Copy unoptimized params folder."""
@@ -163,9 +156,6 @@ class PrepareMEModelDirectory(luigi.Task):
 
         # scripts
         self.copy_scripts()
-
-        # templates
-        self.copy_templates()
 
         # spike train
         self.copy_spike_train()
@@ -239,15 +229,14 @@ class RunPyScript(luigi.Task):
 class PrecellConfigTarget(luigi.Target):
     """Checks that the amplitude check has not been performed yet."""
 
-    def __init__(self, layers, pregid, postgid, configfile="config_pairsim.ini"):
+    def __init__(self, layers, pregid, postgid):
         """Constructor."""
         self.layers = layers
         self.pregid = pregid
         self.postgid = postgid
-        self.configfile = configfile
 
     def exists(self):
-        """Check if the spike delay is written in the configfile."""
+        """Check if the spike delay is written in the configfiles."""
         output_dir = workflow_config.get("paths", "output")
         memodel_dir = get_output_path(
             output_dir, self.layers, self.pregid, self.postgid
@@ -267,7 +256,8 @@ class PrecellConfigTarget(luigi.Target):
             # from raising path not found errors
             with cwd(memodel_dir):
                 try:
-                    _ = load_synplas_config(config_path=config_path)
+                    print(config_path)
+                    _ = load_config(config_path=config_path)
                 # config validator raises an error if a key is not present.
                 # we want to return False if
                 # precell_amplitude, precell_spikedelay or precell_width are not present.

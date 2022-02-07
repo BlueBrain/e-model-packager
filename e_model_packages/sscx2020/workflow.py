@@ -34,7 +34,7 @@ from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExt
 from e_model_packages.nwb.create_nwb import create_nwb, write_nwb
 
 from emodelrunner.run import main as run_emodel
-from emodelrunner.load import load_sscx_config, get_hoc_paths_args
+from emodelrunner.load import load_config, get_hoc_paths_args
 from emodelrunner.create_hoc import get_hoc, write_hocs, copy_features_hoc
 from emodelrunner.factsheets.output import (
     write_metype_json_from_config,
@@ -284,9 +284,7 @@ class CreateFactsheets(MemodelParameters):
         protocol_key = "RmpRiTau"
 
         with cwd(memodel_dir):
-            config = load_sscx_config(
-                config_path=os.path.join("config", self.configfile)
-            )
+            config = load_config(config_path=os.path.join("config", self.configfile))
             # is not exactly the same as self.mtype
             prefix = config.get("Morphology", "mtype")
             voltage_path = Path("python_recordings") / (
@@ -477,6 +475,11 @@ class PrepareMEModelDirectory(MemodelParameters):
             if file_.is_file() and file_.path.split(".")[-1] == "ini":
                 new_config = configparser.ConfigParser()
                 new_config.read(file_.path)
+                if "Package" not in new_config:
+                    new_config["Package"] = {}
+                if "type" not in new_config["Package"]:
+                    new_config["Package"]["type"] = "sscx"
+
                 if "Paths" not in new_config:
                     new_config["Paths"] = {}
 
@@ -821,9 +824,7 @@ class CreateHoc(MemodelParameters):
     def run(self):
         """Creates the hoc script."""
         with cwd(self.output_folder):
-            config = load_sscx_config(
-                config_path=os.path.join("config", self.configfile)
-            )
+            config = load_config(config_path=os.path.join("config", self.configfile))
             cell_hoc, syn_hoc, simul_hoc, run_hoc, main_protocol_hoc = get_hoc(
                 config=config
             )
