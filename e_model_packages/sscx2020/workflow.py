@@ -23,13 +23,14 @@ import pandas as pd
 import luigi
 
 
+from e_model_packages.io import NpEncoder
+from e_model_packages.utils import cwd
 from e_model_packages.sscx2020.utils import (
-    NpEncoder,
-    cwd,
     get_output_path,
     LocalTargetCustom,
 )
-from e_model_packages.sscx2020.config_decorator import ConfigDecorator
+from e_model_packages.common_tasks import SmartTask, CreateSystemLog
+from e_model_packages.config_decorator import ConfigDecorator
 from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
 from e_model_packages.nwb.create_nwb import create_nwb, write_nwb
 
@@ -41,30 +42,12 @@ from emodelrunner.factsheets.output import (
     write_emodel_json,
 )
 
-from luigi_tools.task import RemoveCorruptedOutputMixin
-
 sys.path.append(os.path.join("e_model_packages", "sscx2020", "extra_data", "scripts"))
 
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
 # pylint: disable=too-many-locals
 logging.basicConfig(level=logging.INFO)
-
-
-class SmartTask(RemoveCorruptedOutputMixin, luigi.Task):
-    """A smarter task that automatically removes output of failed tasks.
-
-    This is to ensure that no corrupted or incomplete output
-    gets generated if the Task fails unexpectedly.
-    This is the default behaviour in other wfms such as snakemake.
-    """
-
-    RemoveCorruptedOutputMixin.clean_failed = luigi.BoolParameter(
-        significant=False,
-        default=True,
-        description="Trigger to remove the outputs of the failed tasks.",
-        parsing=luigi.BoolParameter.EXPLICIT_PARSING,
-    )
 
 
 class MemodelParameters(SmartTask):
@@ -949,37 +932,6 @@ class RunPyScript(MemodelParameters, RunScriptMixin):
         with cwd(memodel_dir):
             subprocess.call(["sh", "./compile_mechanisms.sh", self.configfile])
             run_emodel(config_path=os.path.join("config", self.configfile))
-
-
-class CreateSystemLog(SmartTask):
-    """Task to log the modules and python packages used in the execution."""
-
-    def output(self):
-        """A log file to be written."""
-        workflow_output_dir = workflow_config.get("paths", "output")
-        return luigi.LocalTarget(os.path.join(workflow_output_dir, "system-state.log"))
-
-    def run(self):
-        """Writes down the loaded modules, pip packages and python version."""
-        output_dir = workflow_config.get("paths", "output")
-        if not os.path.isdir(output_dir):
-            os.makedirs(output_dir)
-
-        module_list = subprocess.run(
-            ["modulecmd", "bash", "list"], capture_output=True, check=True
-        )
-        py_version = subprocess.run(
-            ["python", "--version"], capture_output=True, check=True
-        )
-        pip_list = subprocess.run(["pip", "list"], capture_output=True, check=True)
-
-        modules = " ".join(
-            [x.decode("utf-8") for x in [module_list.stdout, module_list.stderr]]
-        )
-        python_ver, pip = [x.stdout.decode("utf-8") for x in [py_version, pip_list]]
-
-        with self.output().open("w") as outfile:
-            outfile.write(f"{modules}\n{python_ver}\n{pip}")
 
 
 class DoRecordings(MemodelParameters):

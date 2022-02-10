@@ -7,7 +7,6 @@ import os
 import numpy as np
 from functools import partial
 
-import json
 import bglibpy
 from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (

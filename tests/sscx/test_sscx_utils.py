@@ -9,7 +9,7 @@ from e_model_packages.sscx2020.utils import (
 
 def test_localtargetcustom():
     """Test exist function of localtargetcustom."""
-    example_dir = Path("tests") / "data" / "output_example"
+    example_dir = Path("tests") / "sscx" / "data" / "output_example"
 
     filename = "empty_file.Step_150.soma.v.dat"
     target = LocalTargetCustom(example_dir / filename)
