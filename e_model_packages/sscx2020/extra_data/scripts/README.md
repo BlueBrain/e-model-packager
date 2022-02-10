@@ -1,10 +1,17 @@
-## Installation
-
-... to complete when package is finished
-
 ## Dependencies
 
-... to complete when package is finished
+- [Python 3.6+](https://www.python.org/downloads/release/python-360/)
+- [Pip](https://pip.pypa.io) (installed by default in newer versions of Python)
+- [Neuron 7.4+](http://neuron.yale.edu/) (compiled with Python support)
+- EModelRunner: to be released
+
+## Installation
+
+Install [NEURON](http://neuron.yale.edu/) with Python support on your machine.
+
+Then, install EModelRunner:
+
+    pip install emodelrunner
 
 ## How to run the cell using python
 
@@ -143,4 +150,4 @@ Below is a configuration file with some explanatory comments:
 
 The development of this software was supported by funding to the Blue Brain Project, a research center of the École polytechnique fédérale de Lausanne (EPFL), from the Swiss government’s ETH Board of the Swiss Federal Institutes of Technology.
 
-Copyright (c) BBP/EPFL 2021. This work is licenced under Creative Common CC BY-NC-SA-4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)
+Copyright (c) BBP/EPFL 2020-2022. This work is licenced under Creative Common CC BY-NC-SA-4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)
