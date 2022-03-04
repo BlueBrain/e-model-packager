@@ -5,7 +5,7 @@ import pandas as pd
 from e_model_packages.circuit import BluepyCircuit
 
 test_config = configparser.ConfigParser()
-test_config.read(Path.cwd() / "tests" / "luigi_test.cfg")
+test_config.read(Path.cwd() / "tests" / "luigi_test_sscx.cfg")
 
 
 def test_intended_regions():

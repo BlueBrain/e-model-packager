@@ -50,38 +50,33 @@ class BluepyCircuit:
         gid = gids[gidx - 1]
         return gid
 
-    def extract_circuit_metype_region_gids(self, n_gids, regions):
-        """Extracts the metype region and gids from the circuit.
+    def extract_circuit_metype_gids(self, n_gids):
+        """Extracts the metype gids.
 
         Args:
-            n_gids (int): number of gids to be extracted for each combo
-            regions (iterable of str): the regions of interest to be extracted
+            n_gids (int): Number of gids to be retrieved per metype.
+
         Returns:
-            Dictionary contaning the metype, region and gids.
+            Dictionary containing gids per mtype and etype.
         """
-        metype_region_gids = {}
+        metype_gids = {}
 
         cell_props_df = self.circuit.cells.get(
-            properties=[bpcell.MTYPE, bpcell.ETYPE, bpcell.REGION]
+            properties=[bpcell.MTYPE, bpcell.ETYPE]
         ).drop_duplicates()
-        cell_props_df = cell_props_df.loc[cell_props_df["region"].isin(regions)]
-        cell_props = list(
-            zip(cell_props_df.mtype, cell_props_df.etype, cell_props_df.region)
-        )
-
-        print("Extracting mtype, etype, region and gids from circuit.", flush=True)
-        for mtype, etype, region in tqdm(cell_props):
-            metype_region_gids[(mtype, etype, region)] = list(
+        cell_props = list(zip(cell_props_df.mtype, cell_props_df.etype))
+        print("Extracting gids from circuit.")
+        for mtype, etype in tqdm(cell_props):
+            metype_gids[(mtype, etype)] = list(
                 self.circuit.cells.ids(
                     {
                         bpcell.MTYPE: mtype,
                         bpcell.ETYPE: etype,
-                        bpcell.REGION: region,
                     },
                     limit=n_gids,
                 )
             )
-        return metype_region_gids
+        return metype_gids
 
     def get_cell_attributes(self, gid):
         """Retrieve the cell attributes from circuit.

@@ -1,4 +1,4 @@
-"""Workflow to build e-model packages."""
+"""Workflow to build SSCX e-model packages."""
 # pylint: disable=wrong-import-position
 # pylint: disable=wrong-import-order
 # pylint: disable=import-error
@@ -7,6 +7,7 @@
 import configparser
 import json
 import os
+import collections
 
 if "PMI_RANK" in os.environ:
     del os.environ["PMI_RANK"]
@@ -116,7 +117,7 @@ class RunScriptMixin:
 
 
 class CollectMEModels(luigi.WrapperTask):
-    """Yield the model preparation tasks."""
+    """Submits the model package preparation tasks."""
 
     def requires(self):
         """The required Tasks."""
@@ -217,8 +218,16 @@ class CreateNWB(MemodelParameters):
 
         voltage_recordings = [np.loadtxt(volt) for volt in voltage_recording_paths]
         current_recordings = [np.loadtxt(curr) for curr in current_recording_paths]
+        protocol_names = [x.name.split(".")[1] for x in voltage_recording_paths]
 
-        nwb = create_nwb(self.emodel_name, voltage_recordings, current_recordings)
+        zipped_protocols = zip(protocol_names, voltage_recordings, current_recordings)
+
+        Protocol = collections.namedtuple("Protocol", ["name", "voltage", "current"])
+        protocol_responses = [
+            Protocol(name=x[0], voltage=x[1], current=x[2]) for x in zipped_protocols
+        ]
+
+        nwb = create_nwb(self.emodel_name, protocol_responses, "Simulated SSCX cell")
 
         write_nwb(nwb, self.output().path)
 
@@ -437,8 +446,8 @@ class PrepareMEModelDirectory(MemodelParameters):
     @staticmethod
     def copy_protocol_files(input_dir, output_config_dir):
         """Copy the protocol files into output config protocol directory."""
-        luigi_config_filenames = workflow_config.get("files", "protocols_files")
-        for config_filename in luigi_config_filenames:
+        protocol_filenames = workflow_config.get("files", "protocols_files")
+        for config_filename in protocol_filenames:
             input_filepath = os.path.join(input_dir, "protocols", config_filename)
             output_filepath = os.path.join(
                 output_config_dir, "protocols", config_filename
@@ -723,16 +732,12 @@ class PrepareMEModelDirectory(MemodelParameters):
         syn_extractor.load_synapses()
 
         synapse_tsv_filename = os.path.join(synapses_dir, "synapses.tsv")
-        with open(synapse_tsv_filename, "w", encoding="utf-8") as synapse_tsv_file:
-            synapse_tsv_file.write(syn_extractor.synapse_tsv_content)
-
         mtype_filename = os.path.join(synapses_dir, "mtype_map.tsv")
-        with open(mtype_filename, "w", encoding="utf-8") as mtype_file:
-            mtype_file.write(syn_extractor.mtype_map_content)
-
         synconf_filename = os.path.join(synapses_dir, "synconf.txt")
-        with open(synconf_filename, "w", encoding="utf-8") as synconf_file:
-            synconf_file.write(syn_extractor.synconf)
+
+        syn_extractor.write_synapses_to_files(
+            synapse_tsv_filename, mtype_filename, synconf_filename
+        )
 
         # copy mechanisms
         self.copy_mechanisms()
@@ -930,7 +935,7 @@ class RunPyScript(MemodelParameters, RunScriptMixin):
         )
 
         with cwd(memodel_dir):
-            subprocess.call(["sh", "./compile_mechanisms.sh", self.configfile])
+            subprocess.call(["sh", "./compile_mechanisms.sh"])
             run_emodel(config_path=os.path.join("config", self.configfile))
 
 

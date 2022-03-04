@@ -154,3 +154,20 @@ class SynapseExtractor:
         self.mtype_map_content = ""
         for idx, pre_mtype in enumerate(mtype_map):
             self.mtype_map_content += f"{idx} {pre_mtype}\n"
+
+    def write_synapses_to_files(self, synapse_tsv_path, mtype_map_path, synconf_path):
+        """Write the synapses information to files.
+
+        Args:
+            synapse_tsv_path (Path or string): output filepath for synapses
+            mtype_map_path (Path or string): output filepath for mtype_map
+            synconf_path (Path or string): output filepath for synconf
+        """
+        with open(synapse_tsv_path, "w", encoding="utf-8") as synapse_tsv_file:
+            synapse_tsv_file.write(self.synapse_tsv_content)
+
+        with open(mtype_map_path, "w", encoding="utf-8") as mtype_file:
+            mtype_file.write(self.mtype_map_content)
+
+        with open(synconf_path, "w", encoding="utf-8") as synconf_file:
+            synconf_file.write(self.synconf)

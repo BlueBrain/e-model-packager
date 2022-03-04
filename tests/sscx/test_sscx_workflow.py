@@ -16,7 +16,7 @@ from e_model_packages.sscx2020.utils import (
 from e_model_packages.circuit import BluepyCircuit
 
 test_config = configparser.ConfigParser()
-test_config.read(os.path.join("tests", "luigi_test.cfg"))
+test_config.read(os.path.join("tests", "luigi_test_sscx.cfg"))
 get_param = partial(test_config.get, "params")
 
 
@@ -107,9 +107,14 @@ def test_directory_exists(
 
     synapses = ["synapses.tsv", "synconf.txt"]
 
-    path_ = os.path.join("tests", "output", "memodel_dirs")
+    output_path = test_config.get("paths", "output")
     memodel_path = os.path.join(
-        path_, mtype, etype, region, "_".join([mtype, etype, str(gidx)])
+        output_path,
+        "memodel_dirs",
+        mtype,
+        etype,
+        region,
+        "_".join([mtype, etype, str(gidx)]),
     )
 
     for item in config_files:
@@ -165,7 +170,9 @@ def test_voltages(
 
     inner_folder_name = combine_names(mtype, etype, gidx)
     recording_path = os.path.join(mtype, etype, region, inner_folder_name)
-    script_path = os.path.join("tests", "output", "memodel_dirs", recording_path)
+    script_path = os.path.join(
+        test_config.get("paths", "output"), "memodel_dirs", recording_path
+    )
 
     for idx in range(3):
         hoc_path = os.path.join(
@@ -227,6 +234,7 @@ def test_synapses(
 
     # get circuit path for bglibpy
     circuit_config_path = test_config.get("paths", "circuit")
+    output_path = test_config.get("paths", "output")
 
     # run cells from bglibpy
     sim_time = 600
@@ -234,12 +242,11 @@ def test_synapses(
 
     base_path = f"memodel_dirs/{mtype}/{etype}/{region}/{mtype}_{etype}_{gidx}"
 
-    np.savetxt(os.path.join("tests", "output", base_path, "bglibpy_voltage.dat"), bg_v)
+    np.savetxt(os.path.join(output_path, base_path, "bglibpy_voltage.dat"), bg_v)
 
     # load run.py output
     py_path = os.path.join(
-        "tests",
-        "output",
+        output_path,
         base_path,
         "python_recordings",
         "L5TPCa.Synapses_Vecstim.soma.v.dat",
@@ -272,7 +279,7 @@ def test_synapses_hoc_vs_py_script(
     """
     threshold = 0.1
 
-    output_path = os.path.join("tests", "output")
+    output_path = test_config.get("paths", "output")
     memodel_path = get_output_path(mtype, etype, region, gidx, output_path)
 
     # load output
@@ -310,9 +317,14 @@ def test_metype_factsheet_exists(
         gidx: index of cell
     """
 
-    path_ = os.path.join("tests", "output", "memodel_dirs")
+    output_path = test_config.get("paths", "output")
     memodel_path = os.path.join(
-        path_, mtype, etype, region, "_".join([mtype, etype, str(gidx)])
+        output_path,
+        "memodel_dirs",
+        mtype,
+        etype,
+        region,
+        "_".join([mtype, etype, str(gidx)]),
     )
 
     metype_factsheet = os.path.join(

@@ -40,14 +40,12 @@ setup(
         "luigi",
         "numpy",
         "bluepy>=v2.3.0",
-        # force bluepyopt to be the same as in BPEM.
-        # Can revert to regular BPO when we switch to proj38 code.
-        "bluepyopt @ git+http://github.com/BlueBrain/BluePyOpt@CMA_clean#egg=bluepyopt",
+        "bluepyopt>=1.12",
         "bglibpy",
         "bluepysnap @ git+https://github.com/BlueBrain/snap.git",  # latest commit does not enforce click<8.0.0  remove git stuff at next release
         "pandas",
         "pynwb >= 2.0.0",
-        "EModelRunner>=1.1.1",
+        "EModelRunner>=1.1.3",
         "luigi-tools>=0.0.6",
         "h5py",
         "efel",

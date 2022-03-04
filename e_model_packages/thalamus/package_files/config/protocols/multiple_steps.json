@@ -1,0 +1,70 @@
+{
+  "Step_150": {
+    "type": "StepProtocol",
+    "stimuli": {
+        "step": {
+            "delay": 700.0,
+            "amp": null,
+            "duration": 2000.0,
+            "totduration": 3000.0
+        },
+        "holding": {
+            "delay": 0.0,
+            "amp": null,
+            "duration": 3000.0,
+            "totduration": 3000.0
+        }
+    }
+},
+"Step_200": {
+    "type": "StepProtocol",
+    "stimuli": {
+        "step": {
+            "delay": 700.0,
+            "amp": null,
+            "duration": 2000.0,
+            "totduration": 3000.0
+        },
+        "holding": {
+            "delay": 0.0,
+            "amp": null,
+            "duration": 3000.0,
+            "totduration": 3000.0
+        }
+    }
+},
+"Step_250": {
+    "type": "StepProtocol",
+    "stimuli": {
+        "step": {
+            "delay": 700.0,
+            "amp": null,
+            "duration": 2000.0,
+            "totduration": 3000.0
+        },
+        "holding": {
+            "delay": 0.0,
+            "amp": null,
+            "duration": 3000.0,
+            "totduration": 3000.0
+        }
+    }
+}, 
+  "RMP": {
+    "type": "StepProtocol", 
+    "stimuli": {
+      "step": {"delay": 300, "amp": 0, "duration": 900.0, "totduration": 1200.0}
+    }
+  },
+  "RmpRiTau": {
+    "type": "StepProtocol",
+    "stimuli": {
+        "step": {
+            "delay": 1000.0,
+            "amp": -0.01,
+            "duration": 1000.0,
+            "totduration": 3000.0
+        }
+    }
+  }
+}

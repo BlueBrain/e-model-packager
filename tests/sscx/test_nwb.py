@@ -15,7 +15,7 @@ from e_model_packages.sscx2020.utils import get_output_path
 from tests.decorators import launch_luigi
 
 test_config = configparser.ConfigParser()
-test_config.read(os.path.join("tests", "luigi_test.cfg"))
+test_config.read(os.path.join("tests", "luigi_test_sscx.cfg"))
 get_param = partial(test_config.get, "params")
 
 
@@ -37,7 +37,7 @@ def test_nwb_denormalized_dataframe_conversion(
         gid: id of cell in the circuit
         gidx: index of cell
     """
-    output_path = os.path.join("tests", "output")
+    output_path = test_config.get("paths", "output")
     memodel_path = get_output_path(mtype, etype, region, gidx, output_path)
     nwb_file_name = f"{region}_{mtype}_{etype}_{gidx}.nwb"
     nwb_path = os.path.join(memodel_path, nwb_file_name)
