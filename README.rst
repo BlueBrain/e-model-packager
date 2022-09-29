@@ -1,16 +1,25 @@
 e-model-packages
 ================
 
-Creates e-model packages from circuits
+Creates e-model packages from circuits.
+
+The implementation uses the Luigi Workflow Management System.
+
+Can generate packages for various e-models, including: SSCX, Glusynapse (Synaptic Plasticity) and Thalamus.
 
 
-Installation
+Usage notes
 ------------
 
-.. Replace this text by proper installation instructions.
+To generate the synaptic plasticity packages e-model-packages needs to be installed with the EXTRA_GLUSYNAPSE flag.
+
+.. code-block:: console
+
+    $ pip install -i https://bbpteam.epfl.ch/repository/devpi/simple/ -e .[glusynapse]
 
 
-Examples
---------
+For all other use-cases, refer to the following command:
 
-.. Provide here some examples on how this software can be used.
+.. code-block:: console
+
+    $ pip install -i https://bbpteam.epfl.ch/repository/devpi/simple/ -e .[recent_bglibpy]

@@ -3,7 +3,7 @@
 *.swp
 coverage.xml
 *.egg-info
-.coverage*
+.coverage.*
 doc/build
 .tox
 /build

@@ -15,9 +15,8 @@ from glusynapseutils.simulation.simulator import (
 )
 from bluepy_configfile.configfile import BlueConfigFile
 
-# merge this into e_model_packages.circuit.synapse_extractor
-from e_model_packages.circuit.glusynapse_extractor import GluSynapseExtractor
-from e_model_packages.circuit import BluepyCircuit, BluepySimulation
+from e_model_packages.synaptic_plasticity.circuit import GluSynapseExtractor
+from e_model_packages.synaptic_plasticity.circuit import BluepyCircuit, BluepySimulation
 from e_model_packages.io import NpEncoder
 
 # Configure logger

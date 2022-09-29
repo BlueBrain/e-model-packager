@@ -4,7 +4,7 @@ import bglibpy
 # use glu synapses
 from glusynapseutils.simulation.synapse import Synapse as GluSynapse
 
-from e_model_packages.circuit.synapse_extractor import SynapseExtractor
+from e_model_packages.synaptic_plasticity.circuit import SynapseExtractor
 
 bglibpy.Synapse = GluSynapse
 

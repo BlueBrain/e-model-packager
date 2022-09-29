@@ -12,7 +12,7 @@ from schema import SchemaError
 
 import luigi
 from emodelrunner.load import load_config
-from e_model_packages.circuit import BluepyCircuit
+from e_model_packages.synaptic_plasticity.circuit import BluepyCircuit
 from e_model_packages.config_decorator import ConfigDecorator
 from e_model_packages.utils import cwd
 from e_model_packages.synaptic_plasticity.extractors import extract_all

@@ -60,7 +60,7 @@ html_theme_options = {
     "metadata_distribution": "e_model_packages",
 }
 
-html_title = u"e-model-packages"
+html_title = "e-model-packages"
 
 # If true, links to the reST sources are added to the pages.
 html_show_sourcelink = False

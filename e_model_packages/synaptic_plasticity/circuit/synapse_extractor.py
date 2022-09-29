@@ -16,7 +16,7 @@ class SynapseExtractor:
             gid ([type]): [description]
         """
         self.ssim = bglibpy.SSim(blueconfig, record_dt=0.1)
-        self.circuit = self.ssim.circuit_access.bluepy_circuit
+        self.circuit = self.ssim.bc_circuit
         self.gid = gid
         self.synconf = None
         self.synapse_tsv_content = None

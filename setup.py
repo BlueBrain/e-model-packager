@@ -14,9 +14,11 @@ with open("README.rst", encoding="utf-8") as f:
 
 VERSION = imp.load_source("", "e_model_packages/version.py").__version__
 
+EXTRA_RECENT_BGLIBPY = ["bglibpy>=4.8"]
 
 EXTRA_GLUSYNAPSE = [
-    "glusynapseutils @ file://localhost//gpfs/bbp.cscs.ch/project/proj32/ajaquier/GluSynapseUtils/20210903/GluSynapseUtils/dist/glusynapseutils-0.0.1.dev0-py3-none-any.whl"
+    "bglibpy==4.4.51",
+    "glusynapseutils @ file://localhost//gpfs/bbp.cscs.ch/project/proj32/ajaquier/GluSynapseUtils/20210903/GluSynapseUtils/dist/glusynapseutils-0.0.1.dev0-py3-none-any.whl",
 ]
 
 setup(
@@ -41,8 +43,6 @@ setup(
         "numpy",
         "bluepy>=v2.3.0",
         "bluepyopt>=1.12",
-        "bglibpy",
-        "bluepysnap @ git+https://github.com/BlueBrain/snap.git",  # latest commit does not enforce click<8.0.0  remove git stuff at next release
         "pandas",
         "pynwb >= 2.0.0",
         "EModelRunner>=1.1.3",
@@ -52,7 +52,10 @@ setup(
         "schema",
         "click>=8.0.0",
     ],
-    extras_require={"glusynapse": EXTRA_GLUSYNAPSE},
+    extras_require={
+        "recent_bglibpy": EXTRA_RECENT_BGLIBPY,
+        "glusynapse": EXTRA_GLUSYNAPSE,
+    },
     packages=find_packages(),
     python_requires=">=3.7",
     classifiers=[
