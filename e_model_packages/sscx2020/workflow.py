@@ -149,7 +149,7 @@ class CollectMEModels(luigi.WrapperTask):
                         region=region,
                         gid=gid,
                         gidx=gidx,
-                        configfile="config_multistep.ini",
+                        configfile="config_factsheets.ini",
                     )
                 )
                 tasks.append(
@@ -235,7 +235,7 @@ class CreateNWB(MemodelParameters):
 class CreateFactsheets(MemodelParameters):
     """Task to create a me-type factsheet json file."""
 
-    configfile = luigi.Parameter(default="config_factsheet.ini")
+    configfile = luigi.Parameter(default="config_factsheets.ini")
 
     def requires(self):
         """Requires the script to have been copied in the main output directory."""
