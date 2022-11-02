@@ -65,7 +65,6 @@ def test_directory_exists(
     ]
 
     mechanisms = [
-        "Ca_HVA.mod",
         "Ca_HVA2.mod",
         "Ca_LVAst.mod",
         "CaDynamics_DC0.mod",
@@ -75,10 +74,8 @@ def test_directory_exists(
         "KdShu2007.mod",
         "Nap_Et2.mod",
         "NaTg.mod",
-        "NaTg2.mod",
         "SK_E2.mod",
         "SKv3_1.mod",
-        "StochKv2.mod",
         "StochKv3.mod",
     ]
 

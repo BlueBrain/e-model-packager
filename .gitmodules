@@ -1,0 +1,3 @@
+[submodule "e_model_packages/sscx2020/extra_data/neocortex"]
+	path = e_model_packages/sscx2020/extra_data/neocortex
+	url = ../../hpc/sim/models/neocortex.git
