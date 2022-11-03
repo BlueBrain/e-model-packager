@@ -113,6 +113,7 @@ def test_directory_exists(
         region,
         "_".join([mtype, etype, str(gidx)]),
     )
+    memodel_path = memodel_path.replace(":", "-")
 
     for item in config_files:
         memodel_files_to_be_checked.append(os.path.join("config", item))
@@ -167,6 +168,7 @@ def test_voltages(
 
     inner_folder_name = combine_names(mtype, etype, gidx)
     recording_path = os.path.join(mtype, etype, region, inner_folder_name)
+    recording_path = recording_path.replace(":", "-")
     script_path = os.path.join(
         test_config.get("paths", "output"), "memodel_dirs", recording_path
     )
@@ -238,6 +240,7 @@ def test_synapses(
     _, bg_v = run_bglibpy_cell(circuit_config_path, gid, sim_time)
 
     base_path = f"memodel_dirs/{mtype}/{etype}/{region}/{mtype}_{etype}_{gidx}"
+    base_path = base_path.replace(":", "-")
 
     np.savetxt(os.path.join(output_path, base_path, "bglibpy_voltage.dat"), bg_v)
 
@@ -323,6 +326,7 @@ def test_metype_factsheet_exists(
         region,
         "_".join([mtype, etype, str(gidx)]),
     )
+    memodel_path = memodel_path.replace(":", "-")
 
     metype_factsheet = os.path.join(
         memodel_path, "factsheets", "me_type_factsheet.json"

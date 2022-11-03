@@ -45,6 +45,7 @@ class PackageTarget(OutputLocalTarget):
 def memodel_target(mtype, etype, gid, fname):
     """Return the target (fname) inside memodel directory."""
     memodel_file = Path(mtype) / etype / str(gid) / fname
+    memodel_file = str(memodel_file).replace(":", "-")
     return PackageTarget(memodel_file)
 
 

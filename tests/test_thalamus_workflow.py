@@ -30,6 +30,7 @@ def test_nwb_denormalized_dataframe_conversion(
     output_path = test_config.get("paths", "output")
     fname = f"{mtype}_{etype}_{gid}.nwb"
     memodel_dir = Path(output_path) / mtype / etype / str(gid)
+    memodel_dir = Path(str(memodel_dir).replace(":", "-"))
 
     assert_complete_package_files(memodel_dir)
 
@@ -78,5 +79,6 @@ def test_metype_factsheet(
     """Check if the factsheets get created."""
     output_path = test_config.get("paths", "output")
     factsheets_dir = Path(output_path) / mtype / etype / str(gid) / "factsheets"
+    factsheets_dir = Path(str(factsheets_dir).replace(":", "-"))
     assert Path(factsheets_dir / "morphology_factsheet.json").stat().st_size > 0
     assert Path(factsheets_dir / "etype_factsheet.json").stat().st_size > 0
