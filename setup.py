@@ -14,7 +14,7 @@ with open("README.rst", encoding="utf-8") as f:
 
 VERSION = imp.load_source("", "e_model_packages/version.py").__version__
 
-EXTRA_RECENT_BGLIBPY = ["bglibpy>=4.8"]
+EXTRA_RECENT_BGLIBPY = ["bglibpy>=4.9"]
 
 EXTRA_GLUSYNAPSE = [
     "bglibpy==4.4.51",
@@ -45,7 +45,7 @@ setup(
         "bluepyopt>=1.12",
         "pandas",
         "pynwb >= 2.0.0",
-        "EModelRunner>=1.1.3",
+        "EModelRunner>=1.1.4",
         "luigi-tools>=0.0.6",
         "h5py",
         "efel",

@@ -36,7 +36,7 @@ from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExt
 from e_model_packages.nwb.create_nwb import create_nwb, write_nwb
 
 from emodelrunner.run import main as run_emodel
-from emodelrunner.load import load_config, get_hoc_paths_args
+from emodelrunner.load import load_config
 from emodelrunner.create_hoc import get_hoc, write_hocs, copy_features_hoc
 from emodelrunner.factsheets.output import (
     write_metype_json_from_config,
@@ -817,7 +817,7 @@ class CreateHoc(MemodelParameters):
                 config=config
             )
 
-            hoc_paths = get_hoc_paths_args(config)
+            hoc_paths = config.hoc_paths_args()
             if main_protocol_hoc:
                 copy_features_hoc(config)
             write_hocs(

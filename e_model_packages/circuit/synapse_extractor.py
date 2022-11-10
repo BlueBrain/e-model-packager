@@ -16,7 +16,7 @@ class SynapseExtractor:
             gid ([type]): [description]
         """
         self.ssim = bglibpy.SSim(blueconfig, record_dt=0.1)
-        self.circuit = self.ssim.circuit_access.bluepy_circuit
+        self.circuit = self.ssim.circuit_access
         self.gid = gid
         self.synconf = None
         self.synapse_tsv_content = None
@@ -61,7 +61,7 @@ class SynapseExtractor:
 
     def get_pre_mtype_id(self, mtype_map, pre_gid):
         """Assign pre-cell mtype to an id."""
-        pre_mtype = self.circuit.cells.get(pre_gid).mtype
+        pre_mtype = self.circuit.get_cell_properties(pre_gid, "mtype").mtype
         if pre_mtype in mtype_map:
             # can use index. one occurence of pre_mtype & list is not long
             return mtype_map.index(pre_mtype)
