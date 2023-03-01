@@ -203,7 +203,6 @@ def get_amp_duration_spikedelay(
     while (
         len(peak_times) < n_spikes or step_duration > max_step_duration
     ) and amp < max_amp:
-
         step_duration, spikedelay = get_spikedelay_and_duration(
             memodel_dir, long_step_duration, amp, delay
         )

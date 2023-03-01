@@ -14,7 +14,7 @@ with open("README.rst", encoding="utf-8") as f:
 
 VERSION = imp.load_source("", "e_model_packages/version.py").__version__
 
-EXTRA_RECENT_BGLIBPY = ["bglibpy>=4.9"]
+EXTRA_RECENT_BGLIBPY = ["bglibpy>=4.9.20"]
 
 EXTRA_GLUSYNAPSE = [
     "bglibpy==4.4.51",

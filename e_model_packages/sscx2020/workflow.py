@@ -113,7 +113,7 @@ class RunScriptMixin:
                 output_list.append(LocalTargetCustom(path))
             return output_list
 
-        raise Exception(f"Configfile {self.configfile} was not expected.")
+        raise ValueError(f"Configfile {self.configfile} was not expected.")
 
 
 class CollectMEModels(luigi.WrapperTask):

@@ -27,7 +27,7 @@ class SynapseExtractor:
         """Convert section name into sectionlist_id and section_list_index."""
         match = re.match(r"(.*)\[(.*)\]", sec_name)
         if match is None:
-            raise Exception(f"Couldnt match section name {sec_name}")
+            raise ValueError(f"Couldnt match section name {sec_name}")
 
         sectionlist_name = match.groups()[0]
         sectionlist_index = int(match.groups()[1])
@@ -82,7 +82,6 @@ class SynapseExtractor:
         # pylint: disable=too-many-locals, consider-using-f-string
         self.ssim.instantiate_gids(
             [self.gid],
-            synapse_detail=2,
             add_replay=True,
             add_stimuli=add_stimuli,
             add_synapses=add_synapses,

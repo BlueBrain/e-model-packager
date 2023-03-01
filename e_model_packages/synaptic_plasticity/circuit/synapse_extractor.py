@@ -82,7 +82,6 @@ class SynapseExtractor:
         # pylint: disable=too-many-locals, consider-using-f-string
         self.ssim.instantiate_gids(
             [self.gid],
-            synapse_detail=2,
             add_replay=True,
             add_stimuli=add_stimuli,
             add_synapses=add_synapses,
