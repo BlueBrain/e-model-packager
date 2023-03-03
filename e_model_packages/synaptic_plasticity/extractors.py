@@ -156,7 +156,6 @@ def extract_synapses_data(output_dir, bcpath, syn_dir="synapses"):
     # extract synapse data
     syn_ext.load_synapses(
         add_stimuli=True,
-        add_synapses=True,
         intersect_pre_gids=pregids,
     )
 

@@ -75,16 +75,14 @@ class SynapseExtractor:
         """Get Nrrp from hsynapse."""
         return hsynapse.Nrrp
 
-    def load_synapses(
-        self, add_stimuli=False, add_synapses=None, intersect_pre_gids=None
-    ):
+    def load_synapses(self, add_stimuli=False, intersect_pre_gids=None):
         """Loads synapses information."""
         # pylint: disable=too-many-locals, consider-using-f-string
         self.ssim.instantiate_gids(
             [self.gid],
+            add_synapses=True,
             add_replay=True,
             add_stimuli=add_stimuli,
-            add_synapses=add_synapses,
             intersect_pre_gids=intersect_pre_gids,
         )
 
