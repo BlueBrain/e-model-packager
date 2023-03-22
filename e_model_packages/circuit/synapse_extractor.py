@@ -53,7 +53,7 @@ class SynapseExtractor:
     @staticmethod
     def get_tau_d(synapse_dict):
         """Return tau_d given synapse type."""
-        is_inhibitory = synapse_dict["syn_type"] < 100
+        is_inhibitory = synapse_dict["syn_description"]["Synapse.TYPE"] < 100
         if is_inhibitory:
             return synapse_dict["synapse_parameters"]["tau_d_GABAA"]
         else:
@@ -109,8 +109,14 @@ class SynapseExtractor:
             weight = cell_info_dict["connections"][synapse_id]["post_netcon"]["weight"]
 
             pre_gid = synapse_dict["pre_cell_id"]
+
+            post_sec_id = synapse_dict["syn_description"]["Synapse.POST_SECTION_ID"]
+            post_sec_name = bglibpy.neuron.h.secname(
+                sec=cell.get_hsection(post_sec_id)
+            ).split(".")[1]
+
             post_sec_sectionlist_id, post_sec_sectionlist_index = self.convert_sec_name(
-                synapse_dict["post_sec_name"]
+                post_sec_name
             )
 
             # assign pre-cell mtype to an id
@@ -129,7 +135,7 @@ class SynapseExtractor:
                         post_sec_sectionlist_id,
                         post_sec_sectionlist_index,
                         "%.3f" % synapse_dict["post_segx"],
-                        synapse_dict["syn_type"],
+                        int(synapse_dict["syn_description"]["Synapse.TYPE"]),
                         synapse_dict["synapse_parameters"]["Dep"],
                         synapse_dict["synapse_parameters"]["Fac"],
                         synapse_dict["synapse_parameters"]["Use"],
