@@ -3,6 +3,8 @@
 import re
 import collections
 import bglibpy
+from bglibpy.circuit import CellId
+from bglibpy.circuit.node_id import create_cell_id
 
 
 class SynapseExtractor:
@@ -53,7 +55,7 @@ class SynapseExtractor:
     @staticmethod
     def get_tau_d(synapse_dict):
         """Return tau_d given synapse type."""
-        is_inhibitory = synapse_dict["syn_description"]["Synapse.TYPE"] < 100
+        is_inhibitory = synapse_dict["syn_description"]["SynapseProperty.TYPE"] < 100
         if is_inhibitory:
             return synapse_dict["synapse_parameters"]["tau_d_GABAA"]
         else:
@@ -61,7 +63,8 @@ class SynapseExtractor:
 
     def get_pre_mtype_id(self, mtype_map, pre_gid):
         """Assign pre-cell mtype to an id."""
-        pre_mtype = self.circuit.get_cell_properties(pre_gid, "mtype").mtype
+        pre_cell_id: CellId = create_cell_id(pre_gid)
+        pre_mtype = self.circuit.get_cell_properties(pre_cell_id, "mtype").mtype
         if pre_mtype in mtype_map:
             # can use index. one occurence of pre_mtype & list is not long
             return mtype_map.index(pre_mtype)
@@ -109,8 +112,9 @@ class SynapseExtractor:
             weight = cell_info_dict["connections"][synapse_id]["post_netcon"]["weight"]
 
             pre_gid = synapse_dict["pre_cell_id"]
-
-            post_sec_id = synapse_dict["syn_description"]["Synapse.POST_SECTION_ID"]
+            post_sec_id = synapse_dict["syn_description"][
+                "SynapseProperty.POST_SECTION_ID"
+            ]
             post_sec_name = bglibpy.neuron.h.secname(
                 sec=cell.get_hsection(post_sec_id)
             ).split(".")[1]
@@ -135,7 +139,7 @@ class SynapseExtractor:
                         post_sec_sectionlist_id,
                         post_sec_sectionlist_index,
                         "%.3f" % synapse_dict["post_segx"],
-                        int(synapse_dict["syn_description"]["Synapse.TYPE"]),
+                        int(synapse_dict["syn_description"]["SynapseProperty.TYPE"]),
                         synapse_dict["synapse_parameters"]["Dep"],
                         synapse_dict["synapse_parameters"]["Fac"],
                         synapse_dict["synapse_parameters"]["Use"],
