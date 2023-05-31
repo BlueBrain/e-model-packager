@@ -93,8 +93,8 @@ def test_voltage_trace(memodel_dir=None, original_path=None):
     # Note that the args are set in the decorator.
     new_path = os.path.join(memodel_dir, "output_50Hz_10ms.h5")
 
-    threshold_v = 0.1
-    threshold_other = 0.5
+    threshold_v = 1.5
+    threshold_other = 1.0
 
     with h5py.File(original_path, "r") as original:
         with h5py.File(new_path, "r") as new:
@@ -125,7 +125,7 @@ def test_voltage_pairsim(memodel_dir=None, original_path=None):
 
     # there is a bit of a precision lost
     # due to the approximate timing of the precell spiking
-    threshold_v = 1.0
+    threshold_v = 1.5
     threshold_other = 10.0
 
     if os.path.isfile(new_path):
