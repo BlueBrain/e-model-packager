@@ -97,7 +97,6 @@ Below is a configuration file with some explanatory comments:
     output_dir = %(memodel_dir)s/python_recordings
     # path to the optimized parameters
     params_path = %(memodel_dir)s/config/params/final.json
-    units_path = %(memodel_dir)s/config/features/units.json
     # path to the templates folder. Contains hoc templates and the replacement axon.
     templates_dir = %(memodel_dir)s/templates
     cell_template_path = %(templates_dir)s/cell_template_neurodamus.jinja2

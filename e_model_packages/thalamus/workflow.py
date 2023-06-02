@@ -414,15 +414,6 @@ class PrepareMEModelDirectory(MemodelParameters):
             output_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(input_path, output_path)
 
-        # units
-        input_units_path = (
-            Path(workflow_config.get("paths", "local_config_ini_dir"))
-            / "features"
-            / "units.json"
-        )
-        output_units_path = Path(output_dir) / "config" / "features" / "units.json"
-        shutil.copy(input_units_path, output_units_path)
-
         # optimized params
         with open(
             Path(workflow_config.get("paths", "final_json_dir")) / "final.json",
@@ -518,9 +509,6 @@ class PrepareMEModelDirectory(MemodelParameters):
         config_dict["Paths"]["memodel_dir"] = "."
         config_dict["Paths"]["output_dir"] = "%(memodel_dir)s/python_recordings"
         config_dict["Paths"]["params_path"] = "%(memodel_dir)s/config/params/final.json"
-        config_dict["Paths"][
-            "units_path"
-        ] = "%(memodel_dir)s/config/features/units.json"
         config_dict["Paths"]["syn_dir"] = "%(memodel_dir)s/synapses"
         config_dict["Paths"]["syn_data_file"] = "synapses.tsv"
         config_dict["Paths"]["syn_conf_file"] = "synconf.txt"

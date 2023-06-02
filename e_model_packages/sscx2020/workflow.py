@@ -287,7 +287,6 @@ class CreateFactsheets(MemodelParameters):
 
             emodel = config.get("Cell", "emodel")
             features_path = config.get("Paths", "features_path")
-            units_path = config.get("Paths", "units_path")
             unoptimized_params_path = config.get("Paths", "unoptimized_params_path")
             optimized_params_path = config.get("Paths", "params_path")
 
@@ -301,9 +300,6 @@ class CreateFactsheets(MemodelParameters):
 
             with open(features_path, "r", encoding="utf-8") as features_file:
                 features_dict = json.load(features_file)
-
-            with open(units_path, "r", encoding="utf-8") as units_file:
-                feature_units_dict = json.load(units_file)
 
             with open(
                 unoptimized_params_path, "r", encoding="utf-8"
@@ -321,7 +317,6 @@ class CreateFactsheets(MemodelParameters):
                 emodel,
                 prefix,
                 features_dict,
-                feature_units_dict,
                 unoptimized_params_dict,
                 optimized_params_dict,
                 emodel_output_path,
@@ -412,11 +407,6 @@ class PrepareMEModelDirectory(MemodelParameters):
         input_features_path = Path(input_dir).parent / features_path
         output_features_path = Path(output_dir) / features_path
         shutil.copy(input_features_path, output_features_path)
-
-        # units
-        input_units_path = Path(input_dir) / "features" / "units.json"
-        output_units_path = Path(output_dir) / "config" / "features" / "units.json"
-        shutil.copy(input_units_path, output_units_path)
 
         # protocols
         input_protocol_path = Path(input_dir).parent / protocol_path
@@ -639,9 +629,6 @@ class PrepareMEModelDirectory(MemodelParameters):
         config_dict["Paths"]["memodel_dir"] = "."
         config_dict["Paths"]["output_dir"] = "%(memodel_dir)s/python_recordings"
         config_dict["Paths"]["params_path"] = "%(memodel_dir)s/config/params/final.json"
-        config_dict["Paths"][
-            "units_path"
-        ] = "%(memodel_dir)s/config/features/units.json"
         config_dict["Paths"]["templates_dir"] = "%(memodel_dir)s/templates"
         config_dict["Paths"][
             "cell_template_path"

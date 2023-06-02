@@ -45,7 +45,7 @@ setup(
         "bluepyopt>=1.13.168",
         "pandas",
         "pynwb >= 2.0.0",
-        "EModelRunner>=1.1.7",
+        "EModelRunner>=1.1.9",
         "luigi-tools>=0.0.6",
         "h5py",
         "efel",

@@ -89,7 +89,6 @@ def test_directory_exists(
         "config_recipe_protocols.ini",
         "config_factsheets.ini",
         "params/final.json",
-        "features/units.json",
         "protocols/RmpRiTau.json",
         "protocols/allsteps.json",
         "protocols/allsteps_short.json",
