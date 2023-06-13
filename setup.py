@@ -17,6 +17,7 @@ VERSION = imp.load_source("", "e_model_packages/version.py").__version__
 EXTRA_RECENT_BGLIBPY = ["bglibpy>=4.12.13"]
 
 EXTRA_GLUSYNAPSE = [
+    "numpy<1.24",  # RNG are changed for numpy>=1.24
     "bglibpy==4.4.51",
     "glusynapseutils @ file://localhost//gpfs/bbp.cscs.ch/project/proj32/ajaquier/GluSynapseUtils/20210903/GluSynapseUtils/dist/glusynapseutils-0.0.1.dev0-py3-none-any.whl",
 ]
