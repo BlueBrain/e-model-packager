@@ -28,11 +28,21 @@ class BluepySimulation:
         self.blueconfig = read_simulation(blueconfig_path)
 
     @property
-    def morph_dir(self):
+    def morph_dir(self) -> str:
         """Directory containing the morphology."""
-        return os.path.join(self.blueconfig.Run["MorphologyPath"], "ascii")
+        path = str(self.blueconfig.Run["MorphologyPath"])
+
+        if path.endswith("ascii"):
+            return path
+
+        return os.path.join(path, "ascii")
 
     @property
-    def morph_parent_dir(self):
+    def morph_parent_dir(self) -> str:
         """Directory containing the morphology."""
-        return self.blueconfig.Run["MorphologyPath"]
+        path = str(self.blueconfig.Run["MorphologyPath"])
+
+        if "ascii" in path:  # if ascii, remove it
+            return os.path.dirname(path)
+
+        return path

@@ -6,6 +6,7 @@
 
 import configparser
 import json
+from multiprocessing import Process
 import os
 import collections
 
@@ -923,7 +924,12 @@ class RunPyScript(MemodelParameters, RunScriptMixin):
 
         with cwd(memodel_dir):
             subprocess.call(["sh", "./compile_mechanisms.sh"])
-            run_emodel(config_path=os.path.join("config", self.configfile))
+            # Start a new process for run_emodel since NEURON leaves state between runs
+            p = Process(
+                target=run_emodel, args=(os.path.join("config", self.configfile),)
+            )
+            p.start()
+            p.join()  # Wait for the process to complete
 
 
 class DoRecordings(MemodelParameters):
