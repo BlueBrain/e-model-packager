@@ -1,23 +1,23 @@
-"""For the retrieval of synapses using bglibpy."""
+"""For the retrieval of synapses using bluecellulab."""
 
 import re
 import collections
-import bglibpy
-from bglibpy.circuit import CellId
-from bglibpy.circuit.node_id import create_cell_id
+import bluecellulab
+from bluecellulab.circuit import CellId
+from bluecellulab.circuit.node_id import create_cell_id
 
 
 class SynapseExtractor:
     """Extracts synapses of a cell from the circuit."""
 
     def __init__(self, blueconfig, gid):
-        """Constructor, inits bglibpy ssim object.
+        """Constructor, inits bluecellulab CircuitSimulation object.
 
         Args:
             blueconfig (obj): blueconfig object or path to bloeconfig object
             gid ([type]): [description]
         """
-        self.ssim = bglibpy.SSim(blueconfig, record_dt=0.1)
+        self.ssim = bluecellulab.CircuitSimulation(blueconfig, record_dt=0.1)
         self.circuit = self.ssim.circuit_access
         self.gid = gid
         self.synconf = None
@@ -115,8 +115,8 @@ class SynapseExtractor:
             post_sec_id = synapse_dict["syn_description"][
                 "SynapseProperty.POST_SECTION_ID"
             ]
-            post_sec_name = bglibpy.neuron.h.secname(
-                sec=cell.get_hsection(post_sec_id)
+            post_sec_name = bluecellulab.neuron.h.secname(
+                sec=cell.get_psection(post_sec_id).hsection
             ).split(".")[1]
 
             post_sec_sectionlist_id, post_sec_sectionlist_index = self.convert_sec_name(

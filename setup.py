@@ -5,16 +5,14 @@ import sys
 
 from setuptools import setup, find_packages
 
-if sys.version_info < (3, 7):
-    sys.exit("Sorry, Python < 3.7 is not supported")
+if sys.version_info < (3, 8):
+    sys.exit("Sorry, Python < 3.8 is not supported")
 
 
 with open("README.rst", encoding="utf-8") as f:
     README = f.read()
 
 VERSION = imp.load_source("", "e_model_packages/version.py").__version__
-
-EXTRA_RECENT_BGLIBPY = ["bglibpy>=4.12.13"]
 
 EXTRA_GLUSYNAPSE = [
     "numpy<1.24",  # RNG are changed for numpy>=1.24
@@ -52,20 +50,20 @@ setup(
         "efel",
         "schema",
         "click>=8.0.0",
+        "bluecellulab",
     ],
     extras_require={
-        "recent_bglibpy": EXTRA_RECENT_BGLIBPY,
         "glusynapse": EXTRA_GLUSYNAPSE,
     },
     packages=find_packages(),
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Education",
         "Intended Audience :: Science/Research",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
 )

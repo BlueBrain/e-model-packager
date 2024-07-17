@@ -231,7 +231,11 @@ class CreateFactsheets(MemodelParameters):
         """Round the values into smaller decimal points."""
         factsheet_copy = factsheet.copy()
         for feature_value in factsheet_copy["values"]:
-            feature_value["value"] = round(feature_value["value"], n_digits)
+            feature_value["value"] = (
+                round(feature_value["value"], n_digits)
+                if feature_value["value"] is not None
+                else None
+            )
         return factsheet_copy
 
 

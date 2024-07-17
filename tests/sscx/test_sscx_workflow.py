@@ -7,7 +7,7 @@ import os
 import numpy as np
 from functools import partial
 
-import bglibpy
+import bluecellulab
 from tests.decorators import launch_luigi
 from e_model_packages.sscx2020.utils import (
     get_output_path,
@@ -187,20 +187,20 @@ def test_voltages(
         assert rms < threshold
 
 
-def run_bglibpy_cell(blueconfig_path, gid, sim_time, dt=0.025):
-    """Run the cell in bglibpy with synapses"""
-    bglibpy.set_verbose(0)
+def run_bluecellulab_cell(blueconfig_path, gid, sim_time, dt=0.025):
+    """Run the cell in bluecellulab with synapses"""
+    bluecellulab.set_verbose(0)
 
-    ssim = bglibpy.SSim(blueconfig_path, record_dt=0.1)
+    ssim = bluecellulab.CircuitSimulation(blueconfig_path, record_dt=0.1)
     ssim.instantiate_gids([gid], add_synapses=True)
     cell = ssim.cells[gid]
 
-    rng = bglibpy.neuron.h.Random(1)
+    rng = bluecellulab.neuron.h.Random(1)
     rng.uniform(50, sim_time)
     connections = []
     for _, synapse in cell.synapses.items():
         spike_train = np.array([rng.repick()])
-        connection = bglibpy.Connection(synapse, spike_train, stim_dt=dt)
+        connection = bluecellulab.Connection(synapse, spike_train, stim_dt=dt)
         connections.append(connection)
 
     ssim.run(sim_time, forward_skip=False, v_init=-80, dt=dt, cvode=False)
@@ -217,7 +217,7 @@ def test_synapses(
     gidx=int(get_param("gidx")),
     configfile="config_synapses_short.ini",
 ):
-    """Test to compare the output of cell with synapses between our run.py and bglibpy.
+    """Test to compare the output of cell with synapses between our run.py and bluecellulab.
 
     Attributes:
         mtype: morphological type
@@ -230,18 +230,18 @@ def test_synapses(
 
     threshold = 0.05
 
-    # get circuit path for bglibpy
+    # get circuit path for bluecellulab
     circuit_config_path = test_config.get("paths", "circuit")
     output_path = test_config.get("paths", "output")
 
-    # run cells from bglibpy
+    # run cells from bluecellulab
     sim_time = 600
-    _, bg_v = run_bglibpy_cell(circuit_config_path, gid, sim_time)
+    _, bg_v = run_bluecellulab_cell(circuit_config_path, gid, sim_time)
 
     base_path = f"memodel_dirs/{mtype}/{etype}/{region}/{mtype}_{etype}_{gidx}"
     base_path = base_path.replace(":", "-")
 
-    np.savetxt(os.path.join(output_path, base_path, "bglibpy_voltage.dat"), bg_v)
+    np.savetxt(os.path.join(output_path, base_path, "bluecellulab_voltage.dat"), bg_v)
 
     # load run.py output
     py_path = os.path.join(
