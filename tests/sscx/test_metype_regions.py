@@ -1,4 +1,5 @@
 """Tests the values of metype_regions.csv input used in building the sscx packages."""
+
 import configparser
 from pathlib import Path
 import pandas as pd

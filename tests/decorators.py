@@ -1,4 +1,5 @@
 """Decorator launching luigi."""
+
 import os
 from functools import wraps
 from inspect import signature
