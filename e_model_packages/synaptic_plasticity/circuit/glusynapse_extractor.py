@@ -1,4 +1,5 @@
 """For the retrieval of synapses using bglibpy."""
+
 import bglibpy
 
 # use glu synapses

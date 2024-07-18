@@ -1,6 +1,5 @@
 """Script to create an nwb file given stimuli and responses."""
 
-
 from datetime import datetime
 from dateutil.tz import tzlocal
 

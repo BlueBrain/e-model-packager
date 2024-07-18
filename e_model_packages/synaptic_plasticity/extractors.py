@@ -1,4 +1,5 @@
 """Functions to extract data needed for the glusynapse package."""
+
 import configparser
 import json
 import logging
