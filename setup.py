@@ -16,14 +16,14 @@ VERSION = imp.load_source("", "e_model_packages/version.py").__version__
 
 EXTRA_GLUSYNAPSE = [
     "numpy<1.24",  # RNG are changed for numpy>=1.24
-    "bglibpy==4.4.51",
-    "glusynapseutils @ file://localhost//gpfs/bbp.cscs.ch/project/proj32/ajaquier/GluSynapseUtils/20210903/GluSynapseUtils/dist/glusynapseutils-0.0.1.dev0-py3-none-any.whl",
+    "bglibpy==4.4.51",  # not open-sourced
+    "glusynapseutils",  # not open-sourced
 ]
 
 setup(
     name="e-model-packages",
     version=VERSION,
-    author="Anil Tuncel, Aurélien Jaquier",
+    author="Blue Brain Project, EPFL",
     author_email="bbp-ou-cell@groupes.epfl.ch",
     description="Creates e-model packages from circuits",
     long_description=README,
@@ -40,7 +40,7 @@ setup(
     install_requires=[
         "luigi",
         "numpy",
-        "bluepy>=v2.3.0",
+        "bluepy>=v2.3.0",  # not open-sourced: this is NOT the bluepy package available on PyPi
         "bluepyopt>=1.13.168",
         "pandas",
         "pynwb >= 2.0.0",
