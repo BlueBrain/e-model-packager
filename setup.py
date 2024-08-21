@@ -29,6 +29,10 @@ setup(
     long_description=README,
     long_description_content_type="text/x-rst",
     url="https://github.com/BlueBrain/e-model-packager",
+    project_urls={
+        "Tracker": "https://github.com/BlueBrain/e-model-packager/issues",
+        "Source": "https://github.com/BlueBrain/e-model-packager",
+    },
     license="BBP-internal-confidential",
     dependency_links=[
         "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/",
