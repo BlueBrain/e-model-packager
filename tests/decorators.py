@@ -6,8 +6,8 @@ from inspect import signature
 
 import json
 
-from e_model_packages.sscx2020.utils import get_output_path
-from e_model_packages.synaptic_plasticity.utils import (
+from e_model_packager.sscx2020.utils import get_output_path
+from e_model_packager.synaptic_plasticity.utils import (
     get_output_path as synaptic_plasticity_output_path,
 )
 
@@ -39,7 +39,7 @@ def launch_luigi(module, task, reload_hoc=False):
 
     def launching(func):
         """Decorator."""
-        dirs = ["e_model_packages", "sscx2020"]
+        dirs = ["e_model_packager", "sscx2020"]
         test_config = os.path.join("tests", "luigi_test_sscx.cfg")
         path_to_luigi = os.path.join(*dirs)
         path_to_module = ".".join(dirs)
@@ -91,7 +91,7 @@ def launch_luigi_thalamus(module, task, reload_hoc=False):
 
     def launching(func):
         """Decorator."""
-        dirs = ["e_model_packages", "thalamus"]
+        dirs = ["e_model_packager", "thalamus"]
         test_config = os.path.join("tests", "luigi_test_thalamus.cfg")
         path_to_luigi = os.path.join(*dirs)
         path_to_module = ".".join(dirs)
@@ -129,7 +129,7 @@ def launch_luigi_synaptic_plasticity(module, task):
 
     def launching(func):
         """Decorator."""
-        dirs = ["e_model_packages", "synaptic_plasticity"]
+        dirs = ["e_model_packager", "synaptic_plasticity"]
         test_config_path = os.path.join("tests", "luigi_test_synaptic_plasticity.cfg")
         output_dir = "tests/output/synplas"
         path_to_luigi = os.path.join(*dirs)

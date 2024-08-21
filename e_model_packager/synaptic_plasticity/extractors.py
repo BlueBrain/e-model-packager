@@ -16,9 +16,9 @@ from glusynapseutils.simulation.simulator import (
 )
 from bluepy_configfile.configfile import BlueConfigFile
 
-from e_model_packages.synaptic_plasticity.circuit import GluSynapseExtractor
-from e_model_packages.synaptic_plasticity.circuit import BluepyCircuit, BluepySimulation
-from e_model_packages.io import NpEncoder
+from e_model_packager.synaptic_plasticity.circuit import GluSynapseExtractor
+from e_model_packager.synaptic_plasticity.circuit import BluepyCircuit, BluepySimulation
+from e_model_packager.io import NpEncoder
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -142,7 +142,7 @@ def extract_config(
 
 
 # adapted from glusynapseutils.simulator._runconnectedpair_process
-# adapted from e_model_packages.sscx2020.workflow.PrepareMEModelDirectory.run
+# adapted from e_model_packager.sscx2020.workflow.PrepareMEModelDirectory.run
 def extract_synapses_data(output_dir, bcpath, syn_dir="synapses"):
     """Extract synapse data."""
     # set extractor

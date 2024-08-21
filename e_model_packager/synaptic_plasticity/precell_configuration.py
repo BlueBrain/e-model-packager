@@ -8,7 +8,7 @@ from bluepyopt import ephys
 from emodelrunner.load import get_release_params
 from emodelrunner.configuration import SynplasConfigValidator
 from emodelrunner.create_cells import get_precell
-from e_model_packages.utils import cwd
+from e_model_packager.utils import cwd
 
 
 def check_for_special_cell(new_config, layers, pregid, postgid):

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from e_model_packages.sscx2020.utils import (
+from e_model_packager.sscx2020.utils import (
     LocalTargetCustom,
 )
 

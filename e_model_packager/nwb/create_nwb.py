@@ -8,7 +8,7 @@ from pynwb import NWBHDF5IO
 from pynwb.file import NWBFile
 from pynwb.icephys import CurrentClampStimulusSeries, CurrentClampSeries
 
-from e_model_packages.nwb.units import UnitConverter
+from e_model_packager.nwb.units import UnitConverter
 
 
 def interpolate(time, voltage, new_dt):

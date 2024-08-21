@@ -4,7 +4,7 @@ import os
 from functools import partial
 import configparser
 
-from e_model_packages.circuit import BluepyCircuit, BluepySimulation
+from e_model_packager.circuit import BluepyCircuit, BluepySimulation
 
 
 class TestUsingSSCXSim:

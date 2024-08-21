@@ -22,12 +22,12 @@ from emodelrunner.factsheets.physiology_features import physiology_factsheet_inf
 from emodelrunner.run import main as run_emodel
 from emodelrunner.load import load_config
 
-from e_model_packages.io import NpEncoder
-from e_model_packages.utils import cwd
-from e_model_packages.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
-from e_model_packages.common_tasks import SmartTask, CreateSystemLog
-from e_model_packages.config_decorator import ConfigDecorator
-from e_model_packages.nwb.create_nwb import create_nwb, write_nwb
+from e_model_packager.io import NpEncoder
+from e_model_packager.utils import cwd
+from e_model_packager.circuit import BluepyCircuit, BluepySimulation, SynapseExtractor
+from e_model_packager.common_tasks import SmartTask, CreateSystemLog
+from e_model_packager.config_decorator import ConfigDecorator
+from e_model_packager.nwb.create_nwb import create_nwb, write_nwb
 
 logging.basicConfig(level=logging.INFO)
 

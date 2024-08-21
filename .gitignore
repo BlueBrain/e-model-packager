@@ -10,6 +10,7 @@ doc/build
 /build
 /dist
 /e_model_packages/sscx2020/output
+/e_model_packager/sscx2020/output
 /tests/output
 .eggs
 .vscode

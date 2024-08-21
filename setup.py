@@ -12,7 +12,7 @@ if sys.version_info < (3, 8):
 with open("README.rst", encoding="utf-8") as f:
     README = f.read()
 
-VERSION = imp.load_source("", "e_model_packages/version.py").__version__
+VERSION = imp.load_source("", "e_model_packager/version.py").__version__
 
 EXTRA_GLUSYNAPSE = [
     "numpy<1.24",  # RNG are changed for numpy>=1.24
@@ -21,18 +21,14 @@ EXTRA_GLUSYNAPSE = [
 ]
 
 setup(
-    name="e-model-packages",
+    name="e-model-packager",
     version=VERSION,
     author="Blue Brain Project, EPFL",
     author_email="bbp-ou-cell@groupes.epfl.ch",
     description="Creates e-model packages from circuits",
     long_description=README,
     long_description_content_type="text/x-rst",
-    url="https://bbpteam.epfl.ch/documentation/projects/e-model-packages",
-    project_urls={
-        "Tracker": "https://bbpteam.epfl.ch/project/issues/projects/EMODELPKGS/issues",
-        "Source": "ssh://bbpcode.epfl.ch/cells/e-model-packages",
-    },
+    url="https://github.com/BlueBrain/e-model-packager",
     license="BBP-internal-confidential",
     dependency_links=[
         "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/",
