@@ -19,10 +19,10 @@ from pkg_resources import get_distribution
 
 # -- Project information -----------------------------------------------------
 
-project = "e-model-packages"
+project = "e-model-packager"
 
 # The short X.Y version
-version = get_distribution("e_model_packages").version
+version = get_distribution("e_model_packager").version
 
 # The full version, including alpha/beta/rc tags
 release = version
@@ -57,10 +57,10 @@ html_theme = "sphinx-bluebrain-theme"
 # html_static_path = ['_static']
 
 html_theme_options = {
-    "metadata_distribution": "e_model_packages",
+    "metadata_distribution": "e_model_packager",
 }
 
-html_title = "e-model-packages"
+html_title = "e-model-packager"
 
 # If true, links to the reST sources are added to the pages.
 html_show_sourcelink = False

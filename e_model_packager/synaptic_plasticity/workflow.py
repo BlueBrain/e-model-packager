@@ -13,15 +13,15 @@ from schema import SchemaError
 
 import luigi
 from emodelrunner.load import load_config
-from e_model_packages.synaptic_plasticity.circuit import BluepyCircuit
-from e_model_packages.config_decorator import ConfigDecorator
-from e_model_packages.utils import cwd
-from e_model_packages.synaptic_plasticity.extractors import extract_all
-from e_model_packages.synaptic_plasticity.precell_configuration import (
+from e_model_packager.synaptic_plasticity.circuit import BluepyCircuit
+from e_model_packager.config_decorator import ConfigDecorator
+from e_model_packager.utils import cwd
+from e_model_packager.synaptic_plasticity.extractors import extract_all
+from e_model_packager.synaptic_plasticity.precell_configuration import (
     check_for_special_cell,
     get_amp_duration_spikedelay,
 )
-from e_model_packages.synaptic_plasticity.utils import get_output_path
+from e_model_packager.synaptic_plasticity.utils import get_output_path
 
 workflow_config = ConfigDecorator(luigi.configuration.get_config())
 

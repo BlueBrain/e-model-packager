@@ -1,0 +1,43 @@
+# if downloading package for the 1st time > follow steps 0 to 6
+# if reconnecting to your session : redo step 1
+MY_PATH=~/new-e-model-packages/e-model-packages/e_model_packager/Giuseppe/myenv-new/
+NRNBINDIR=$MY_PATH/.neuronpy/local/x86_64/bin/
+
+#--- Step 0 : install virtual env and pip install all needed packages 
+
+#--- Step 1 : export following variables
+
+BGLIBPY_MOD_LIBRARY_PATH=$MY_PATH/.neurodamus/local/x86_64/.libs/libnrnmech.so
+export BGLIBPY_MOD_LIBRARY_PATH
+HOC_LIBRARY_PATH=$MY_PATH/.neurodamus/local/neurodamus-core/hoc
+export HOC_LIBRARY_PATH
+
+PYTHONPATH=$PYTHONPATH:$MY_PATH/.neuronpy/local/lib/python:$MY_PATH/.neuronpy/local/lib64/python:$MY_PATH
+export PYTHONPATH
+
+OMP_NUM_THREADS=1
+export OMP_NUM_THREADS
+
+#--- Step 2 : install neuron with following line
+# ./.install_neuron.sh $MY_PATH/.neuronpy/src $MY_PATH/.neuronpy/local python
+
+#--- Step 3 : go manually to $MY_PATH/bin and execute following line :
+#--- find ../.neuronpy/local/x86_64/bin/ -type f -exec ln -sf {} . \;
+
+#--- Step 3.5 install GluSynapseUtils
+# cp /gpfs/bbp.cscs.ch/project/proj87/alberto/GluSynapseUtils .
+# pip install -e GluSynapseUtils .
+
+#--- Step 4 : execute the following 2 lines
+# ./.install_neurodamus.sh $MY_PATH/.neurodamus/local
+#--- Step 4.5 : copy mechs from glusynapse then compile them
+# cp -r  $MY_PATH/../GluSynapseUtils/neocortex/mod/v6/* $MY_PATH/.neurodamus/local/neocortex/mod/v6/
+#--- Step 4.6 you might need mpi to compile stuff
+# ???
+#--- Step 4.7 compile mods
+# ./.compile_mod.sh $MY_PATH/.neurodamus/local neocortex/mod/v6
+# cp -r $MY_PATH/.neurodamus/local/x86_64 .
+
+#--- Step 5 : copy $MY_PATH/.neurodamus/local/x86_64 in your main directory (where you execute package from)
+
+#--- Step 6 : pip install -e the e-model-packager

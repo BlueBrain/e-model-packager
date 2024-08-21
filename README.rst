@@ -1,4 +1,4 @@
-e-model-packages
+e-model-packager
 ================
 
 Creates e-model packages from circuits.
@@ -11,7 +11,7 @@ Can generate packages for various e-models, including: SSCX, Glusynapse (Synapti
 Usage notes
 ------------
 
-To generate the synaptic plasticity packages e-model-packages needs to be installed with the EXTRA_GLUSYNAPSE flag.
+To generate the synaptic plasticity packages e-model-packager needs to be installed with the EXTRA_GLUSYNAPSE flag.
 
 .. code-block:: console
 

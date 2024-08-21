@@ -6,7 +6,7 @@ import subprocess
 
 from tests.decorators import launch_luigi_synaptic_plasticity
 
-from e_model_packages.utils import cwd
+from e_model_packager.utils import cwd
 
 
 @launch_luigi_synaptic_plasticity(module="workflow", task="PrepareMEModelDirectory")

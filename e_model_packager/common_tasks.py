@@ -6,7 +6,7 @@ import subprocess
 import luigi
 from luigi_tools.task import RemoveCorruptedOutputMixin
 
-from e_model_packages.config_decorator import ConfigDecorator
+from e_model_packager.config_decorator import ConfigDecorator
 
 
 class SmartTask(RemoveCorruptedOutputMixin, luigi.Task):

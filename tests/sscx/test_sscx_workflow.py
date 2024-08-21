@@ -10,11 +10,11 @@ from functools import partial
 
 import bluecellulab
 from tests.decorators import launch_luigi
-from e_model_packages.sscx2020.utils import (
+from e_model_packager.sscx2020.utils import (
     get_output_path,
     combine_names,
 )
-from e_model_packages.circuit import BluepyCircuit
+from e_model_packager.circuit import BluepyCircuit
 
 test_config = configparser.ConfigParser()
 test_config.read(os.path.join("tests", "luigi_test_sscx.cfg"))

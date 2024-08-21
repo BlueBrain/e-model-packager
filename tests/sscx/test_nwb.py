@@ -11,7 +11,7 @@ from hdmf.common.hierarchicaltable import (
 )
 from pynwb import NWBHDF5IO
 
-from e_model_packages.sscx2020.utils import get_output_path
+from e_model_packager.sscx2020.utils import get_output_path
 from tests.decorators import launch_luigi
 
 test_config = configparser.ConfigParser()
