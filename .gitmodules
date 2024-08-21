@@ -1,6 +1,6 @@
-[submodule "e_model_packages/sscx2020/extra_data/neurodamus-models"]
-	path = e_model_packages/sscx2020/extra_data/neurodamus-models
+[submodule "e_model_packager/sscx2020/extra_data/neurodamus-models"]
+	path = e_model_packager/sscx2020/extra_data/neurodamus-models
 	url = https://github.com/BlueBrain/neurodamus-models.git
-[submodule "e_model_packages/thalamus/package_files/neurodamus-models"]
-	path = e_model_packages/thalamus/package_files/neurodamus-models
+[submodule "e_model_packager/thalamus/package_files/neurodamus-models"]
+	path = e_model_packager/thalamus/package_files/neurodamus-models
 	url = https://github.com/BlueBrain/neurodamus-models.git
