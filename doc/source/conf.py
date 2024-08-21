@@ -44,6 +44,8 @@ extensions = []
 exclude_patterns = []
 
 
+autodoc_mock_imports = ["bluepy"]
+
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
