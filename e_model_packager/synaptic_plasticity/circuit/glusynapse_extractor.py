@@ -1,4 +1,5 @@
 """For the retrieval of synapses using bglibpy."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

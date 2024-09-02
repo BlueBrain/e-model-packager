@@ -17,7 +17,7 @@ Install
 You will not be able to install this software, unless you have access to the private software 'bluepy'.
 If you have it, you can install this software by cloning this repository locally using
 
-.. code-block console
+.. code-block:: console
 
     git clone https://github.com/BlueBrain/e-model-packager.git
 
@@ -39,7 +39,7 @@ You need to have access to BB5 data (private Blue Brain data) to run this exampl
 
 Simply go to the software main repository and execute this code:
 
-.. code-block: console
+.. code-block:: console
 
     CURRENT_DIR=$PWD
     export PYTHONPATH=${PYTHONPATH}:$CURRENT_DIR:$CURRENT_DIR/e_model_packages/sscx2020

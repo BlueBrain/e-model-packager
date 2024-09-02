@@ -1,4 +1,5 @@
 """Tests the values of metype_regions.csv input used in building the sscx packages."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

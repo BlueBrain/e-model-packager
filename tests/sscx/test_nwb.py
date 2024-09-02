@@ -1,4 +1,5 @@
 """Tests for the NWB module."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

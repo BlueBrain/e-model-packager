@@ -1,4 +1,5 @@
 """sscx2020."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

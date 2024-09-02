@@ -1,4 +1,5 @@
 """Workflow to extract glusynapse cells."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

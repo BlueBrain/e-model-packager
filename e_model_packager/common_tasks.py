@@ -1,4 +1,5 @@
 """Represents common tasks that can be reused in multiple workflows."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

@@ -1,4 +1,5 @@
 """Functions to extract data needed for the glusynapse package."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

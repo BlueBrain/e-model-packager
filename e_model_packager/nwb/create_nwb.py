@@ -1,4 +1,5 @@
 """Script to create an nwb file given stimuli and responses."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

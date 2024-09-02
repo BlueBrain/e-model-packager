@@ -1,4 +1,5 @@
 """For the retrieval of synapses using bluecellulab."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

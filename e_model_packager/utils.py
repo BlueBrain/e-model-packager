@@ -1,4 +1,5 @@
 """General purpose utility functions."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

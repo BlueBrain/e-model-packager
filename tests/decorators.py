@@ -1,4 +1,5 @@
 """Decorator launching luigi."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

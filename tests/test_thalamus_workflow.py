@@ -1,4 +1,5 @@
 """Test the thalamus workflow."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

@@ -1,4 +1,5 @@
 """Workflow to build SSCX e-model packages."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

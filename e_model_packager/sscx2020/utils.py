@@ -1,4 +1,5 @@
 """Contains the utility functions needed for the workflow."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 

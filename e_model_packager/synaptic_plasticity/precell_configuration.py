@@ -1,4 +1,5 @@
 """Configure the pre-synaptic cell's protocols."""
+
 """
 Copyright 2024 Blue Brain Project / EPFL
 
