@@ -25,7 +25,7 @@ Then going to the created software repository, and installing it as follow:
 
 .. code-block:: console
 
-    pip install -i https://bbpteam.epfl.ch/repository/devpi/simple/ -e .
+    pip install -e .
 
 
 If you want to generate the synaptic plasticity packages, you will also need to have installed the following private software: glusynapseutils and bglibpy version 4.4.51.
