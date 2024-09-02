@@ -48,12 +48,12 @@ Simply go to the software main repository and execute this code:
 
 When the code has finished running, you should see a new ./output folder with an e-model package in it.
 
-Here is how it works. First, you need to re-define your python path so that luigi can access the workflow module in e_model_packages/sscx2020.
-If you want to execute the thalamus workflow or the synapse plasticity workflow, you will have to change this path.
-Then, you give to luigi the path to its config file, the module you want to execute (here, workflow), and the luigi Task you want to be complete.
-Next you can give the package specifications (mtype, etype, gid, region, gidx). If you want to create all the packages, you can remove all of these fields.
-Then, you have to give the packager config file, that will determine which protocol the e-model will be able to run and if synapses should be added.
-Finally, we ask luigi to use a local scheduler to run the workflow.
+Here is how it works:
+ - First, you need to re-define your python path so that luigi can access the workflow module in e_model_packages/sscx2020. If you want to execute the thalamus workflow or the synapse plasticity workflow, you will have to change this path.
+ - Then, you give to luigi the path to its config file, the module you want to execute (here, workflow), and the luigi Task you want to be complete.
+ - Next you can give the package specifications (mtype, etype, gid, region, gidx). If you want to create all the packages, you can remove all of these fields.
+ - Then, you have to give the packager config file, that will determine which protocol the e-model will be able to run and if synapses should be added.
+ - Finally, we ask luigi to use a local scheduler to run the workflow.
 
 Other example launch scripts:
 
