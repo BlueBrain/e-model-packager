@@ -7,8 +7,7 @@ As a contributor, here are the guidelines we would like you to follow:
  - [Issues and Bugs](#found-a-bug)
  - [Feature Requests](#missing-a-feature)
  - [Submissions](#submission-guidelines)
- - [Development Guidelines](#development)
- - [Release Procedure](#release)
+ - [Development Guidelines](#development-guidelines)
 
 # Got a Question?
 
@@ -53,8 +52,7 @@ When you wish to contribute to the code base, please consider the following guid
      ```shell
      git checkout -b my-fix-branch maain
      ```
-* Create your patch, **including appropriate Python test cases**.
-  Please check the coding [conventions](#coding-conventions) for more information.
+* Create your patch.
 * Run the full test suite, and ensure that all tests pass.
 * Commit your changes using a descriptive commit message.
 
@@ -106,6 +104,8 @@ the main (upstream) repository:
     ```
 
 [github]: https://github.com/BlueBrain/e-model-packager
+
+# Development Guidelines
 
 ## Setup
 
