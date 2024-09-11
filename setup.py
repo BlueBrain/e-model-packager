@@ -18,12 +18,12 @@ EXTRA_GLUSYNAPSE = [
     "numpy<1.24",  # RNG are changed for numpy>=1.24
     "bglibpy==4.4.51",  # not open-sourced
     "glusynapseutils",  # not open-sourced
-    "bluepy-configfile>=0.1.21", # not open-sourced
+    "bluepy-configfile>=0.1.21",  # not open-sourced
 ]
 
 EXTRA_SSCX_THALAMUS = [
     "bluepy>=v2.3.0",  # not open-sourced: this is NOT the bluepy package available on PyPi
-    "bluepy-configfile>=0.1.21", # not open-sourced
+    "bluepy-configfile>=0.1.21",  # not open-sourced
 ]
 
 setup(
