@@ -14,8 +14,8 @@ It has been released on GitHub "as is" for anyone wanting to see the code that h
 Install
 -------
 
-You will not be able to install this software, unless you have access to the private software 'bluepy'.
-If you have it installed, you can install this software by cloning this repository locally using
+You will not be able to install this software, unless you have access to the private software 'bluepy' and 'bluepy-configfile'.
+If you have them installed, you can install this software by cloning this repository locally using
 
 .. code-block:: console
 
