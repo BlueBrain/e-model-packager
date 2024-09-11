@@ -66,7 +66,7 @@ extensions = [
 exclude_patterns = []
 
 
-autodoc_mock_imports = ["bluepy", "bglibpy", "glusynapseutils", "bluepy-configfile"]
+autodoc_mock_imports = ["bluepy", "bglibpy", "glusynapseutils", "bluepy_configfile"]
 
 # autosummary settings
 autosummary_generate = True
