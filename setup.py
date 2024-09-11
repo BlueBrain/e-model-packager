@@ -20,6 +20,10 @@ EXTRA_GLUSYNAPSE = [
     "glusynapseutils",  # not open-sourced
 ]
 
+EXTRA_SSCX_THALAMUS = [
+    "bluepy>=v2.3.0",  # not open-sourced: this is NOT the bluepy package available on PyPi
+]
+
 setup(
     name="e-model-packager",
     version=VERSION,
@@ -37,7 +41,6 @@ setup(
     install_requires=[
         "luigi",
         "numpy",
-        "bluepy>=v2.3.0",  # not open-sourced: this is NOT the bluepy package available on PyPi
         "bluepyopt>=1.13.168",
         "pandas",
         "pynwb >= 2.0.0",
@@ -51,6 +54,8 @@ setup(
     ],
     extras_require={
         "glusynapse": EXTRA_GLUSYNAPSE,
+        "sscx": EXTRA_SSCX_THALAMUS,
+        "thalamus": EXTRA_SSCX_THALAMUS,
     },
     packages=find_packages(),
     python_requires=">=3.8",

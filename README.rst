@@ -15,7 +15,7 @@ Install
 -------
 
 You will not be able to install this software, unless you have access to the private software 'bluepy'.
-If you have it, you can install this software by cloning this repository locally using
+If you have it installed, you can install this software by cloning this repository locally using
 
 .. code-block:: console
 
