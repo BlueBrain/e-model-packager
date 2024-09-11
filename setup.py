@@ -33,10 +33,7 @@ setup(
         "Tracker": "https://github.com/BlueBrain/e-model-packager/issues",
         "Source": "https://github.com/BlueBrain/e-model-packager",
     },
-    license="BBP-internal-confidential",
-    dependency_links=[
-        "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/",
-    ],
+    license="Apache-2.0",
     install_requires=[
         "luigi",
         "numpy",

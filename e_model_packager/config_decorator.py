@@ -36,7 +36,7 @@ class ConfigDecorator:
             option: an option of the section
             delim: delimeter to be used in case of a list
         """
-        default_val = self.luigi_config.get(section, option)
+        default_val = self.luigi_config.get(section, option, None)
 
         if isinstance(default_val, str) and delim in default_val:
             default_val = default_val.split(delim)
