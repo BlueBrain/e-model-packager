@@ -34,9 +34,6 @@ setup(
         "Source": "https://github.com/BlueBrain/e-model-packager",
     },
     license="BBP-internal-confidential",
-    dependency_links=[
-        "https://bbpteam.epfl.ch/repository/devpi/bbprelman/" "dev/+simple/bluepy/",
-    ],
     install_requires=[
         "luigi",
         "numpy",
