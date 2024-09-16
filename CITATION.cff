@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "e-model-packager"
+doi: 10.5281/zenodo.13768050
+url: https://doi.org/10.5281/zenodo.13768050
+abstract: "Creates e-model packages from circuits. The implementation uses the Luigi Workflow Management System. Can generate packages for various e-models, including: SSCX, Glusynapse (Synaptic Plasticity) and Thalamus."
+authors:
+  - family-names: "Tuncel"
+    given-names: "Anil"
+  - family-names: "Jaquier"
+    given-names: "Aurélien"
+date-released: 2024-09-16
+publisher: "Zenodo"

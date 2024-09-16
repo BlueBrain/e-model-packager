@@ -11,6 +11,14 @@ This software is dependent on private data and private software.
 It has been released on GitHub "as is" for anyone wanting to see the code that has created Blue brain e-model packages such as the `synaptic plasticity ones <https://zenodo.org/records/6352774>`_.
 
 
+How to cite
+-----------
+
+If you use this repository in your work, please refer to the ``Cite this repository`` button at the top of the repository page to get various citation formats, including APA and BibTeX.
+
+For detailed citation information, please refer to the `CITATION.cff <./CITATION.cff>`_ file.
+
+
 Install
 -------
 
@@ -60,12 +68,6 @@ Other example launch scripts:
   - e_model_packages/sscx2020/prepare_packages.sh
   - e_model_packages/sscx2020/run_recordings.sh
   - e_model_packager/synaptic_plasticity/prepare_packages.sh
-
-
-Citation
---------
-
-Add a zenodo doi after open sourcing.
 
 
 Funding & Acknowledgment
